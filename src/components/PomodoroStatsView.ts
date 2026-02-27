@@ -10,7 +10,7 @@ import { TooltipComponent, VisualMapComponent, GridComponent, TitleComponent, Le
 import { CanvasRenderer } from 'echarts/renderers';
 import { formatDate } from "@fullcalendar/core";
 
-export const STATS_MODE_STORAGE_KEY = "siyuan-plugin-task-note-management:stats-mode";
+export const STATS_MODE_STORAGE_KEY = "siyuan-plugin-task-daily:stats-mode";
 
 export function getLastStatsMode(): 'pomodoro' | 'task' {
     try {

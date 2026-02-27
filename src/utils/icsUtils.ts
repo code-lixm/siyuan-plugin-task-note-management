@@ -32,7 +32,7 @@ export async function exportIcsFile(
     filterType: 'all' | 'completed' | 'uncompleted' = 'all'
 ) {
     try {
-        const dataDir = 'data/storage/petal/siyuan-plugin-task-note-management';
+        const dataDir = 'data/storage/petal/siyuan-plugin-task-daily';
         const reminders = await plugin.loadReminderData();
 
         // 辅助函数：解析日期为 [year, month, day]
@@ -777,7 +777,7 @@ export async function exportIcsFile(
         }
 
         const { error, value } = ics.createEvents(events, {
-            productId: 'siyuan-plugin-task-note-management',
+            productId: 'siyuan-plugin-task-daily',
             method: 'PUBLISH',
             calName: '思源任务笔记管理',
         });
@@ -838,7 +838,7 @@ export async function uploadIcsToCloud(plugin: any, settings: any, silent: boole
         await exportIcsFile(plugin, false, true, filterType);
 
         // 2. 读取生成的 reminders.ics 文件
-        const dataDir = 'data/storage/petal/siyuan-plugin-task-note-management';
+        const dataDir = 'data/storage/petal/siyuan-plugin-task-daily';
         const icsPath = dataDir + '/reminders.ics';
 
         const icsBlob = await getFileBlob(icsPath);

@@ -742,7 +742,7 @@ export async function currentTime(): Promise<number> {
 
 // **************************************** Notification Record API ****************************************
 
-const NOTIFY_FILE_PATH = "/data/storage/petal/siyuan-plugin-task-note-management/notify.json";
+const NOTIFY_FILE_PATH = "/data/storage/petal/siyuan-plugin-task-daily/notify.json";
 
 // 读取通知记录数据 (仅存储最后一次已提醒的日期)
 export async function readNotifyData(): Promise<{ lastNotified?: string }> {

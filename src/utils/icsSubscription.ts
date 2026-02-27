@@ -23,7 +23,7 @@ export interface IcsSubscriptionData {
 }
 
 const SUBSCRIPTION_DATA_FILE = 'ics-subscriptions.json';
-const SUBSCRIBE_DIR = 'data/storage/petal/siyuan-plugin-task-note-management/Subscribe/';
+const SUBSCRIBE_DIR = 'data/storage/petal/siyuan-plugin-task-daily/Subscribe/';
 
 /**
  * Get subscription file path

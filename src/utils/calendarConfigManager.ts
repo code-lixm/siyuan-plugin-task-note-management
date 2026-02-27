@@ -1,7 +1,7 @@
 import { Plugin } from "siyuan";
 import { getFile, removeFile } from "../api";
 
-const CALENDAR_CONFIG_FILE = 'data/storage/petal/siyuan-plugin-task-note-management/calendar-config.json';
+const CALENDAR_CONFIG_FILE = 'data/storage/petal/siyuan-plugin-task-daily/calendar-config.json';
 
 export interface CalendarConfig {
     colorBy: 'category' | 'priority' | 'project';

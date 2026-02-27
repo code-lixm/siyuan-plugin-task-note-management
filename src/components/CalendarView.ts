@@ -25,7 +25,6 @@ import { getNextLunarMonthlyDate, getNextLunarYearlyDate, getSolarDateLunarStrin
 import { BlockBindingDialog } from "./BlockBindingDialog";
 import { PomodoroRecordManager } from "../utils/pomodoroRecord";
 import { Solar } from 'lunar-typescript';
-import { VipManager } from "../utils/vip";
 export class CalendarView {
     private container: HTMLElement;
     private calendar: Calendar;
@@ -181,7 +180,6 @@ export class CalendarView {
         if (this.isCalendarVisible()) {
             this.calendar.updateSize();
         }
-        this.checkVip();
     }
 
     constructor(container: HTMLElement, plugin: any, data?: { projectFilter?: string }) {
@@ -214,124 +212,6 @@ export class CalendarView {
         if (arg.view.type.startsWith('timeGrid')) {
             this.setupAllDayResizer(arg.el);
         }
-    }
-
-    private interactionBlocker = (e: Event) => {
-        if (this.plugin.vip.isVip) return;
-
-        // 允许在升级提示框内的点击和交互
-        const target = e.target as HTMLElement;
-        if (target && typeof target.closest === 'function' && target.closest('.vip-upgrade-prompt')) {
-            return;
-        }
-
-        e.stopPropagation();
-        e.preventDefault();
-    };
-
-    private async checkVip() {
-        const status = await VipManager.checkAndUpdateVipStatus(this.plugin);
-        this.plugin.vip.isVip = status.isVip;
-        this.plugin.vip.expireDate = status.expireDate;
-
-        const isVip = this.plugin.vip.isVip;
-        console.log("CalendarView checkVip:", isVip);
-        const overlay = this.container.querySelector('.vip-mask-overlay');
-        const prompt = this.container.querySelector('.vip-upgrade-prompt');
-
-        if (isVip) {
-            if (overlay) overlay.remove();
-            if (prompt) prompt.remove();
-
-            // 移除事件拦截
-            const eventsToBlock = ['click', 'mousedown', 'mouseup', 'mousemove', 'dblclick', 'contextmenu', 'wheel', 'touchstart', 'touchmove', 'touchend', 'keydown', 'keyup'];
-            eventsToBlock.forEach(eventType => {
-                this.container.removeEventListener(eventType, this.interactionBlocker, true);
-            });
-            return;
-        }
-
-        // 显示遮罩层和升级提示
-        this.showVipUpgradePrompt();
-    }
-
-    private showVipUpgradePrompt() {
-        this.container.style.position = 'relative';
-
-        // 1. 透明遮罩层，阻断所有点击
-        let overlay = this.container.querySelector('.vip-mask-overlay') as HTMLElement;
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.className = 'vip-mask-overlay';
-            overlay.style.cssText = `
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(255, 255, 255, 0.01);
-                z-index: 10;
-                cursor: not-allowed;
-            `;
-            this.container.appendChild(overlay);
-        }
-
-        // 2. 居中的升级提示卡片
-        let prompt = this.container.querySelector('.vip-upgrade-prompt') as HTMLElement;
-        if (!prompt) {
-            prompt = document.createElement('div');
-            prompt.className = 'vip-upgrade-prompt';
-            prompt.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: var(--b3-theme-surface);
-                color: var(--b3-theme-on-surface);
-                padding: 24px 40px;
-                border-radius: 12px;
-                box-shadow: var(--b3-dialog-shadow);
-                border: 1px solid var(--b3-theme-primary-light);
-                z-index: 10;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 16px;
-                cursor: pointer;
-                transition: transform 0.2s ease;
-            `;
-            prompt.innerHTML = `
-                <div style="font-size: 40px;">👑</div>
-                <div style="font-weight: bold; font-size: 18px; color: var(--b3-theme-primary);">
-                    ${i18n('vipOnlyFeature') || '此功能仅限 VIP 用户使用'}
-                </div>
-                <div style="font-size: 14px; opacity: 0.8; text-align: center;">
-                    ${i18n('upgradeToVipTip') || '升级到 VIP 以解锁更多高级功能，让任务管理更高效'}
-                </div>
-                <button class="b3-button b3-button--text" style="padding: 8px 24px; font-weight: bold;">
-                    ${i18n('upgradeNow') || '立即升级'}
-                </button>
-            `;
-
-            prompt.addEventListener('mouseenter', () => {
-                prompt.style.transform = 'translate(-50%, -52%)';
-            });
-            prompt.addEventListener('mouseleave', () => {
-                prompt.style.transform = 'translate(-50%, -50%)';
-            });
-            prompt.addEventListener('click', () => {
-                if (this.plugin && typeof this.plugin.openVipDialog === 'function') {
-                    this.plugin.openVipDialog();
-                }
-            });
-            this.container.appendChild(prompt);
-        }
-
-        // 添加事件拦截器，防止用户删除 DOM 后直接使用
-        const eventsToBlock = ['click', 'mousedown', 'mouseup', 'mousemove', 'dblclick', 'contextmenu', 'wheel', 'touchstart', 'touchmove', 'touchend', 'keydown', 'keyup'];
-        eventsToBlock.forEach(eventType => {
-            this.container.addEventListener(eventType, this.interactionBlocker, true);
-        });
     }
 
     private setupAllDayResizer(el: HTMLElement) {
@@ -1298,28 +1178,40 @@ export class CalendarView {
             },
             eventClassNames: 'reminder-calendar-event',
             eventOrder: (a: any, b: any) => {
-                // 1. 优先根据优先级排序
-                const priorityMap: { [key: string]: number } = {
-                    'high': 0,
-                    'medium': 1,
-                    'low': 2,
-                    'none': 3
+                const propsA = a.extendedProps;
+                const propsB = b.extendedProps;
+
+                // 1. 订阅事件排最后
+                const subA = propsA.isSubscribed ? 1 : 0;
+                const subB = propsB.isSubscribed ? 1 : 0;
+                if (subA !== subB) return subA - subB;
+
+                // 2. 跨天事件排最前，跨越天数越多越靠上
+                const getDurationDays = (event: any) => {
+                    if (!event.end) return 1;
+                    const start = new Date(event.start);
+                    const end = new Date(event.end);
+                    return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
                 };
+                const daysA = getDurationDays(a);
+                const daysB = getDurationDays(b);
+                const isMultiA = daysA > 1 ? 1 : 0;
+                const isMultiB = daysB > 1 ? 1 : 0;
+                if (isMultiA !== isMultiB) return isMultiB - isMultiA;
+                if (isMultiA && isMultiB && daysA !== daysB) return daysB - daysA;
 
-                const pA = a.extendedProps.priority || 'none';
-                const pB = b.extendedProps.priority || 'none';
+                // 3. 按优先级排序：high > medium > low > none
+                const priorityMap: { [key: string]: number } = {
+                    'high': 0, 'medium': 1, 'low': 2, 'none': 3
+                };
+                const pA = priorityMap[propsA.priority || 'none'] ?? 3;
+                const pB = priorityMap[propsB.priority || 'none'] ?? 3;
+                if (pA !== pB) return pA - pB;
 
-                const scoreA = priorityMap[pA] ?? 3;
-                const scoreB = priorityMap[pB] ?? 3;
-
-                if (scoreA !== scoreB) {
-                    return scoreA - scoreB;
-                }
-
-                // 2. 同优先级内根据 sort 字段排序
-                const orderA = typeof a.extendedProps.sort === 'number' ? a.extendedProps.sort : 0;
-                const orderB = typeof b.extendedProps.sort === 'number' ? b.extendedProps.sort : 0;
-                return orderA - orderB;
+                // 4. 同优先级内按 sort 字段排序
+                const sortA = typeof propsA.sort === 'number' ? propsA.sort : 0;
+                const sortB = typeof propsB.sort === 'number' ? propsB.sort : 0;
+                return sortA - sortB;
             },
             displayEventTime: true,
             // Custom Lunar Date and Holiday Rendering using DidMount hooks to preserve default behavior
@@ -1907,8 +1799,6 @@ export class CalendarView {
         // 设置日历实例到任务摘要管理器
         this.taskSummaryDialog.setCalendar(this.calendar);
         this.taskSummaryDialog.setCategoryManager(this);
-
-        this.checkVip();
     }
 
 
@@ -3204,88 +3094,6 @@ export class CalendarView {
         const topRow = document.createElement('div');
         topRow.className = 'reminder-event-top-row';
 
-        // 0. 图标徽章（分类图标 或 项目名首字）
-        if (this.showCategoryAndProject) {
-            let badgeContent = '';
-            let badgeColor = '';
-            let badgeTitle = '';
-            let isEmoji = false;
-
-            // 优先：分类图标
-            if (props.categoryId) {
-                const firstCatId = props.categoryId.split(',')[0];
-                const category = this.categoryManager.getCategoryById(firstCatId);
-                if (category && category.icon) {
-                    badgeContent = category.icon;
-                    badgeTitle = category.name;
-                    isEmoji = true;
-                }
-            }
-
-            // 兜底：项目名首字（英文大写）
-            if (!badgeContent && props.projectId) {
-                const project = this.projectManager.getProjectById(props.projectId);
-                if (project) {
-                    badgeColor = this.projectManager.getProjectColor(props.projectId);
-                    const firstChar = project.name.trim().charAt(0);
-                    badgeContent = /[a-zA-Z]/.test(firstChar) ? firstChar.toUpperCase() : firstChar;
-                    badgeTitle = project.name;
-                }
-            }
-
-            if (badgeContent) {
-                // 构建 tooltip：基础信息 + 项目 + 文档名 + 父任务
-                const tooltipParts: string[] = [];
-                tooltipParts.push(badgeTitle);
-
-                // 如果 badge 显示分类图标，补充项目信息
-                if (isEmoji && props.projectId) {
-                    const project = this.projectManager.getProjectById(props.projectId);
-                    if (project) {
-                        let projectInfo = `📂 ${project.name}`;
-                        if (props.customGroupName) projectInfo += ` / ${props.customGroupName}`;
-                        tooltipParts.push(projectInfo);
-                    }
-                } else if (!isEmoji && props.customGroupName) {
-                    // badge 显示项目首字时，补充分组信息
-                    tooltipParts.push(`📁 ${props.customGroupName}`);
-                }
-
-                // 文档名
-                if (props.docTitle && props.docId && props.blockId && props.docId !== props.blockId) {
-                    tooltipParts.push(`📄 ${props.docTitle}`);
-                }
-
-                // 父任务
-                if (props.parentId && props.parentTitle) {
-                    tooltipParts.push(`↪️ 父任务: ${props.parentTitle}`);
-                }
-
-                const badge = document.createElement('span');
-                badge.className = 'reminder-event-badge';
-                badge.textContent = badgeContent;
-                badge.title = tooltipParts.join('\n');
-
-                if (isEmoji) {
-                    badge.style.cssText = `
-                        font-size: 12px; line-height: 1; flex-shrink: 0;
-                        width: 16px; height: 16px;
-                        display: flex; align-items: center; justify-content: center;
-                    `;
-                } else {
-                    badge.style.cssText = `
-                        font-size: 10px; font-weight: bold; line-height: 1; flex-shrink: 0;
-                        width: 16px; height: 16px;
-                        display: flex; align-items: center; justify-content: center;
-                        border-radius: 3px; color: white;
-                        background-color: ${badgeColor};
-                    `;
-                }
-
-                topRow.appendChild(badge);
-            }
-        }
-
         // 1. 复选框 or 订阅图标
         if (props.isSubscribed) {
             const subIcon = document.createElement('span');
@@ -3309,6 +3117,48 @@ export class CalendarView {
                 this.toggleEventCompleted(event);
             });
             topRow.appendChild(checkbox);
+        }
+
+        // 1.5 分类图标徽章（checkbox 之后）
+        if (this.showCategoryAndProject && props.categoryId) {
+            const firstCatId = props.categoryId.split(',')[0];
+            const category = this.categoryManager.getCategoryById(firstCatId);
+            if (category && category.icon) {
+                // 构建 tooltip
+                const tooltipParts: string[] = [];
+                tooltipParts.push(category.name);
+
+                // 补充项目信息
+                if (props.projectId) {
+                    const project = this.projectManager.getProjectById(props.projectId);
+                    if (project) {
+                        let projectInfo = `📂 ${project.name}`;
+                        if (props.customGroupName) projectInfo += ` / ${props.customGroupName}`;
+                        tooltipParts.push(projectInfo);
+                    }
+                }
+
+                // 文档名
+                if (props.docTitle && props.docId && props.blockId && props.docId !== props.blockId) {
+                    tooltipParts.push(`📄 ${props.docTitle}`);
+                }
+
+                // 父任务
+                if (props.parentId && props.parentTitle) {
+                    tooltipParts.push(`↪️ 父任务: ${props.parentTitle}`);
+                }
+
+                const badge = document.createElement('span');
+                badge.className = 'reminder-event-badge';
+                badge.textContent = category.icon;
+                badge.title = tooltipParts.join('\n');
+                badge.style.cssText = `
+                    font-size: 12px; line-height: 1; flex-shrink: 0;
+                    width: 16px; height: 16px;
+                    display: flex; align-items: center; justify-content: center;
+                `;
+                topRow.appendChild(badge);
+            }
         }
 
         // 2. 任务标题（与复选框同行）
@@ -4737,6 +4587,14 @@ export class CalendarView {
                 width: 100%;
                 min-height: 18px;
                 flex-shrink: 0;
+                container-type: inline-size;
+            }
+
+            /* 容器宽度不足时隐藏时间，优先保证标题可读 */
+            @container (max-width: 120px) {
+                .fc-event-time {
+                    display: none;
+                }
             }
 
             .reminder-event-indicators-row {

@@ -1593,7 +1593,6 @@ export class ProjectPanel {
         if (project.blockId) {
             // 打开项目看板
             menu.addItem({
-                iconHTML: "📋",
                 label: i18n("openProjectKanban") || "打开项目看板",
                 click: () => this.openProjectKanban(project)
             });
@@ -1602,21 +1601,18 @@ export class ProjectPanel {
 
             // 复制块引用
             menu.addItem({
-                iconHTML: "📋",
                 label: i18n("copyBlockRef") || "复制块引用",
                 click: () => this.copyProjectRef(project)
             });
         } else {
             // 绑定到块
             menu.addItem({
-                iconHTML: "🔗",
                 label: i18n("bindToBlock") || "绑定到块",
                 click: () => this.showBindToBlockDialog(project)
             });
             menu.addSeparator();
             // 打开项目看板
             menu.addItem({
-                iconHTML: "📋",
                 label: "打开项目看板",
                 click: () => this.openProjectKanban(project)
             });
@@ -1625,14 +1621,12 @@ export class ProjectPanel {
 
         // 编辑项目
         menu.addItem({
-            iconHTML: "📝",
             label: i18n("edit") || "编辑项目",
             click: () => this.editProject(project)
         });
 
         // 合并到其他项目
         menu.addItem({
-            iconHTML: "🔀",
             label: i18n("mergeProject") || "合并到其他项目",
             click: () => this.showMergeDialog(project)
         });
@@ -1649,7 +1643,6 @@ export class ProjectPanel {
             const currentPriority = project.priority || 'none';
 
             return priorities.map(priority => ({
-                iconHTML: priority.icon,
                 label: priority.label,
                 current: currentPriority === priority.key,
                 click: () => {
@@ -1659,7 +1652,6 @@ export class ProjectPanel {
         };
 
         menu.addItem({
-            iconHTML: "🎯",
             label: i18n("setPriority") || "设置优先级",
             submenu: createPriorityMenuItems()
         });
@@ -1672,7 +1664,6 @@ export class ProjectPanel {
             const menuItems = [];
 
             menuItems.push({
-                iconHTML: "❌",
                 label: i18n("noCategory") || "无分类",
                 current: !currentCategoryId,
                 click: () => {
@@ -1682,7 +1673,6 @@ export class ProjectPanel {
 
             categories.forEach(category => {
                 menuItems.push({
-                    iconHTML: category.icon || "📁",
                     label: category.name,
                     current: currentCategoryId === category.id,
                     click: () => {
@@ -1695,7 +1685,6 @@ export class ProjectPanel {
         };
 
         menu.addItem({
-            iconHTML: "🏷️",
             label: i18n("setCategory") || "设置分类",
             submenu: createCategoryMenuItems()
         });
@@ -1706,7 +1695,6 @@ export class ProjectPanel {
             const currentStatus = project.status || 'active';
 
             return statuses.map(status => ({
-                iconHTML: status.icon || '📝',
                 label: status.name,
                 current: currentStatus === status.id,
                 click: () => {
@@ -1716,7 +1704,6 @@ export class ProjectPanel {
         };
 
         menu.addItem({
-            iconHTML: "📊",
             label: i18n("setStatus") || "设置状态",
             submenu: createStatusMenuItems()
         });
@@ -1725,7 +1712,6 @@ export class ProjectPanel {
 
         // 删除项目
         menu.addItem({
-            iconHTML: "🗑️",
             label: i18n("deleteProject") || "删除项目",
             click: () => this.deleteProject(project)
         });

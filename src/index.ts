@@ -6,7 +6,6 @@ import {
     openTab,
     getFrontend,
 } from "siyuan";
-import { VipManager } from "./utils/vip";
 import "./index.scss";
 
 import { QuickReminderDialog } from "./components/QuickReminderDialog";
@@ -30,7 +29,6 @@ import SettingPanelComponent from "./SettingPanel.svelte";
 import { exportIcsFile, uploadIcsToCloud } from "./utils/icsUtils";
 import { getFileStat, getFile, hasNotifiedToday, markNotifiedToday } from "./api";
 import { resolveAudioPath } from "./utils/audioUtils";
-import { showVipDialog } from "./components/VipDialog";
 
 export const SETTINGS_FILE = "reminder-settings.json";
 export const PROJECT_DATA_FILE = "project.json";
@@ -42,7 +40,6 @@ export const POMODORO_RECORD_DATA_FILE = "pomodoro_record.json";
 export const HABIT_GROUP_DATA_FILE = "habitGroup.json";
 export const STATUSES_DATA_FILE = "statuses.json";
 export const HOLIDAY_DATA_FILE = "holiday.json";
-export const LICENSE_DATA_FILE = "license.json";
 
 export interface AudioFileItem {
     path: string;
@@ -58,7 +55,7 @@ const TAB_TYPE = "reminder_calendar_tab";
 const EISENHOWER_TAB_TYPE = "reminder_eisenhower_tab";
 export const PROJECT_KANBAN_TAB_TYPE = "project_kanban_tab";
 const POMODORO_TAB_TYPE = "pomodoro_timer_tab";
-export const STORAGE_NAME = "siyuan-plugin-task-note-management";
+export const STORAGE_NAME = "siyuan-plugin-task-daily";
 
 
 // 默认设置
@@ -153,9 +150,9 @@ export const DEFAULT_SETTINGS = {
     },
     // 每个声音设置项各自的音频文件列表 { settingKey: [{path: url, removed: false}, ...] }
     audioFileLists: {
-        notificationSound: [{ path: '/plugins/siyuan-plugin-task-note-management/audios/notify.mp3' }],
+        notificationSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/notify.mp3' }],
         pomodoroWorkSound: [
-            { path: '/plugins/siyuan-plugin-task-note-management/audios/background_music.mp3' },
+            { path: '/plugins/siyuan-plugin-task-daily/audios/background_music.mp3' },
             { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/campfire.mp3' },
             { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/river.mp3' },
             { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/animals/crickets.mp3' },
@@ -165,28 +162,28 @@ export const DEFAULT_SETTINGS = {
 
         ],
         pomodoroBreakSound: [
-            { path: '/plugins/siyuan-plugin-task-note-management/audios/relax_background.mp3' },
+            { path: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3' },
             { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/droplets.mp3' }
         ],
         pomodoroLongBreakSound: [
-            { path: '/plugins/siyuan-plugin-task-note-management/audios/relax_background.mp3' },
+            { path: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3' },
             { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/droplets.mp3' }
         ],
-        pomodoroWorkEndSound: [{ path: '/plugins/siyuan-plugin-task-note-management/audios/work_end.mp3' }],
-        pomodoroBreakEndSound: [{ path: '/plugins/siyuan-plugin-task-note-management/audios/end_music.mp3' }],
-        randomRestSounds: [{ path: '/plugins/siyuan-plugin-task-note-management/audios/random_start.mp3' }],
-        randomRestEndSound: [{ path: '/plugins/siyuan-plugin-task-note-management/audios/random_end.mp3' }],
+        pomodoroWorkEndSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/work_end.mp3' }],
+        pomodoroBreakEndSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/end_music.mp3' }],
+        randomRestSounds: [{ path: '/plugins/siyuan-plugin-task-daily/audios/random_start.mp3' }],
+        randomRestEndSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/random_end.mp3' }],
     } as Record<string, AudioFileItem[]>,
     // 每个声音设置项当前的选中项 { settingKey: url }
     audioSelected: {
-        notificationSound: '/plugins/siyuan-plugin-task-note-management/audios/notify.mp3',
-        pomodoroWorkSound: '/plugins/siyuan-plugin-task-note-management/audios/background_music.mp3',
-        pomodoroBreakSound: '/plugins/siyuan-plugin-task-note-management/audios/relax_background.mp3',
-        pomodoroLongBreakSound: '/plugins/siyuan-plugin-task-note-management/audios/relax_background.mp3',
-        pomodoroWorkEndSound: '/plugins/siyuan-plugin-task-note-management/audios/work_end.mp3',
-        pomodoroBreakEndSound: '/plugins/siyuan-plugin-task-note-management/audios/end_music.mp3',
-        randomRestSounds: '/plugins/siyuan-plugin-task-note-management/audios/random_start.mp3',
-        randomRestEndSound: '/plugins/siyuan-plugin-task-note-management/audios/random_end.mp3',
+        notificationSound: '/plugins/siyuan-plugin-task-daily/audios/notify.mp3',
+        pomodoroWorkSound: '/plugins/siyuan-plugin-task-daily/audios/background_music.mp3',
+        pomodoroBreakSound: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3',
+        pomodoroLongBreakSound: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3',
+        pomodoroWorkEndSound: '/plugins/siyuan-plugin-task-daily/audios/work_end.mp3',
+        pomodoroBreakEndSound: '/plugins/siyuan-plugin-task-daily/audios/end_music.mp3',
+        randomRestSounds: '/plugins/siyuan-plugin-task-daily/audios/random_start.mp3',
+        randomRestEndSound: '/plugins/siyuan-plugin-task-daily/audios/random_end.mp3',
     } as Record<string, string>,
 };
 
@@ -242,7 +239,6 @@ export default class ReminderPlugin extends Plugin {
     private notifiedHabits: Map<string, boolean> = new Map();
 
     public settings: any;
-    public vip: any = { vipKeys: [], isVip: false, expireDate: '', freeTrialUsed: false };
 
     /**
      * 加载提醒数据，支持缓存
@@ -478,7 +474,7 @@ export default class ReminderPlugin extends Plugin {
         if (update || !this.subscriptionTasksCache[id]) {
             try {
                 // Subscribe/ is a relative directory in the plugin's data folder
-                const filePath = `data/storage/petal/siyuan-plugin-task-note-management/Subscribe/${id}.json`;
+                const filePath = `data/storage/petal/siyuan-plugin-task-daily/Subscribe/${id}.json`;
                 // loadData 不支持子目录，使用 getFile 读取
                 const response = await getFile(filePath);
 
@@ -516,41 +512,6 @@ export default class ReminderPlugin extends Plugin {
             }
         }
         return this.subscriptionTasksCache[id];
-    }
-
-    /**
-     * 加载 VIP 授权数据，支持缓存
-     * @param update 是否强制更新
-     */
-    public async loadVipData(update: boolean = false): Promise<any> {
-        if (update || !this.vip || !this.vip.vipKeys || this.vip.vipKeys.length === 0) {
-            try {
-                const data = await this.loadData(LICENSE_DATA_FILE);
-                if (data && data.vipKeys && data.vipKeys.length > 0) {
-                    this.vip = data;
-                } else {
-                    this.vip = { vipKeys: [], isVip: false, expireDate: '', freeTrialUsed: data?.freeTrialUsed || false };
-                }
-
-                // 验证状态
-                const status = await VipManager.checkAndUpdateVipStatus(this);
-                this.vip.isVip = status.isVip;
-                this.vip.expireDate = status.expireDate;
-            } catch (error) {
-                console.error('Failed to load VIP data:', error);
-                this.vip = { vipKeys: [], isVip: false, expireDate: '', freeTrialUsed: false };
-            }
-        }
-        return this.vip;
-    }
-
-    /**
-     * 保存 VIP 授权数据
-     * @param data VIP 数据
-     */
-    public async saveVipData(data: any): Promise<void> {
-        this.vip = data;
-        await this.saveData(LICENSE_DATA_FILE, data);
     }
 
 
@@ -791,10 +752,6 @@ export default class ReminderPlugin extends Plugin {
         });
     }
 
-    public openVipDialog() {
-        showVipDialog(this);
-    }
-
     // 加载设置的封装函数
     async loadSettings(update: boolean = false) {
         if (!update && this.settings) {
@@ -805,9 +762,6 @@ export default class ReminderPlugin extends Plugin {
         // 合并默认设置和用户设置，确保所有设置项都有值
         const settings = { ...DEFAULT_SETTINGS, ...data };
 
-
-        // 验证 VIP 状态 (从独立文件加载)
-        await this.loadVipData();
 
         // 确保 weekStartDay 在加载后是数字（可能以字符串形式保存）
         if (typeof settings.weekStartDay === 'string') {
@@ -1443,7 +1397,7 @@ export default class ReminderPlugin extends Plugin {
         const showBadge = settings.enableDockBadge !== false && (settings.enableReminderDockBadge !== false);
         if (!showBadge) {
             // Remove existing badge if present
-            const existingBadge = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementreminder_dock"]')?.querySelector('.reminder-dock-badge');
+            const existingBadge = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyreminder_dock"]')?.querySelector('.reminder-dock-badge');
             if (existingBadge) {
                 existingBadge.remove();
             }
@@ -1451,7 +1405,7 @@ export default class ReminderPlugin extends Plugin {
         }
         try {
             // 等待停靠栏图标出现
-            const dockIcon = await this.whenElementExist('.dock__item[data-type="siyuan-plugin-task-note-managementreminder_dock"]') as HTMLElement;
+            const dockIcon = await this.whenElementExist('.dock__item[data-type="siyuan-plugin-task-dailyreminder_dock"]') as HTMLElement;
 
             // 移除现有徽章
             const existingBadge = dockIcon.querySelector('.reminder-dock-badge');
@@ -1499,14 +1453,14 @@ export default class ReminderPlugin extends Plugin {
         const settings = await this.loadSettings();
         const showBadge = settings.enableDockBadge !== false && (settings.enableReminderDockBadge !== false);
         if (!showBadge) {
-            const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementreminder_dock"]');
+            const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyreminder_dock"]');
             if (!dockIcon) return;
             const existingBadge = dockIcon.querySelector('.reminder-dock-badge');
             if (existingBadge) existingBadge.remove();
             return;
         }
         // 查找停靠栏图标（传统方法作为后备）
-        const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementreminder_dock"]');
+        const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyreminder_dock"]');
         if (!dockIcon) return;
 
         // 移除现有徽章
@@ -1549,7 +1503,7 @@ export default class ReminderPlugin extends Plugin {
         const settings = await this.loadSettings();
         const showBadge = settings.enableDockBadge !== false && (settings.enableProjectDockBadge !== false);
         if (!showBadge) {
-            const existingBadge = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementproject_dock"]')?.querySelector('.project-dock-badge');
+            const existingBadge = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyproject_dock"]')?.querySelector('.project-dock-badge');
             if (existingBadge) {
                 existingBadge.remove();
             }
@@ -1557,7 +1511,7 @@ export default class ReminderPlugin extends Plugin {
         }
         try {
             // 等待项目停靠栏图标出现
-            const dockIcon = await this.whenElementExist('.dock__item[data-type="siyuan-plugin-task-note-managementproject_dock"]') as HTMLElement;
+            const dockIcon = await this.whenElementExist('.dock__item[data-type="siyuan-plugin-task-dailyproject_dock"]') as HTMLElement;
 
             // 移除现有徽章
             const existingBadge = dockIcon.querySelector('.project-dock-badge');
@@ -1604,14 +1558,14 @@ export default class ReminderPlugin extends Plugin {
         const settings = await this.loadSettings();
         const showBadge = settings.enableDockBadge !== false && (settings.enableProjectDockBadge !== false);
         if (!showBadge) {
-            const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementproject_dock"]');
+            const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyproject_dock"]');
             if (!dockIcon) return;
             const existingBadge = dockIcon.querySelector('.project-dock-badge');
             if (existingBadge) existingBadge.remove();
             return;
         }
         // 查找项目停靠栏图标（传统方法作为后备）
-        const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementproject_dock"]');
+        const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyproject_dock"]');
         if (!dockIcon) return;
 
         // 移除现有徽章
@@ -1856,7 +1810,7 @@ export default class ReminderPlugin extends Plugin {
         const settings = await this.loadSettings();
         const showBadge = settings.enableDockBadge !== false && (settings.enableHabitDockBadge !== false);
         if (!showBadge) {
-            const existingBadge = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementhabit_dock"]')?.querySelector('.habit-dock-badge');
+            const existingBadge = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]')?.querySelector('.habit-dock-badge');
             if (existingBadge) {
                 existingBadge.remove();
             }
@@ -1864,7 +1818,7 @@ export default class ReminderPlugin extends Plugin {
         }
         try {
             // 等待习惯停靠栏图标出现
-            const dockIcon = await this.whenElementExist('.dock__item[data-type="siyuan-plugin-task-note-managementhabit_dock"]') as HTMLElement;
+            const dockIcon = await this.whenElementExist('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]') as HTMLElement;
 
             // 移除现有徽章
             const existingBadge = dockIcon.querySelector('.habit-dock-badge');
@@ -1911,7 +1865,7 @@ export default class ReminderPlugin extends Plugin {
     // 控制停靠栏可见性：通过隐藏停靠栏图标实现启用/禁用（不注销注册）
     private async toggleDockVisibility(dockKey: string, visible: boolean) {
         try {
-            const selector = `.dock__item[data-type="siyuan-plugin-task-note-management${dockKey}"]`;
+            const selector = `.dock__item[data-type="siyuan-plugin-task-daily${dockKey}"]`;
             const dockIcon = await this.whenElementExist(selector) as HTMLElement;
             if (!dockIcon) return;
             dockIcon.style.display = visible ? '' : 'none';
@@ -1934,14 +1888,14 @@ export default class ReminderPlugin extends Plugin {
         const settings = await this.loadSettings();
         const showBadge = settings.enableDockBadge !== false && (settings.enableHabitDockBadge !== false);
         if (!showBadge) {
-            const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementhabit_dock"]');
+            const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]');
             if (!dockIcon) return;
             const existingBadge = dockIcon.querySelector('.habit-dock-badge');
             if (existingBadge) existingBadge.remove();
             return;
         }
         // 查找习惯停靠栏图标（传统方法作为后备）
-        const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-note-managementhabit_dock"]');
+        const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]');
         if (!dockIcon) return;
 
         // 移除现有徽章
@@ -4500,7 +4454,7 @@ export default class ReminderPlugin extends Plugin {
             if (!settings.icsSyncEnabled) return;
 
             // 检查reminder.json是否有新事件
-            const reminderPath = 'data/storage/petal/siyuan-plugin-task-note-management/reminder.json';
+            const reminderPath = 'data/storage/petal/siyuan-plugin-task-daily/reminder.json';
             const stat = await getFileStat(reminderPath);
             const lastSync = settings.icsLastSyncAt ? new Date(settings.icsLastSyncAt).getTime() : 0;
             if (stat && stat.mtime <= lastSync) {

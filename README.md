@@ -3,7 +3,7 @@
 
 ## ✨Star History
 
-<img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Achuan-2/siyuan-plugin-task-note-management&type=Date" />
+<img alt="Star History Chart" src="https://api.star-history.com/svg?repos=code-lixm/siyuan-plugin-task-daily&type=Date" />
 
 ## 📒插件简介
 
@@ -12,7 +12,7 @@
 
 ## 📝更新日志
 
-见: [CHANGELOG.md](https://cdn.jsdelivr.net/gh/Achuan-2/siyuan-plugin-task-note-management@main/CHANGELOG.md
+见: [CHANGELOG.md](https://cdn.jsdelivr.net/gh/code-lixm/siyuan-plugin-task-daily@main/CHANGELOG.md
 )
 
 ## 📺视频与博客介绍
@@ -25,7 +25,6 @@
 - [我写了一个习惯打卡插件，支持设置多个打卡项、习惯统计、习惯提醒、习惯绑定笔记功能 - 知乎](https://www.zhihu.com/question/387182061/answer/1979684084960752010)
 - [思源笔记任务笔记管理插件 v4.5：全局番茄钟上线 - 知乎](https://zhuanlan.zhihu.com/p/1993413959240397217)
 - [思源笔记任务笔记管理插件 v4.7.0 日历视图支持显示农历和中国节假日补班信息！ - 知乎](https://zhuanlan.zhihu.com/p/1997318317405393019)
-- [思源笔记任务笔记管理插件计划春节后（2026.02.24）进行收费](https://mp.weixin.qq.com/s/ZtAC9uxgBPhzynJ4rb6YEQ)
 
 ### 任务管理经验分享
 
@@ -458,8 +457,8 @@ dock栏和顶栏点击按钮，可打开列表视图查看任务
 
 ## ❤️项目贡献者
 
-<a href="https://github.com/Achuan-2/siyuan-plugin-task-note-management/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Achuan-2/siyuan-plugin-task-note-management" />
+<a href="https://github.com/code-lixm/siyuan-plugin-task-daily/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=code-lixm/siyuan-plugin-task-daily" />
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).

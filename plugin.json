@@ -1,8 +1,8 @@
 {
-  "name": "siyuan-plugin-task-note-management",
-  "author": "Achuan-2",
-  "url": "https://github.com/Achuan-2/siyuan-plugin-task-note-management",
-  "version": "6.0.4",
+  "name": "siyuan-plugin-task-daily",
+  "author": "code-lixm",
+  "url": "https://github.com/code-lixm/siyuan-plugin-task-daily",
+  "version": "0.0.1",
   "minAppVersion": "3.5.1",
   "backends": [
     "windows",
@@ -22,8 +22,8 @@
   ],
   "disabledInPublish": true,
   "displayName": {
-    "default": "Task Note Management",
-    "zh_CN": "任务笔记管理"
+    "default": "Task Daily",
+    "zh_CN": "每日任务"
   },
   "description": {
     "default": "A plugin for SiYuan Note that implements task management features, developed to practice the Bullet Journal method. It supports document and block reminders, calendar view for scheduling, Pomodoro focus timer, and more.",
@@ -32,11 +32,6 @@
   "readme": {
     "default": "README_en_US.md",
     "zh_CN": "README.md"
-  },
-  "funding": {
-    "custom": [
-      "https://www.yuque.com/achuan-2"
-    ]
   },
   "keywords": [
     "reminder",

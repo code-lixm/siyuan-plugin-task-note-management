@@ -23,8 +23,6 @@
     import { syncHolidays } from './utils/icsSubscription';
     import { PomodoroManager } from './utils/pomodoroManager';
     import { resolveAudioPath } from './utils/audioUtils';
-    import VipPanel from './components/VipPanel.svelte';
-
     export let plugin;
 
     // 使用从 index.ts 导入的默认设置
@@ -40,8 +38,8 @@
     let playingPath: string | null = null; // 当前播放中的音频路径
     let isAudioPlaying = false; // 当前是否处于播放状态
 
-    const AUDIO_DIR = 'data/storage/petal/siyuan-plugin-task-note-management/audios';
-    const AUDIO_URL_PREFIX = '/data/storage/petal/siyuan-plugin-task-note-management/audios/';
+    const AUDIO_DIR = 'data/storage/petal/siyuan-plugin-task-daily/audios';
+    const AUDIO_URL_PREFIX = '/data/storage/petal/siyuan-plugin-task-daily/audios/';
 
     /** 获取指定 key 的音频文件列表（合并内置声音并过滤已删除项） */
     function getAudioFilesForKey(key: string): { name: string; path: string }[] {
@@ -286,10 +284,6 @@
 
     // 定义设置分组
     let groups: ISettingGroup[] = [
-        {
-            name: '👑VIP',
-            items: [], // 使用 VipPanel 组件渲染
-        },
         {
             name: i18n('sidebarSettings'),
             items: [
@@ -780,7 +774,7 @@
             items: [
                 {
                     key: 'dataStorageInfo',
-                    value: 'data/storage/petal/siyuan-plugin-task-note-management',
+                    value: 'data/storage/petal/siyuan-plugin-task-daily',
                     type: 'hint',
                     title: i18n('dataStorageLocationTitle'),
                     description: i18n('dataStorageLocationDesc'),
@@ -796,7 +790,7 @@
                         callback: async () => {
                             const path =
                                 window.siyuan.config.system.dataDir +
-                                '/storage/petal/siyuan-plugin-task-note-management';
+                                '/storage/petal/siyuan-plugin-task-daily';
                             await useShell('openPath', path);
                         },
                     },
@@ -813,7 +807,7 @@
                             const confirmed = confirm(i18n('confirmDeletePluginData'));
                             if (confirmed) {
                                 const dataDir =
-                                    'data/storage/petal/siyuan-plugin-task-note-management/';
+                                    'data/storage/petal/siyuan-plugin-task-daily/';
                                 const files = [
                                     SETTINGS_FILE,
                                     PROJECT_DATA_FILE,
@@ -1117,25 +1111,6 @@
                 },
             ],
         },
-        {
-            name: '❤️' + i18n('donate'),
-            items: [
-                {
-                    key: 'donateInfo',
-                    value: '',
-                    type: 'hint',
-                    title: i18n('donateTitle'),
-                    description: `
-                        <div style="margin-top:12px;">
-                            <img src="plugins/siyuan-plugin-task-note-management/assets/donate.png" alt="donate" style="max-width:260px; height:auto; border:1px solid var(--b3-border-color);"/>
-
-                            <p style="margin-top:12px;">Non-Chinese users can transfer money via Wise, Western Union, etc.</p>
-                            <img src="plugins/siyuan-plugin-task-note-management/assets/Alipay.jpg"alt="donate" style="max-width:260px; height:auto; border:1px solid var(--b3-border-color);"/>
-                        </div>
-                    `,
-                },
-            ],
-        },
     ];
 
     let focusGroup = groups[0].name;
@@ -1184,11 +1159,6 @@
 
         // 更新设置并保存
         const oldValue = settings[key];
-        if (key === 'vipKey') {
-            // VIP 逻辑现在由 VipPanel 处理
-            return;
-        }
-
         settings[key] = newValue;
         settings = settings; // 触发布尔响应式（如果需要）
 
@@ -2040,9 +2010,6 @@
     <div class="config__tab-wrap">
         <!-- 手动按项目顺序渲染，保证 custom-audio 项在正确位置 -->
         <div class="config__tab-container" data-name={currentGroup?.name || ''}>
-            {#if currentGroup?.name === '👑VIP'}
-                <VipPanel {plugin} />
-            {/if}
             {#each currentGroup?.items || [] as item (item.key)}
                 {#if !item.hidden}
                     {#if item.type === 'custom-audio'}

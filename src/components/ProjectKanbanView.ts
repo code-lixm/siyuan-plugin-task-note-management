@@ -13,8 +13,6 @@ import { getSolarDateLunarString } from "../utils/lunarUtils";
 import { QuickReminderDialog } from "./QuickReminderDialog";
 import { BlockBindingDialog } from "./BlockBindingDialog";
 import { getAllReminders, saveReminders } from '../utils/icsSubscription';
-import { VipManager } from "../utils/vip";
-
 import { PasteTaskDialog } from "./PasteTaskDialog";
 import { ProjectDialog } from "./ProjectDialog";
 
@@ -374,8 +372,6 @@ export class ProjectKanbanView {
                 this.toggleMultiSelectMode();
             }
         });
-
-        this.checkVip();
     }
 
     private async loadProject() {
@@ -434,123 +430,6 @@ export class ProjectKanbanView {
             console.error(i18n('switchKanbanModeFailed'), error);
             showMessage(i18n('switchKanbanModeFailed'));
         }
-    }
-
-    private interactionBlocker = (e: Event) => {
-        if (this.plugin.vip.isVip) return;
-
-        // 允许在升级提示框内的点击和交互
-        const target = e.target as HTMLElement;
-        if (target && typeof target.closest === 'function' && target.closest('.vip-upgrade-prompt')) {
-            return;
-        }
-
-        e.stopPropagation();
-        e.preventDefault();
-    };
-
-    private async checkVip() {
-        const status = await VipManager.checkAndUpdateVipStatus(this.plugin);
-        this.plugin.vip.isVip = status.isVip;
-        this.plugin.vip.expireDate = status.expireDate;
-
-        const isVip = this.plugin.vip.isVip;
-        const overlay = this.container.querySelector('.vip-mask-overlay');
-        const prompt = this.container.querySelector('.vip-upgrade-prompt');
-
-        if (isVip) {
-            if (overlay) overlay.remove();
-            if (prompt) prompt.remove();
-
-            // 移除事件拦截
-            const eventsToBlock = ['click', 'mousedown', 'mouseup', 'mousemove', 'dblclick', 'contextmenu', 'wheel', 'touchstart', 'touchmove', 'touchend', 'keydown', 'keyup'];
-            eventsToBlock.forEach(eventType => {
-                this.container.removeEventListener(eventType, this.interactionBlocker, true);
-            });
-            return;
-        }
-
-        // 显示遮罩层和升级提示
-        this.showVipUpgradePrompt();
-    }
-
-    private showVipUpgradePrompt() {
-        this.container.style.position = 'relative';
-
-        // 1. 透明遮罩层，阻断所有点击
-        let overlay = this.container.querySelector('.vip-mask-overlay') as HTMLElement;
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.className = 'vip-mask-overlay';
-            overlay.style.cssText = `
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(255, 255, 255, 0.01);
-                z-index: 10;
-                cursor: not-allowed;
-            `;
-            this.container.appendChild(overlay);
-        }
-
-        // 2. 居中的升级提示卡片
-        let prompt = this.container.querySelector('.vip-upgrade-prompt') as HTMLElement;
-        if (!prompt) {
-            prompt = document.createElement('div');
-            prompt.className = 'vip-upgrade-prompt';
-            prompt.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: var(--b3-theme-surface);
-                color: var(--b3-theme-on-surface);
-                padding: 24px 40px;
-                border-radius: 12px;
-                box-shadow: var(--b3-dialog-shadow);
-                border: 1px solid var(--b3-theme-primary-light);
-                z-index: 10;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 16px;
-                cursor: pointer;
-                transition: transform 0.2s ease;
-            `;
-            prompt.innerHTML = `
-                <div style="font-size: 40px;">👑</div>
-                <div style="font-weight: bold; font-size: 18px; color: var(--b3-theme-primary);">
-                    ${i18n('vipOnlyFeature')}
-                </div>
-                <div style="font-size: 14px; opacity: 0.8; text-align: center;">
-                    ${i18n('upgradeToVipTip')}
-                </div>
-                <button class="b3-button b3-button--text" style="padding: 8px 24px; font-weight: bold;">
-                    ${i18n('upgradeNow')}
-                </button>
-            `;
-
-            prompt.addEventListener('mouseenter', () => {
-                prompt.style.transform = 'translate(-50%, -52%)';
-            });
-            prompt.addEventListener('mouseleave', () => {
-                prompt.style.transform = 'translate(-50%, -50%)';
-            });
-            prompt.addEventListener('click', () => {
-                if (this.plugin && typeof this.plugin.openVipDialog === 'function') {
-                    this.plugin.openVipDialog();
-                }
-            });
-            this.container.appendChild(prompt);
-        }
-
-        // 添加事件拦截器，防止用户删除 DOM 后直接使用
-        const eventsToBlock = ['click', 'mousedown', 'mouseup', 'mousemove', 'dblclick', 'contextmenu', 'wheel', 'touchstart', 'touchmove', 'touchend', 'keydown', 'keyup'];
-        eventsToBlock.forEach(eventType => {
-            this.container.addEventListener(eventType, this.interactionBlocker, true);
-        });
     }
 
     private updateModeSelect() {
@@ -6325,7 +6204,6 @@ export class ProjectKanbanView {
 
         // 恢复滚动位置（如果有的话）
         this.restoreScrollState();
-        this.checkVip();
     }
 
     private async renderCustomGroupKanban() {
