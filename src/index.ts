@@ -105,6 +105,7 @@ export const DEFAULT_SETTINGS = {
     sortMethod: 'time',
     sortOrder: 'asc',
     // 日历配置
+    calendarAutoOpen: true, // 新增：是否默认打开日历视图
     calendarShowCategoryAndProject: true, // 新增：是否显示分类图标和项目信息
     calendarColorBy: 'priority',
     calendarViewMode: 'timeGridWeek',
@@ -1202,6 +1203,14 @@ export default class ReminderPlugin extends Plugin {
 
         // 初始化大纲前缀监听
         this.initOutlinePrefixObserver();
+
+        // 默认打开日历视图逻辑
+        const settings = await this.loadSettings();
+        if (settings.calendarAutoOpen) {
+            setTimeout(() => {
+                this.openCalendarTab();
+            }, 500);
+        }
     }
 
     private initOutlinePrefixObserver() {

@@ -11,7 +11,8 @@ import path from 'path';
 
 // ============ 配置区 ============
 // 直接写死目标路径（留空则使用环境变量或命令行参数）
-const DEPLOY_TARGET = '/Users/lixiaoming/Documents/siyuan/我的文档/data/plugins/siyuan-plugin-task-daily';
+// const DEPLOY_TARGET = '/Users/lixiaoming/Documents/siyuan/我的文档/data/plugins/siyuan-plugin-task-daily';
+const DEPLOY_TARGET = '/Users/lixiaoming/Documents/我的文档/data/plugins/siyuan-plugin-task-daily';
 // ================================
 
 function getTargetDir() {

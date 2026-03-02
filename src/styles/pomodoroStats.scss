@@ -173,18 +173,18 @@
             }
 
             &.today .card-icon {
-                background: linear-gradient(135deg, #FF6B6B, #FF8E8E);
-                color: white;
+                background: linear-gradient(135deg, var(--b3-card-error-color, #FF6B6B), var(--b3-card-error-background, #FF8E8E));
+                color: var(--b3-theme-background, white);
             }
 
             &.week .card-icon {
-                background: linear-gradient(135deg, #4CAF50, #66BB6A);
-                color: white;
+                background: linear-gradient(135deg, var(--b3-card-success-color, #4CAF50), var(--b3-card-success-background, #66BB6A));
+                color: var(--b3-theme-background, white);
             }
 
             &.total .card-icon {
-                background: linear-gradient(135deg, #2196F3, #42A5F5);
-                color: white;
+                background: linear-gradient(135deg, var(--b3-card-info-color, #2196F3), var(--b3-card-info-background, #42A5F5));
+                color: var(--b3-theme-background, white);
             }
         }
     }
@@ -251,9 +251,9 @@
 
             .trend-bar {
                 width: 100%;
-                background: linear-gradient(to top, #FF6B6B, #FF8E8E);
-                border-radius: 4px 4px 0 0;
-                transition: all 0.3s ease;
+                background: linear-gradient(to top, var(--b3-theme-primary), var(--b3-theme-primary-light));
+                border-radius: var(--b3-border-radius, 4px) var(--b3-border-radius, 4px) 0 0;
+                transition: var(--b3-transition, all 0.3s ease);
                 position: absolute; /* 绝对定位确保底部对齐 */
                 bottom: 50px; /* 为标签和数值预留空间 */
             }
@@ -431,9 +431,9 @@
             height: 200px;
             border-radius: 50%;
             background: conic-gradient(
-                #FF6B6B 0deg 120deg,
-                #4CAF50 120deg 240deg,
-                #2196F3 240deg 360deg
+                var(--b3-card-error-color, #FF6B6B) 0deg 120deg,
+                var(--b3-card-success-color, #4CAF50) 120deg 240deg,
+                var(--b3-card-info-color, #2196F3) 240deg 360deg
             );
             margin: 0 auto;
             display: flex;
@@ -460,15 +460,15 @@
                 .legend-color {
                     width: 16px;
                     height: 16px;
-                    border-radius: 4px;
-                    background: #FF6B6B;
+                    border-radius: var(--b3-border-radius, 4px);
+                    background: var(--b3-card-error-color, #FF6B6B);
 
                     &:nth-child(2n) {
-                        background: #4CAF50;
+                        background: var(--b3-card-success-color, #4CAF50);
                     }
 
                     &:nth-child(3n) {
-                        background: #2196F3;
+                        background: var(--b3-card-info-color, #2196F3);
                     }
                 }
 
@@ -577,33 +577,33 @@
                     }
 
                     .record-completed {
-                        color: #4CAF50;
+                        color: var(--b3-theme-success, #4CAF50);
                     }
 
                     .record-incomplete {
-                        color: #FF9800;
+                        color: var(--b3-theme-warning, #FF9800);
                     }
                 }
             }
 
             &.work .record-icon {
-                background: linear-gradient(135deg, #FF6B6B, #FF8E8E);
-                color: white;
+                background: linear-gradient(135deg, var(--b3-card-error-color, #FF6B6B), var(--b3-card-error-background, #FF8E8E));
+                color: var(--b3-theme-background, white);
             }
 
             &.shortBreak .record-icon {
-                background: linear-gradient(135deg, #4CAF50, #66BB6A);
-                color: white;
+                background: linear-gradient(135deg, var(--b3-card-success-color, #4CAF50), var(--b3-card-success-background, #66BB6A));
+                color: var(--b3-theme-background, white);
             }
 
             &.longBreak .record-icon {
-                background: linear-gradient(135deg, #9C27B0, #BA68C8);
-                color: white;
+                background: linear-gradient(135deg, var(--b3-card-warning-color, #9C27B0), var(--b3-card-warning-background, #BA68C8));
+                color: var(--b3-theme-background, white);
             }
 
             &.task .record-icon {
-                background: linear-gradient(135deg, #4CAF50, #66BB6A);
-                color: white;
+                background: linear-gradient(135deg, var(--b3-card-success-color, #4CAF50), var(--b3-card-success-background, #66BB6A));
+                color: var(--b3-theme-background, white);
             }
         }
     }
@@ -672,9 +672,9 @@
 
                 .chart-bar {
                     width: 100%;
-                    background: linear-gradient(to top, #FF6B6B, #FF8E8E);
-                    border-radius: 4px 4px 0 0;
-                    transition: all 0.3s ease;
+                    background: linear-gradient(to top, var(--b3-theme-primary), var(--b3-theme-primary-light));
+                    border-radius: var(--b3-border-radius, 4px) var(--b3-border-radius, 4px) 0 0;
+                    transition: var(--b3-transition, all 0.3s ease);
                     position: absolute; /* 绝对定位确保底部对齐 */
                     bottom: 60px; /* 为标签和数值预留空间 */
                 }
@@ -756,15 +756,15 @@
                     }
 
                     &.work {
-                        background: #FF6B6B;
+                        background: var(--b3-card-error-color, #FF6B6B);
                     }
 
                     &.shortBreak {
-                        background: #4CAF50;
+                        background: var(--b3-card-success-color, #4CAF50);
                     }
 
                     &.longBreak {
-                        background: #9C27B0;
+                        background: var(--b3-card-warning-color, #9C27B0);
                     }
                 }
             }
@@ -774,7 +774,7 @@
     .timeline-echarts-container {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--b3-border-radius-b, 12px);
         margin-bottom: 16px;
 
         .echarts-timeline-chart {
@@ -825,10 +825,10 @@
                 border: 1px solid var(--b3-theme-border);
                 background: var(--b3-theme-background);
                 color: var(--b3-theme-on-background);
-                border-radius: 4px;
+                border-radius: var(--b3-border-radius, 4px);
                 cursor: pointer;
                 font-size: 12px;
-                transition: all 0.2s ease;
+                transition: var(--b3-transition, all 0.2s ease);
 
                 &:hover {
                     background: var(--b3-theme-surface-hover);
@@ -840,7 +840,7 @@
     .heatmap-chart {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--b3-border-radius-b, 12px);
         padding: 24px;
         margin-bottom: 16px;
     }
@@ -848,7 +848,7 @@
     .heatmap-echarts-container {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--b3-border-radius-b, 12px);
         padding: 24px;
         margin-bottom: 16px;
 
@@ -889,7 +889,7 @@
                 height: 12px;
                 border-radius: 2px;
                 cursor: pointer;
-                transition: all 0.2s ease;
+                transition: var(--b3-transition, all 0.2s ease);
 
                 &:hover {
                     transform: scale(1.2);
@@ -902,19 +902,19 @@
                 }
 
                 &.level-1 {
-                    background: #c6e48b;
+                    background: var(--b3-theme-success-lightest, #c6e48b);
                 }
 
                 &.level-2 {
-                    background: #7bc96f;
+                    background: var(--b3-theme-success-lighter, #7bc96f);
                 }
 
                 &.level-3 {
-                    background: #239a3b;
+                    background: var(--b3-theme-success-light, #239a3b);
                 }
 
                 &.level-4 {
-                    background: #196127;
+                    background: var(--b3-theme-success, #196127);
                 }
             }
         }
@@ -943,19 +943,19 @@
                 }
 
                 &.level-1 {
-                    background: #c6e48b;
+                    background: var(--b3-theme-success-lightest, #c6e48b);
                 }
 
                 &.level-2 {
-                    background: #7bc96f;
+                    background: var(--b3-theme-success-lighter, #7bc96f);
                 }
 
                 &.level-3 {
-                    background: #239a3b;
+                    background: var(--b3-theme-success-light, #239a3b);
                 }
 
                 &.level-4 {
-                    background: #196127;
+                    background: var(--b3-theme-success, #196127);
                 }
             }
         }
@@ -1093,43 +1093,43 @@
     .pomodoro-stats-view {
         .overview-container .overview-cards .overview-card {
             &:hover {
-                box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+                box-shadow: var(--b3-dialog-shadow, 0 4px 12px rgba(0, 0, 0, 0.3));
             }
         }
 
         .heatmap-container .heatmap-grid .heatmap-days .heatmap-day {
             &.level-1 {
-                background: #0e4429;
+                background: var(--b3-theme-success-lightest, #0e4429);
             }
 
             &.level-2 {
-                background: #006d32;
+                background: var(--b3-theme-success-lighter, #006d32);
             }
 
             &.level-3 {
-                background: #26a641;
+                background: var(--b3-theme-success-light, #26a641);
             }
 
             &.level-4 {
-                background: #39d353;
+                background: var(--b3-theme-success, #39d353);
             }
         }
 
         .heatmap-container .heatmap-legend .legend-colors .legend-color {
             &.level-1 {
-                background: #0e4429;
+                background: var(--b3-theme-success-lightest, #0e4429);
             }
 
             &.level-2 {
-                background: #006d32;
+                background: var(--b3-theme-success-lighter, #006d32);
             }
 
             &.level-3 {
-                background: #26a641;
+                background: var(--b3-theme-success-light, #26a641);
             }
 
             &.level-4 {
-                background: #39d353;
+                background: var(--b3-theme-success, #39d353);
             }
         }
     }

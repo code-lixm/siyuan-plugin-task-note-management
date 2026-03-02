@@ -393,6 +393,14 @@
                     },
                 },
                 {
+                    key: "calendarAutoOpen",
+                    value: settings.calendarAutoOpen,
+                    type: "checkbox",
+                    title: i18n("calendarAutoOpen"),
+                    description: i18n("calendarAutoOpenDesc"),
+                },
+                {
+
                     key: 'calendarShowLunar',
                     value: settings.calendarShowLunar, // Default true
                     type: 'checkbox',
@@ -477,22 +485,8 @@
             ],
         },
         {
-            name: '✅' + i18n('taskNoteSettings'),
+            name: i18n('taskNoteSettings'),
             items: [
-                {
-                    key: 'autoDetectDateTime',
-                    value: settings.autoDetectDateTime,
-                    type: 'checkbox',
-                    title: i18n('autoDetectDateTime'),
-                    description: i18n('autoDetectDateTimeDesc'),
-                },
-                {
-                    key: 'removeDateAfterDetection',
-                    value: settings.removeDateAfterDetection,
-                    type: 'checkbox',
-                    title: i18n('removeDateAfterDetection'),
-                    description: i18n('removeDateAfterDetectionDesc'),
-                },
                 {
                     key: 'newDocNotebook',
                     value: settings.newDocNotebook,
@@ -770,7 +764,7 @@
         },
 
         {
-            name: '📁' + i18n('dataStorageLocation'),
+            name: i18n('dataStorageLocation'),
             items: [
                 {
                     key: 'dataStorageInfo',
@@ -842,7 +836,7 @@
             ],
         },
         {
-            name: '⬆️' + i18n('exportSettings'),
+            name: i18n('exportSettings'),
             items: [
                 {
                     key: 'exportIcs',
@@ -860,7 +854,7 @@
             ],
         },
         {
-            name: '⬇️' + i18n('importSettings'),
+            name: i18n('importSettings'),
             items: [
                 {
                     key: 'importIcs',
@@ -897,7 +891,7 @@
             ],
         },
         {
-            name: '📅' + i18n('icsSubscription'),
+            name: i18n('icsSubscription'),
             items: [
                 {
                     key: 'icsSubscriptionHint',
@@ -922,7 +916,7 @@
             ],
         },
         {
-            name: '☁️' + i18n('calendarUpload'),
+            name: i18n('calendarUpload'),
             items: [
                 {
                     key: 'icsSyncHint',
@@ -1793,11 +1787,11 @@
                                 </select>
                             </div>
                             <div class="b3-label">
-                                <div class="b3-label__text">${i18n('subscriptionProject')} *</div>
+                                <div class="b3-label__text">${i18n('subscriptionProject')}</div>
                                 <div class="fn__hr"></div>
                                 <div style="display: flex; gap: 8px;">
-                                    <select class="b3-select fn__flex-1" id="sub-project" required>
-                                        <option value="">${i18n('pleaseSelectProject')}</option>
+                                    <select class="b3-select fn__flex-1" id="sub-project">
+                                        <option value="">${i18n('doNotSet') || '不设置'}</option>
                                         ${Object.entries(groupedProjects)
                                             .map(([statusId, statusProjects]) => {
                                                 if (statusProjects.length === 0) return '';
@@ -1939,10 +1933,6 @@
                 }
                 if (!url) {
                     await pushErrMsg(i18n('pleaseEnterSubscriptionUrl'));
-                    return;
-                }
-                if (!projectId) {
-                    await pushErrMsg(i18n('pleaseSelectProject'));
                     return;
                 }
 

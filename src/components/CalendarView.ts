@@ -1244,18 +1244,8 @@ export class CalendarView {
                             extraInfoWrapper.appendChild(lunarSpan);
                         }
 
-                        if (this.showHoliday && holidayName) {
-                            const isWorkday = typeof holidayName === 'object' && holidayName.type === 'workday';
-                            const holidaySpan = document.createElement('span');
-                            holidaySpan.className = 'day-holiday';
-                            holidaySpan.textContent = isWorkday ? i18n('workdayMarker') : i18n('holidayMarker');
-                            holidaySpan.title = typeof holidayName === 'object' ? holidayName.title : holidayName;
-                            holidaySpan.style.cssText = `color: ${isWorkday ? 'var(--b3-theme-error)' : 'var(--b3-card-success-color)'}; font-size: 0.8em; cursor: help; font-weight: bold;`;
-                            extraInfoWrapper.appendChild(holidaySpan);
-                        }
-
                         if (extraInfoWrapper.children.length > 0) {
-                            topEl.appendChild(extraInfoWrapper);
+                            topEl.prepend(extraInfoWrapper);
                         }
                     }
                 }
@@ -2217,9 +2207,8 @@ export class CalendarView {
         const solar = Solar.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
         const lunar = solar.getLunar();
         const lunarText = lunar.getDayInChinese();
-        const festival = lunar.getFestivals()[0] || solar.getFestivals()[0] || lunar.getJieQi() || "";
-        const displayLunar = festival ? festival : lunarText;
-        const isFestival = !!festival;
+        const displayLunar = lunarText; // Always display the basic lunar date text
+        const isFestival = false; // Never treat as festival for UI styling purposes
         const fullLunarDate = lunar.getMonthInChinese() + '月' + lunar.getDayInChinese();
         return { displayLunar, isFestival, dateNum: date.getDate(), fullLunarDate };
     }
@@ -3218,29 +3207,6 @@ export class CalendarView {
         }
 
         mainFrame.appendChild(topRow);
-
-        // 3. 指标行：放置状态图标
-        const indicatorsRow = document.createElement('div');
-        indicatorsRow.className = 'reminder-event-indicators-row';
-
-        // 重复图标
-        if (props.isRepeated || props.repeat?.enabled) {
-            const repeatIcon = document.createElement('span');
-            repeatIcon.className = 'reminder-event-icon';
-            if (props.isRepeated) {
-                repeatIcon.innerHTML = '🔄';
-                repeatIcon.title = i18n("repeatInstance");
-            } else {
-                repeatIcon.innerHTML = '🔁';
-                repeatIcon.title = i18n("repeatSeries");
-            }
-            indicatorsRow.appendChild(repeatIcon);
-        }
-
-        // 只有当有图标时才添加指标行
-        if (indicatorsRow.children.length > 0) {
-            mainFrame.appendChild(indicatorsRow);
-        }
 
         // 5. 备注（hover 展示）
         if (props.note) {
@@ -4533,15 +4499,41 @@ export class CalendarView {
             .fc-col-header-cell.fc-today-custom {
                 background-color: transparent!important;
             }
-            .fc-today-custom  .fc-daygrid-day-frame,
-            .fc-today-custom .fc-scrollgrid-sync-inner,
-            .fc-today-custom .fc-timegrid-col-frame{
-                border: 2px solid var(--b3-theme-primary) !important;
-            }
             .fc-today-custom:hover {
                 background-color: var(--b3-theme-primary-lightest) !important;
             }
             
+            /* 替换今天的日期数字为白底红字的“今” */
+            .fc-today-custom .fc-daygrid-day-number {
+                position: relative !important;
+                color: transparent !important; /* 隐藏原始数字 */
+                width: 24px !important;
+                height: 24px !important;
+                padding: 0 !important;
+                margin: 4px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-decoration: none !important;
+            }
+            .fc-today-custom .fc-daygrid-day-number::after {
+                content: "今" !important;
+                position: absolute !important;
+                top: 0 !important;
+                right: 0 !important;
+                width: 24px !important;
+                height: 24px !important;
+                background-color: var(--b3-theme-error) !important; /* 红色背景 */
+                color: #fff !important; /* 白色文字 */
+                border-radius: 50% !important; /* 圆形 */
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 13px !important;
+                font-weight: bold !important;
+                line-height: 1 !important;
+            }
+
             /* 隐藏默认的今日高亮 */
             .fc-day-today:not(.fc-today-custom) {
                 background-color: transparent !important;
@@ -4551,6 +4543,12 @@ export class CalendarView {
             }
             .fc-col-header-cell.fc-day-today:not(.fc-today-custom) {
                 background-color: transparent !important;
+            }
+
+            /* 周六周日背景置灰 */
+            .fc-day-sat:not(.fc-today-custom),
+            .fc-day-sun:not(.fc-today-custom) {
+                background-color: rgba(127, 127, 127, 0.05) !important;
             }
             
             /* 当前时间指示线样式 */
@@ -4595,21 +4593,6 @@ export class CalendarView {
                 .fc-event-time {
                     display: none;
                 }
-            }
-
-            .reminder-event-indicators-row {
-                display: flex;
-                gap: 2px;
-                align-items: center;
-                padding-left: 18px; /* 与复选框对齐 */
-                flex-shrink: 999; /* 空间不足时优先隐藏 */
-                max-height: 1.2em;
-                overflow: hidden;
-            }
-
-            .reminder-event-icon {
-                font-size: 12px;
-                line-height: 1;
             }
 
             .reminder-calendar-event-checkbox {
@@ -4721,17 +4704,12 @@ export class CalendarView {
             }
             
             /* 已完成任务的样式优化 - 使用降低透明度替代删除线 */
-            .fc-event.completed {
-                opacity: 0.65 !important;
-            }
-            .fc-event.completed:hover {
-                opacity: 1 !important;
-            };
-
-            /* 月视图/年视图中隐藏额外信息行，保持单行紧凑布局 */
-            .fc-daygrid-event .reminder-event-indicators-row {
-                display: none;
-            }
+            // .fc-event.completed {
+            //     // opacity: 0.65 !important;
+            // }
+            // .fc-event.completed:hover {
+            //     opacity: 1 !important;
+            // };
 
             /* Pomodoro Event Styles */
             .pomodoro-event {

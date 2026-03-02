@@ -44,18 +44,18 @@
 .project-item {
     background: var(--b3-theme-surface);
     border: 1px solid var(--b3-theme-surface-lighter);
-    border-radius: 6px;
+    border-radius: var(--b3-border-radius, 6px);
     margin-bottom: 8px;
     padding: 12px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: var(--b3-transition, all 0.2s ease);
 }
 
 .project-item:hover {
-    background: var(--b3-theme-surface-lighter);
+    background: var(--b3-list-hover, var(--b3-theme-surface-lighter));
     border-color: var(--b3-theme-primary-light);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
 }
 
 .project-item--overdue {
@@ -213,18 +213,18 @@
 }
 
 .project-priority-label.high {
-    background-color: rgba(231, 76, 60, 0.1);
-    color: #e74c3c;
+    background-color: var(--b3-card-error-background, rgba(231, 76, 60, 0.1));
+    color: var(--b3-card-error-color, #e74c3c);
 }
 
 .project-priority-label.medium {
-    background-color: rgba(243, 156, 18, 0.1);
-    color: #f39c12;
+    background-color: var(--b3-card-warning-background, rgba(243, 156, 18, 0.1));
+    color: var(--b3-card-warning-color, #f39c12);
 }
 
 .project-priority-label.low {
-    background-color: rgba(52, 152, 219, 0.1);
-    color: #3498db;
+    background-color: var(--b3-card-info-background, rgba(52, 152, 219, 0.1));
+    color: var(--b3-card-info-color, #3498db);
 }
 
 .project-overdue-label,

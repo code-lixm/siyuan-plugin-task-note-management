@@ -5,6 +5,10 @@
 @use './styles/pomodoroStats.scss';
 
 
+#commonMenu[data-name="projectMoreMenu"] .b3-menu__icon {
+    display: none;
+}
+
 .smart-batch-dialog {
     .b3-dialog__content {
         padding: 20px;
@@ -12,16 +16,16 @@
 
     // 批量操作面板样式
     .batch-operations-panel {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-primary-light);
-        border-radius: 12px;
+        border-radius: var(--b3-border-radius-b, 12px);
         margin-bottom: 20px;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
+        box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+        transition: var(--b3-transition, all 0.2s ease);
 
         &:hover {
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            box-shadow: var(--b3-dialog-shadow, 0 4px 16px rgba(0, 0, 0, 0.15));
         }
     }
 
@@ -72,7 +76,7 @@
 
     .batch-operations-content {
         padding: 20px;
-        background: white;
+        background: var(--b3-theme-background);
         animation: slideDown 0.3s ease;
     }
 
@@ -382,8 +386,8 @@
     .block-list-header {
         margin-bottom: 16px;
         padding: 12px 16px;
-        background: linear-gradient(135deg, var(--b3-theme-primary-lightest), var(--b3-theme-surface-light));
-        border-radius: 8px;
+        background: var(--b3-theme-surface);
+        border-radius: var(--b3-border-radius, 6px);
         border: 1px solid var(--b3-theme-primary-light);
         display: flex;
         justify-content: space-between;
@@ -410,12 +414,12 @@
         button {
             padding: 6px 12px;
             font-size: 12px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
+            border-radius: var(--b3-border-radius, 6px);
+            transition: var(--b3-transition, all 0.2s ease);
 
             &:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
             }
         }
     }
@@ -437,7 +441,7 @@
     .block-list-container {
         overflow-y: auto;
         border: 1px solid var(--b3-border-color);
-        border-radius: 8px;
+        border-radius: var(--b3-border-radius, 6px);
         background: var(--b3-theme-background);
     }
 
@@ -452,9 +456,9 @@
         padding: 12px 16px;
         margin-bottom: 8px;
         border: 1px solid var(--b3-border-color);
-        border-radius: 8px;
+        border-radius: var(--b3-border-radius, 6px);
         background: var(--b3-theme-surface);
-        transition: all 0.3s ease;
+        transition: var(--b3-transition, all 0.2s ease);
         position: relative;
         overflow: hidden;
     }
@@ -472,10 +476,10 @@
     }
 
     .block-item:hover {
-        background: var(--b3-theme-surface-light);
+        background: var(--b3-list-hover, var(--b3-theme-surface-light));
         border-color: var(--b3-theme-primary-light);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+        box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
     }
 
     .block-item:hover::before {
@@ -626,23 +630,23 @@
             gap: 2px;
 
             &.high {
-                background: rgba(231, 76, 60, 0.1);
-                color: #e74c3c;
+                background: var(--b3-card-error-background, rgba(231, 76, 60, 0.1));
+                color: var(--b3-card-error-color, #e74c3c);
             }
 
             &.medium {
-                background: rgba(243, 156, 18, 0.1);
-                color: #f39c12;
+                background: var(--b3-card-warning-background, rgba(243, 156, 18, 0.1));
+                color: var(--b3-card-warning-color, #f39c12);
             }
 
             &.low {
-                background: rgba(52, 152, 219, 0.1);
-                color: #3498db;
+                background: var(--b3-card-info-background, rgba(52, 152, 219, 0.1));
+                color: var(--b3-card-info-color, #3498db);
             }
 
             &.none {
-                background: rgba(149, 165, 166, 0.1);
-                color: #95a5a6;
+                background: var(--b3-theme-surface-lighter, rgba(149, 165, 166, 0.1));
+                color: var(--b3-theme-on-surface-light, #95a5a6);
             }
         }
     }
@@ -655,11 +659,11 @@
     .block-edit-btn {
         padding: 6px 12px;
         font-size: 12px;
-        border-radius: 6px;
+        border-radius: var(--b3-border-radius, 6px);
         border: 1px solid var(--b3-theme-primary-light);
         background: var(--b3-theme-background);
         color: var(--b3-theme-primary);
-        transition: all 0.2s ease;
+        transition: var(--b3-transition, all 0.2s ease);
         position: relative;
         overflow: hidden;
     }
@@ -677,10 +681,10 @@
 
     .block-edit-btn:hover {
         background: var(--b3-theme-primary);
-        color: white;
+        color: var(--b3-theme-background);
         border-color: var(--b3-theme-primary);
         transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.15));
     }
 
     .block-edit-btn:hover::before {
@@ -757,26 +761,25 @@
 
 /* 习惯卡片：淡色渐变背景，更现代的视觉效果 */
 .habit-card {
-    background-color: rgba(from var(--b3-theme-background-light) r g b / .1);
-    border: 2px solid var(--b3-theme-primary-light);
-    border-radius: 8px;
+    background-color: var(--b3-list-hover, rgba(from var(--b3-theme-background-light) r g b / .1));
+    border: 1px solid var(--b3-theme-surface-lighter);
+    border-radius: var(--b3-border-radius, 6px);
     padding: 12px;
     margin-bottom: 8px;
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-    backdrop-filter: blur(4px);
+    transition: var(--b3-transition, all 0.2s ease);
 }
 
 
 .habit-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-    border-color: var(--b3-theme-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--b3-point-shadow, 0 4px 12px rgba(0, 0, 0, 0.1));
+    border-color: var(--b3-theme-primary-light);
 }
 
 .habit-card:active {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
 }
 
 /* 已完成区域的卡片视觉上稍淡化但仍保持可读 */
@@ -1523,19 +1526,19 @@
 }
 
 .priority-dot.high {
-    background-color: #e74c3c;
+    background-color: var(--b3-theme-error, #e74c3c);
 }
 
 .priority-dot.medium {
-    background-color: #f39c12;
+    background-color: var(--b3-theme-secondary, #f39c12);
 }
 
 .priority-dot.low {
-    background-color: #3498db;
+    background-color: var(--b3-theme-primary, #3498db);
 }
 
 .priority-dot.none {
-    background-color: #95a5a6;
+    background-color: var(--b3-theme-on-surface-light, #95a5a6);
 }
 
 // 任务类型选择器样式
@@ -1590,23 +1593,23 @@
 }
 
 .reminder-priority-label.high {
-    background-color: rgba(231, 76, 60, 0.1);
-    color: #e74c3c;
+    background-color: var(--b3-card-error-background, rgba(231, 76, 60, 0.1));
+    color: var(--b3-card-error-color, #e74c3c);
 }
 
 .reminder-priority-label.medium {
-    background-color: rgba(243, 156, 18, 0.1);
-    color: #f39c12;
+    background-color: var(--b3-card-warning-background, rgba(243, 156, 18, 0.1));
+    color: var(--b3-card-warning-color, #f39c12);
 }
 
 .reminder-priority-label.low {
-    background-color: rgba(52, 152, 219, 0.1);
-    color: #3498db;
+    background-color: var(--b3-card-info-background, rgba(52, 152, 219, 0.1));
+    color: var(--b3-card-info-color, #3498db);
 }
 
 .reminder-priority-label.none {
-    background-color: rgba(149, 165, 166, 0.1);
-    color: #95a5a6;
+    background-color: var(--b3-theme-surface-lighter, rgba(149, 165, 166, 0.1));
+    color: var(--b3-theme-on-surface-light, #95a5a6);
 }
 
 
@@ -1664,15 +1667,15 @@
     width: 16px;
     height: 16px;
     background: var(--b3-theme-primary);
-    color: white;
+    color: var(--b3-theme-background, white);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 10px;
     font-weight: bold;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border: 2px solid var(--b3-theme-background, white);
+    box-shadow: var(--b3-point-shadow, 0 2px 4px rgba(0, 0, 0, 0.2));
     z-index: 3;
 }
 
@@ -1700,33 +1703,33 @@
 
 .category-option[data-category=""].selected::after {
     background: var(--b3-theme-primary);
-    color: white;
+    color: var(--b3-theme-background, white);
 }
 
 // 有颜色的分类选项样式
 .category-option[data-category]:not([data-category=""]) {
-    color: white;
+    color: var(--b3-theme-background, white);
     border-color: rgba(255, 255, 255, 0.3);
     border-width: 2px;
 }
 
 .category-option[data-category]:not([data-category=""]):hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--b3-point-shadow, 0 4px 12px rgba(0, 0, 0, 0.25));
     filter: brightness(1.1);
     border-color: rgba(255, 255, 255, 0.6);
 }
 
 .category-option[data-category]:not([data-category=""]).selected {
-    border: 3px solid white !important;
-    box-shadow: 0 0 0 2px var(--b3-theme-primary), 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+    border: 3px solid var(--b3-theme-background, white) !important;
+    box-shadow: var(--b3-dialog-shadow, 0 0 0 2px var(--b3-theme-primary), 0 4px 16px rgba(0, 0, 0, 0.3)) !important;
     transform: scale(1.05) !important;
     filter: brightness(1.2) saturate(1.2) !important;
     font-weight: bold;
 }
 
 .category-option[data-category]:not([data-category=""]).selected::after {
-    background: white;
+    background: var(--b3-theme-background, white);
     color: var(--b3-theme-primary);
     border-color: var(--b3-theme-primary);
 }
@@ -2284,10 +2287,12 @@
     display: flex;
     flex-direction: column;
     position: relative;
+
     .milkdown-menu-wrapper,
     .slash-menu {
         display: none !important;
     }
+
     .ProseMirror {
         outline: none !important;
         padding: 8px 8px 8px 24px !important;
@@ -2302,6 +2307,7 @@
         /* 内部滚动 */
         box-sizing: border-box;
         white-space: pre-wrap;
+
         blockquote {
             border-left: 4px solid var(--b3-theme-primary-lightest) !important;
             padding-left: 12px !important;
@@ -2343,13 +2349,17 @@
         left: 2px !important;
     }
 }
-.reminder-panel, .reminder-calendar-view,.eisenhower-matrix-view,.project-kanban-view{
+
+.reminder-panel,
+.reminder-calendar-view,
+.eisenhower-matrix-view,
+.project-kanban-view {
     .vditor-task {
-            list-style: none !important;
-            word-break: break-word;
-            position: relative;
-            line-height: 1;
-        }
+        list-style: none !important;
+        word-break: break-word;
+        position: relative;
+        line-height: 1;
+    }
 
     .vditor-task input {
         left: -1.4em;
@@ -2361,8 +2371,10 @@
 }
 
 
-.reminder-panel,.project-panel,.habit-panel{
+.reminder-panel,
+.project-panel,
+.habit-panel {
     .b3-button svg.b3-button__icon {
-            margin-right: 0;
-        }
+        margin-right: 0;
+    }
 }

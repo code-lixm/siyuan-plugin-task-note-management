@@ -34,14 +34,44 @@ export interface ParsedIcsEvent {
 }
 
 /**
+ * 修复 ICS 内容格式缺陷
+ */
+function sanitizeIcsContent(content: string): string {
+    if (!content) return '';
+    
+    let sanitized = content;
+    
+    // 1. 统一换行符
+    sanitized = sanitized.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
+    
+    // 2. 检查末尾是否闭合
+    if (!sanitized.includes('END:VCALENDAR')) {
+        if (!sanitized.endsWith('\r\n')) {
+            sanitized += '\r\n';
+        }
+        sanitized += 'END:VCALENDAR\r\n';
+    } else {
+        // 即使有 END:VCALENDAR，也要确保最后有一个空行，否则 ical.js 可能会忽略最后一行
+        if (!sanitized.endsWith('\r\n\r\n')) {
+            sanitized += '\r\n';
+        }
+    }
+    
+    return sanitized;
+}
+
+/**
  * 解析ICS文件内容（使用 ical.js）
  */
 export async function parseIcsFile(icsContent: string): Promise<ParsedIcsEvent[]> {
     try {
         const events: ParsedIcsEvent[] = [];
 
+        // 预处理清洗 ICS 数据
+        const sanitizedContent = sanitizeIcsContent(icsContent);
+
         // 使用 ical.js 解析
-        const jcalData = ICAL.parse(icsContent);
+        const jcalData = ICAL.parse(sanitizedContent);
         const comp = new ICAL.Component(jcalData);
 
         // 获取所有 VEVENT 组件
