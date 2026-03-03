@@ -9,6 +9,14 @@
     display: none;
 }
 
+#commonMenu[data-name="projectContextMenu"] .b3-menu__icon {
+    display: none;
+}
+
+.fc-direction-ltr .fc-daygrid-event.fc-event-end {
+    margin-left: 2px;
+}
+
 .smart-batch-dialog {
     .b3-dialog__content {
         padding: 20px;
@@ -2376,5 +2384,14 @@
 .habit-panel {
     .b3-button svg.b3-button__icon {
         margin-right: 0;
+    }
+}
+
+/* 习惯打卡日历样式 */
+.habit-event {
+    cursor: pointer !important;
+    
+    &:hover {
+        opacity: 0.85;
     }
 }

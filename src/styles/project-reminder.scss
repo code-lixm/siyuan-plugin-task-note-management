@@ -49,6 +49,28 @@
     padding: 12px;
     cursor: pointer;
     transition: var(--b3-transition, all 0.2s ease);
+    position: relative;
+}
+
+// 拖拽手柄
+.project-item .drag-handle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    cursor: grab;
+    padding: 4px 8px;
+    color: var(--b3-theme-on-surface);
+    opacity: 0;
+    font-size: 12px;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--b3-theme-surface);
+    border-radius: var(--b3-border-radius, 4px);
+    border: 1px solid var(--b3-border-color);
+    transition: opacity 0.2s ease;
+    z-index: 10;
 }
 
 .project-item:hover {
@@ -113,8 +135,129 @@
 .project-item__time-container {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+// 倒计时和项目开始天数通用样式
+.project-countdown,
+.project-started {
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--b3-border-radius, 4px);
+    padding: 2px 6px;
+}
+
+// 倒计时细分状态
+.project-countdown--overdue {
+    color: var(--b3-font-color1);
+    background: var(--b3-font-background1);
+    border: 1px solid var(--b3-font-color1);
+}
+.project-countdown--today {
+    color: var(--b3-font-color2);
+    background: var(--b3-font-background2);
+    border: 1px solid var(--b3-font-color2);
+}
+.project-countdown--future {
+    color: var(--b3-font-color4);
+    background: var(--b3-font-background4);
+    border: 1px solid var(--b3-font-color4);
+}
+.project-countdown--started,
+.project-started--past {
+    color: var(--b3-card-success-color);
+    background: var(--b3-card-success-background);
+    border: 1px solid var(--b3-card-success-color);
+}
+
+// 已开始天数细分状态
+.project-started--future {
+    color: var(--b3-font-color2);
+    background: var(--b3-font-background2);
+    border: 1px solid var(--b3-font-color2);
+}
+.project-started--today {
+    color: var(--b3-font-color4);
+    background: var(--b3-font-background4);
+    border: 1px solid var(--b3-font-color4);
+}
+
+// 状态和计数容器
+.project-item__counts {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.project-counts-dynamic {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.project-count--pomodoro {
+    font-size: 12px;
+    color: var(--b3-theme-on-surface);
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--b3-card-error-background, rgba(231, 76, 60, 0.1));
+    padding: 2px 6px;
+    border-radius: var(--b3-border-radius-b, 10px);
+    border: 1px solid rgba(var(--b3-theme-error-rgb, 231, 76, 60), 0.2);
+    white-space: nowrap;
+}
+
+// 项目进度条
+.project-progress-wrapper {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.project-progress-outer {
+    flex: 1;
+    height: 8px;
+    background: var(--b3-theme-surface-lighter);
+    border-radius: var(--b3-border-radius, 6px);
+    overflow: hidden;
+}
+
+.project-progress-inner {
+    height: 100%;
+    width: 0%; // JS 会动态覆盖覆盖
+    background: var(--b3-theme-primary);
+    border-radius: var(--b3-border-radius, 6px);
+    transition: width 0.3s ease;
+}
+
+.project-progress-text {
+    font-size: 12px;
+    color: var(--b3-theme-on-surface);
+    text-align: right;
+}
+
+// 项目分类容器和标签
+.project-item__category-container {
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.project-category-icon {
+    font-size: 12px;
+    line-height: 1;
+}
+.project-category-name {
+    font-size: 11px;
+    font-weight: 500;
 }
 
 .project-item__time {
@@ -127,6 +270,9 @@
 
 .project-item__category-container {
     margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .project-category-tag {
@@ -134,10 +280,10 @@
     align-items: center;
     gap: 4px;
     padding: 2px 6px;
-    border-radius: 5px;
+    border-radius: var(--b3-border-radius, 5px);
     font-size: 11px;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid;
+    background: transparent;
 }
 
 .project-item__note {

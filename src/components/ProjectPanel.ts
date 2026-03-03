@@ -734,25 +734,6 @@ export class ProjectPanel {
         const dragHandle = document.createElement('div');
         dragHandle.className = 'drag-handle';
         dragHandle.innerHTML = '⋮⋮';
-        dragHandle.style.cssText = `
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            cursor: grab;
-            padding: 4px 8px;
-            color: var(--b3-theme-on-surface);
-            opacity: 0;
-            font-size: 12px;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--b3-theme-surface);
-            border-radius: 4px;
-            border: 1px solid var(--b3-border-color);
-            transition: opacity 0.2s ease;
-            z-index: 10;
-        `;
         dragHandle.title = "拖拽排序";
 
         // 添加hover效果
@@ -800,33 +781,16 @@ export class ProjectPanel {
         if (project.blockId) {
             titleEl.setAttribute('data-type', 'a');
             titleEl.setAttribute('data-href', `siyuan://blocks/${project.blockId}`);
-            titleEl.style.cssText = `
-                cursor: pointer;
-                color: var(--b3-theme-primary);
-                text-decoration: underline;
-                font-weight: 500;
-            `;
             titleEl.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 this.openProject(project.blockId);
             });
-        } else {
-            titleEl.style.cssText = `
-                font-weight: 500;
-            `;
         }
 
         // 时间信息容器
         const timeContainer = document.createElement('div');
         timeContainer.className = 'project-item__time-container';
-        timeContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 4px;
-            flex-wrap: wrap;
-        `;
 
         // 添加倒计时或已开始天数显示 - 只为非已归档的项目显示
         if (status !== 'archived') {
@@ -876,12 +840,10 @@ export class ProjectPanel {
         // 添加项目下顶级任务计数（todo/doing/done）
         const countsContainer = document.createElement('div');
         countsContainer.className = 'project-item__counts';
-        countsContainer.style.cssText = `display:flex; gap:8px; margin-top:6px; align-items:center; flex-wrap: wrap;`;
 
 
         const dynamicCountsWrapper = document.createElement('div');
         dynamicCountsWrapper.className = 'project-counts-dynamic';
-        dynamicCountsWrapper.style.cssText = `display:flex; gap:8px; align-items:center; flex-wrap:wrap;`;
         // initial legacy placeholders to avoid layout shift
         dynamicCountsWrapper.innerHTML = `
             <span class="project-count project-count--doing">${i18n("doing") || '进行中'}: ...</span>
@@ -895,19 +857,6 @@ export class ProjectPanel {
         const pomodoroCountEl = document.createElement('span');
         pomodoroCountEl.className = 'project-count project-count--pomodoro';
         pomodoroCountEl.textContent = '🍅 总计: ...';
-        pomodoroCountEl.style.cssText = `
-            font-size: 12px;
-            color: var(--b3-theme-on-surface);
-            opacity: 0.8;
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            background: rgba(231, 76, 60, 0.1);
-            padding: 2px 6px;
-            border-radius: 10px;
-            border: 1px solid rgba(231, 76, 60, 0.2);
-            white-space: nowrap;
-        `;
         countsContainer.appendChild(pomodoroCountEl);
 
         infoEl.appendChild(countsContainer);
@@ -915,42 +864,17 @@ export class ProjectPanel {
         // 添加项目进度条（参考 ProjectKanbanView 样式）
         const progressWrapper = document.createElement('div');
         progressWrapper.className = 'project-progress-wrapper';
-        progressWrapper.style.cssText = `
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        `;
 
         const progressBarOuter = document.createElement('div');
         progressBarOuter.className = 'project-progress-outer';
-        progressBarOuter.style.cssText = `
-            flex: 1;
-            height: 8px;
-            background: rgba(0,0,0,0.06);
-            border-radius: 6px;
-            overflow: hidden;
-        `;
 
         const progressBarInner = document.createElement('div');
         progressBarInner.className = 'project-progress-inner';
-        progressBarInner.style.cssText = `
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #28a745, #7bd389);
-            border-radius: 6px;
-            transition: width 0.3s ease;
-        `;
 
         progressBarOuter.appendChild(progressBarInner);
 
         const progressText = document.createElement('div');
         progressText.className = 'project-progress-text';
-        progressText.style.cssText = `
-            font-size: 12px;
-            color: var(--b3-theme-on-surface);
-            text-align: right;
-        `;
 
         progressWrapper.appendChild(progressBarOuter);
         progressWrapper.appendChild(progressText);
@@ -968,46 +892,25 @@ export class ProjectPanel {
             if (categoryIds.length > 0) {
                 const categoryContainer = document.createElement('div');
                 categoryContainer.className = 'project-item__category-container';
-                categoryContainer.style.cssText = `
-                    margin-top: 4px;
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 4px;
-                `;
 
                 categoryIds.forEach((id: string) => {
                     const category = this.categoryManager.getCategoryById(id);
                     if (category) {
                         const categoryEl = document.createElement('div');
                         categoryEl.className = 'project-category-tag';
-                        categoryEl.style.cssText = `
-                            display: inline-flex;
-                            align-items: center;
-                            gap: 4px;
-                            padding: 2px 6px;
-                            background-color: ${category.color};
-                            border: 1px solid ${category.color}40;
-                            border-radius: 5px;
-                            font-size: 11px;
-                            color: #fff;
-                        `;
+                        categoryEl.style.color = category.color;
+                        categoryEl.style.borderColor = `${category.color}40`;
 
                         if (category.icon) {
                             const iconSpan = document.createElement('span');
                             iconSpan.textContent = category.icon;
-                            iconSpan.style.cssText = `
-                                font-size: 12px;
-                                line-height: 1;
-                            `;
+                            iconSpan.className = 'project-category-icon';
                             categoryEl.appendChild(iconSpan);
                         }
 
                         const nameSpan = document.createElement('span');
                         nameSpan.textContent = category.name;
-                        nameSpan.style.cssText = `
-                            font-size: 11px;
-                            font-weight: 500;
-                        `;
+                        nameSpan.className = 'project-category-name';
                         categoryEl.appendChild(nameSpan);
                         categoryContainer.appendChild(categoryEl);
                     }
@@ -1451,51 +1354,19 @@ export class ProjectPanel {
 
             if (isOverdue) {
                 const overdueDays = Math.abs(daysDiff);
-                countdownEl.style.cssText = `
-                    color: var(--b3-font-color1);
-                    font-size: 12px;
-                    font-weight: 500;
-                    background: var(--b3-font-background1);
-                    border: 1px solid var(--b3-font-color1);
-                    border-radius: 4px;
-                    padding: 2px 6px;
-                `;
+                countdownEl.classList.add('project-countdown--overdue');
                 countdownEl.textContent = i18n("overdueDays").replace("${days}", overdueDays.toString()) || `已过期${overdueDays}天`;
             } else if (daysDiff === 0) {
-                countdownEl.style.cssText = `
-                    color: var(--b3-font-color2);
-                    font-size: 12px;
-                    font-weight: 500;
-                    background: var(--b3-font-background2);
-                    border: 1px solid var(--b3-font-color2);
-                    border-radius: 4px;
-                    padding: 2px 6px;
-                `;
+                countdownEl.classList.add('project-countdown--today');
                 countdownEl.textContent = i18n("dueToday") || '今天截止';
             } else {
-                countdownEl.style.cssText = `
-                    color: var(--b3-font-color4);
-                    font-size: 12px;
-                    font-weight: 500;
-                    background: var(--b3-font-background4);
-                    border: 1px solid var(--b3-font-color4);
-                    border-radius: 4px;
-                    padding: 2px 6px;
-                `;
+                countdownEl.classList.add('project-countdown--future');
                 countdownEl.textContent = i18n("daysRemaining").replace("${days}", daysDiff.toString()) || `还剩${daysDiff}天`;
             }
         } else {
             // 没有结束日期，但有开始日期时，显示已开始天数
             // 注意：这里需要从调用处传入 startDate
-            countdownEl.style.cssText = `
-                color: var(--b3-card-success-color);
-                font-size: 12px;
-                font-weight: 500;
-                background: var(--b3-card-success-background);
-                border: 1px solid var(--b3-card-success-color);
-                border-radius: 4px;
-                padding: 2px 6px;
-            `;
+            countdownEl.classList.add('project-countdown--started');
             countdownEl.textContent = i18n("projectStarted") || '项目已开始';
         }
 
@@ -1548,39 +1419,15 @@ export class ProjectPanel {
         if (daysDiff < 0) {
             // 开始日期在未来
             const futureDays = Math.abs(daysDiff);
-            startedEl.style.cssText = `
-                color:var(--b3-font-color2);
-                font-size: 12px;
-                font-weight: 500;
-                background: var(--b3-font-background2);
-                border: 1px solid var(--b3-font-color2);
-                border-radius: 4px;
-                padding: 2px 6px;
-            `;
+            startedEl.classList.add('project-started--future');
             startedEl.textContent = i18n("startInDays").replace("${days}", futureDays.toString()) || `${futureDays}天后开始`;
         } else if (daysDiff === 0) {
             // 今天开始
-            startedEl.style.cssText = `
-                color:  var(--b3-font-color4);
-                font-size: 12px;
-                font-weight: 500;
-                background: var(--b3-font-background4);
-                border: 1px solid var(--b3-font-color4);
-                border-radius: 4px;
-                padding: 2px 6px;
-            `;
+            startedEl.classList.add('project-started--today');
             startedEl.textContent = i18n("startToday") || '今天开始';
         } else {
             // 已经开始
-            startedEl.style.cssText = `
-                color: var(--b3-card-success-color);
-                font-size: 12px;
-                font-weight: 500;
-                background: var(--b3-card-success-background);
-                border: 1px solid var(--b3-card-success-color);
-                border-radius: 4px;
-                padding: 2px 6px;
-            `;
+            startedEl.classList.add('project-started--past');
             startedEl.textContent = i18n("startedDays").replace("${days}", daysDiff.toString()) || `已开始${daysDiff}天`;
         }
 

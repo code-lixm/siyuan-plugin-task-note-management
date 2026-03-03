@@ -218,14 +218,9 @@ export class ReminderPanel {
         const titleContainer = document.createElement('div');
         titleContainer.className = 'reminder-title';
 
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'reminder-icon';
-        iconSpan.textContent = '⏰';
-
         const titleSpan = document.createElement('span');
         titleSpan.textContent = i18n('taskManagement');
 
-        titleContainer.appendChild(iconSpan);
         titleContainer.appendChild(titleSpan);
 
         // 添加右侧按钮容器（单独一行，将在标题下方显示）
@@ -3124,6 +3119,8 @@ export class ReminderPanel {
                 return reminders.filter(r => {
                     const hasDate = r.date || r.endDate;
                     if (!hasDate || isEffectivelyCompleted(r)) return false;
+                    // 过滤掉订阅任务（只读任务不应作为待办显示）
+                    if (r.isSubscribed) return false;
                     const endLogical = this.getReminderLogicalDate(r.endDate || r.date, r.endTime || r.time);
                     return compareDateStrings(endLogical, today) < 0;
                 });
@@ -3131,6 +3128,9 @@ export class ReminderPanel {
                 return reminders.filter(r => {
                     const isCompleted = isEffectivelyCompleted(r);
                     if (isCompleted) return false;
+
+                    // 过滤掉订阅任务（只读任务不应作为待办显示在今日任务中）
+                    if (r.isSubscribed) return false;
 
                     // 1. 常规今日任务：有日期且 (在日期范围内 或 已逾期)
                     const hasDate = r.date || r.endDate;
@@ -3178,6 +3178,8 @@ export class ReminderPanel {
                 return reminders.filter(r => {
                     const hasDate = r.date || r.endDate;
                     if (isEffectivelyCompleted(r) || !hasDate) return false;
+                    // 过滤掉订阅任务（只读任务不应作为待办显示）
+                    if (r.isSubscribed) return false;
                     const startLogical = this.getReminderLogicalDate(r.date || r.endDate, r.time || r.endTime);
                     const endLogical = this.getReminderLogicalDate(r.endDate || r.date, r.endTime || r.time);
                     return compareDateStrings(startLogical, tomorrow) <= 0 && compareDateStrings(tomorrow, endLogical) <= 0;
@@ -3186,6 +3188,8 @@ export class ReminderPanel {
                 return reminders.filter(r => {
                     const hasDate = r.date || r.endDate;
                     if (isEffectivelyCompleted(r) || !hasDate) return false;
+                    // 过滤掉订阅任务（只读任务不应作为待办显示）
+                    if (r.isSubscribed) return false;
                     const startLogical = this.getReminderLogicalDate(r.date || r.endDate, r.time || r.endTime);
                     const endLogical = this.getReminderLogicalDate(r.endDate || r.date, r.endTime || r.time);
                     return compareDateStrings(tomorrow, endLogical) <= 0 && compareDateStrings(startLogical, future7Days) <= 0;
@@ -3194,6 +3198,8 @@ export class ReminderPanel {
                 return reminders.filter(r => {
                     const hasDate = r.date || r.endDate;
                     if (isEffectivelyCompleted(r) || !hasDate) return false;
+                    // 过滤掉订阅任务（只读任务不应作为待办显示）
+                    if (r.isSubscribed) return false;
                     const startLogical = this.getReminderLogicalDate(r.date || r.endDate, r.time || r.endTime);
                     return compareDateStrings(tomorrow, startLogical) <= 0;
                 });

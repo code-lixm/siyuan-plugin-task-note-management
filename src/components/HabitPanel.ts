@@ -38,6 +38,8 @@ export interface Habit {
     reminderTimes?: (string | { time: string; note?: string })[]; // 支持多个提醒时间
     groupId?: string; // 分组ID
     priority?: 'high' | 'medium' | 'low' | 'none';
+    projectId?: string; // 项目ID
+    categoryId?: string; // 分类ID
     checkInEmojis: HabitCheckInEmoji[]; // 打卡emoji配置
     checkIns: { // 打卡记录
         [date: string]: {
@@ -140,14 +142,9 @@ export class HabitPanel {
         const titleContainer = document.createElement('div');
         titleContainer.className = 'habit-title';
 
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'habit-icon';
-        iconSpan.textContent = '✅';
-
         const titleSpan = document.createElement('span');
         titleSpan.textContent = "习惯打卡";
 
-        titleContainer.appendChild(iconSpan);
         titleContainer.appendChild(titleSpan);
 
         // 按钮容器
@@ -1436,7 +1433,7 @@ export class HabitPanel {
         const dialog = new HabitEditDialog(null, async (habit) => {
             await this.saveHabit(habit);
             this.loadHabits();
-        });
+        }, this.plugin);
         dialog.show();
     }
 
@@ -1444,7 +1441,7 @@ export class HabitPanel {
         const dialog = new HabitEditDialog(habit, async (updatedHabit) => {
             await this.saveHabit(updatedHabit);
             this.loadHabits();
-        });
+        }, this.plugin);
         dialog.show();
     }
 

@@ -6,7 +6,7 @@ export interface IcsSubscription {
     id: string;
     name: string;
     url: string;
-    projectId: string; // Required - must have a project
+    projectId?: string; // Optional
     categoryId?: string;
     priority?: 'high' | 'medium' | 'low' | 'none';
     syncInterval: 'manual' | '15min' | '30min' | 'hourly' | '4hour' | '12hour' | 'daily';

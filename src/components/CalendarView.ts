@@ -19,6 +19,7 @@ import { i18n } from "../pluginInstance";
 import { generateRepeatInstances, RepeatInstance, getDaysDifference, addDaysToDate } from "../utils/repeatUtils";
 import { getAllReminders, saveReminders, loadHolidays } from "../utils/icsSubscription";
 import { CalendarConfigManager } from "../utils/calendarConfigManager";
+import { Habit } from "./HabitPanel";
 import { TaskSummaryDialog } from "@/components/TaskSummaryDialog";
 import { PomodoroManager } from "../utils/pomodoroManager";
 import { getNextLunarMonthlyDate, getNextLunarYearlyDate, getSolarDateLunarString } from "../utils/lunarUtils";
@@ -49,6 +50,7 @@ export class CalendarView {
     private showRepeatTasks: boolean = true; // 是否显示重复任务
     private repeatInstanceLimit: number = -1; // 重复任务显示实例数量限制
     private showHiddenTasks: boolean = false; // 是否显示不在日历视图显示的任务
+    private showHabits: boolean = true; // 是否显示习惯打卡
     private pomodoroToggleBtn: HTMLElement | null = null; // Pomodoro toggle button
     private holidays: { [date: string]: { title: string, type: 'holiday' | 'workday' } } = {}; // 节假日数据
     private colorBy: 'category' | 'priority' | 'project' = 'priority'; // 按分类或优先级上色
@@ -114,6 +116,7 @@ export class CalendarView {
             this.repeatInstanceLimit = this.calendarConfigManager.getRepeatInstanceLimit();
             this.showHiddenTasks = this.calendarConfigManager.getShowHiddenTasks();
             this.showPomodoro = this.calendarConfigManager.getShowPomodoro();
+            this.showHabits = this.calendarConfigManager.getShowHabits();
 
             try {
                 this.currentCompletionFilter = this.calendarConfigManager.getCompletionFilter();
@@ -829,6 +832,13 @@ export class CalendarView {
         displaySettingsDropdown.appendChild(createSwitchItem(i18n("showHiddenTasks") || "显示不在日历视图显示的任务", this.showHiddenTasks, async (checked) => {
             this.showHiddenTasks = checked;
             await this.calendarConfigManager.setShowHiddenTasks(checked);
+            await this.refreshEvents();
+        }));
+
+        // 习惯打卡设置
+        displaySettingsDropdown.appendChild(createSwitchItem(i18n("showHabits") || "显示习惯打卡", this.showHabits, async (checked) => {
+            this.showHabits = checked;
+            await this.calendarConfigManager.setShowHabits(checked);
             await this.refreshEvents();
         }));
 
@@ -3083,29 +3093,34 @@ export class CalendarView {
         const topRow = document.createElement('div');
         topRow.className = 'reminder-event-top-row';
 
-        // 1. 复选框 or 订阅图标
-        if (props.isSubscribed) {
-            const subIcon = document.createElement('span');
-            subIcon.innerHTML = '🗓';
-            subIcon.title = i18n("subscribedTaskReadOnly") || "订阅任务（只读）";
-            subIcon.style.width = '14px';
-            subIcon.style.height = '14px';
-            subIcon.style.display = 'flex';
-            subIcon.style.alignItems = 'center';
-            subIcon.style.justifyContent = 'center';
-            subIcon.style.fontSize = '12px';
-            subIcon.style.flexShrink = '0';
-            topRow.appendChild(subIcon);
-        } else {
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'reminder-calendar-event-checkbox';
-            checkbox.checked = props.completed || false;
-            checkbox.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleEventCompleted(event);
-            });
-            topRow.appendChild(checkbox);
+        // 判断是否是事件的第一天（跨天事件在月视图中会分多行显示）
+        const isFirstDay = eventInfo.isStart !== false;
+
+        // 1. 复选框 or 订阅图标（只在第一天显示，避免跨天事件在每一天都显示复选框）
+        if (isFirstDay) {
+            if (props.isSubscribed) {
+                const subIcon = document.createElement('span');
+                subIcon.innerHTML = '🗓';
+                subIcon.title = i18n("subscribedTaskReadOnly") || "订阅任务（只读）";
+                subIcon.style.width = '14px';
+                subIcon.style.height = '14px';
+                subIcon.style.display = 'flex';
+                subIcon.style.alignItems = 'center';
+                subIcon.style.justifyContent = 'center';
+                subIcon.style.fontSize = '12px';
+                subIcon.style.flexShrink = '0';
+                topRow.appendChild(subIcon);
+            } else {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'reminder-calendar-event-checkbox';
+                checkbox.checked = props.completed || false;
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleEventCompleted(event);
+                });
+                topRow.appendChild(checkbox);
+            }
         }
 
         // 1.5 分类图标徽章（checkbox 之后）
@@ -3742,6 +3757,12 @@ export class CalendarView {
             return;
         }
 
+        // 处理习惯打卡点击事件
+        if (info.event.extendedProps.type === 'habit') {
+            await this.handleHabitCheckIn(info.event);
+            return;
+        }
+
         // Pomodoro events should act as read-only in click handler
         // Right-click context menu is available for them
         if (info.event.extendedProps.type === 'pomodoro') {
@@ -3778,6 +3799,102 @@ export class CalendarView {
                     showMessage(i18n("openNoteFailed"));
                 }
             );
+        }
+    }
+
+    /**
+     * 处理习惯打卡点击事件（一键打卡/撤销）
+     */
+    private async handleHabitCheckIn(event: any) {
+        const props = event.extendedProps;
+        const habitId = props.habitId;
+        const dateStr = props.date;
+
+        if (!habitId || !dateStr) {
+            console.error('习惯打卡数据不完整:', props);
+            return;
+        }
+
+        try {
+            // 加载习惯数据
+            const habitData = await this.plugin.loadHabitData();
+            const habit = habitData[habitId];
+
+            if (!habit) {
+                showMessage('习惯不存在', 3000, 'error');
+                return;
+            }
+
+            const nowStr = getLocalDateTimeString(new Date());
+            const isCompleted = props.isCompleted;
+
+            if (isCompleted) {
+                // 撤销打卡：移除最后一次打卡记录
+                const checkIn = habit.checkIns?.[dateStr];
+                if (checkIn && checkIn.entries && checkIn.entries.length > 0) {
+                    // 移除最后一条记录
+                    checkIn.entries.pop();
+                    checkIn.count = checkIn.entries.length;
+                    // 同时更新 status 数组
+                    if (checkIn.status && checkIn.status.length > 0) {
+                        checkIn.status.pop();
+                    }
+                    // 如果没有记录了，清理当天的打卡数据
+                    if (checkIn.count === 0) {
+                        delete habit.checkIns[dateStr];
+                    } else {
+                        checkIn.timestamp = nowStr;
+                    }
+                    habit.totalCheckIns = Math.max(0, (habit.totalCheckIns || 0) - 1);
+                }
+            } else {
+                // 一键打卡：添加打卡记录
+                if (!habit.checkIns) {
+                    habit.checkIns = {};
+                }
+                if (!habit.checkIns[dateStr]) {
+                    habit.checkIns[dateStr] = {
+                        count: 0,
+                        status: [],
+                        timestamp: nowStr,
+                        entries: []
+                    };
+                }
+
+                const checkIn = habit.checkIns[dateStr];
+                // 使用第一个配置的 emoji 进行打卡
+                const emojiConfig = habit.checkInEmojis?.[0] || { emoji: '✅' };
+                const emoji = emojiConfig.emoji;
+
+                checkIn.entries = checkIn.entries || [];
+                checkIn.entries.push({
+                    emoji: emoji,
+                    timestamp: nowStr,
+                    note: undefined
+                });
+                checkIn.count = (checkIn.count || 0) + 1;
+                checkIn.status = checkIn.status || [];
+                checkIn.status.push(emoji);
+                checkIn.timestamp = nowStr;
+
+                habit.totalCheckIns = (habit.totalCheckIns || 0) + 1;
+            }
+
+            habit.updatedAt = nowStr;
+
+            // 保存数据
+            await this.plugin.saveHabitData(habitData);
+
+            // 派发习惯更新事件，通知其他组件刷新
+            window.dispatchEvent(new CustomEvent('habitUpdated'));
+
+            // 刷新日历视图
+            await this.refreshEvents();
+
+            showMessage(isCompleted ? '已撤销打卡' : '打卡成功');
+        } catch (error) {
+            console.error('习惯打卡失败:', error);
+            showMessage('打卡失败', 3000, 'error');
         }
     }
 
@@ -4510,7 +4627,7 @@ export class CalendarView {
                 width: 24px !important;
                 height: 24px !important;
                 padding: 0 !important;
-                margin: 4px !important;
+                margin: 0px !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
@@ -4519,10 +4636,10 @@ export class CalendarView {
             .fc-today-custom .fc-daygrid-day-number::after {
                 content: "今" !important;
                 position: absolute !important;
-                top: 0 !important;
+                top: 2px !important;
                 right: 0 !important;
-                width: 24px !important;
-                height: 24px !important;
+                width: 20px !important;
+                height: 20px !important;
                 background-color: var(--b3-theme-error) !important; /* 红色背景 */
                 color: #fff !important; /* 白色文字 */
                 border-radius: 50% !important; /* 圆形 */
@@ -5200,6 +5317,65 @@ export class CalendarView {
         }, 100); // 100ms 防抖延迟
     }
 
+    /**
+     * 判断习惯在指定日期是否应该打卡（从 HabitPanel 移植）
+     */
+    private shouldCheckInOnDate(habit: Habit, date: string): boolean {
+        const { frequency } = habit;
+        const checkDate = new Date(date);
+        const startDate = new Date(habit.startDate);
+
+        switch (frequency.type) {
+            case 'daily':
+                if (frequency.interval) {
+                    const daysDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / 86400000);
+                    return daysDiff % frequency.interval === 0;
+                }
+                return true;
+
+            case 'weekly':
+                if (frequency.weekdays && frequency.weekdays.length > 0) {
+                    return frequency.weekdays.includes(checkDate.getDay());
+                }
+                if (frequency.interval) {
+                    const weeksDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / (86400000 * 7));
+                    return weeksDiff % frequency.interval === 0 && checkDate.getDay() === startDate.getDay();
+                }
+                return checkDate.getDay() === startDate.getDay();
+
+            case 'monthly':
+                if (frequency.monthDays && frequency.monthDays.length > 0) {
+                    return frequency.monthDays.includes(checkDate.getDate());
+                }
+                if (frequency.interval) {
+                    const monthsDiff = (checkDate.getFullYear() - startDate.getFullYear()) * 12 +
+                        (checkDate.getMonth() - startDate.getMonth());
+                    return monthsDiff % frequency.interval === 0 && checkDate.getDate() === startDate.getDate();
+                }
+                return checkDate.getDate() === startDate.getDate();
+
+            case 'yearly':
+                if (frequency.months && frequency.months.length > 0) {
+                    if (!frequency.months.includes(checkDate.getMonth() + 1)) return false;
+                    if (frequency.monthDays && frequency.monthDays.length > 0) {
+                        return frequency.monthDays.includes(checkDate.getDate());
+                    }
+                    return checkDate.getDate() === startDate.getDate();
+                }
+                if (frequency.interval) {
+                    const yearsDiff = checkDate.getFullYear() - startDate.getFullYear();
+                    return yearsDiff % frequency.interval === 0 &&
+                        checkDate.getMonth() === startDate.getMonth() &&
+                        checkDate.getDate() === startDate.getDate();
+                }
+                return checkDate.getMonth() === startDate.getMonth() &&
+                    checkDate.getDate() === startDate.getDate();
+
+            default:
+                return true;
+        }
+    }
+
     private async getEvents(force: boolean = false) {
         try {
             const reminderData = await getAllReminders(this.plugin, undefined, force);
@@ -5477,6 +5653,98 @@ export class CalendarView {
                                 duration: session.duration,
                                 parentId: session.eventId, // Map associated task ID to parentId for easy access
                                 originalSession: session
+                            }
+                        };
+                        events.push(eventObj);
+                    }
+                }
+            }
+
+            // 添加习惯打卡数据
+            if (this.showHabits) {
+                const habitData = await this.plugin.loadHabitData();
+                const habits: Habit[] = Object.values(habitData || {});
+
+                // 获取分类数据用于颜色继承
+                const categoryManager = CategoryManager.getInstance(this.plugin);
+                await categoryManager.initialize();
+                const categories = categoryManager.getCategories();
+                const categoryMap = new Map(categories.map(c => [c.id, c]));
+
+                // 遍历日期范围
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    const dateStr = getLocalDateString(d);
+
+                    for (const habit of habits) {
+                        // 检查习惯是否在有效期内
+                        if (habit.startDate > dateStr) continue;
+                        if (habit.endDate && habit.endDate < dateStr) continue;
+
+                        // 检查今天是否应该打卡（使用习惯面板中的相同逻辑）
+                        if (!this.shouldCheckInOnDate(habit, dateStr)) continue;
+
+                        // 应用项目/分类过滤
+                        const effectiveProjectId = habit.projectId || null;
+                        const effectiveCategoryId = habit.categoryId || null;
+
+                        // 项目过滤
+                        if (this.currentProjectFilter.size > 0 && !this.currentProjectFilter.has('all')) {
+                            if (!effectiveProjectId || !this.currentProjectFilter.has(effectiveProjectId)) {
+                                // 如果习惯没有项目，但当前过滤器包含"无项目"，则显示
+                                if (!effectiveProjectId && !this.currentProjectFilter.has('none')) {
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // 分类过滤
+                        if (this.currentCategoryFilter.size > 0 && !this.currentCategoryFilter.has('all')) {
+                            if (!effectiveCategoryId || !this.currentCategoryFilter.has(effectiveCategoryId)) {
+                                if (!effectiveCategoryId && !this.currentCategoryFilter.has('none')) {
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // 获取打卡状态
+                        const checkIn = habit.checkIns?.[dateStr];
+                        const isCompleted = checkIn && checkIn.count > 0;
+
+                        // 获取颜色：优先使用项目颜色，然后使用分类颜色
+                        let backgroundColor = 'var(--b3-theme-primary)'; // 默认颜色
+                        if (effectiveProjectId && projectData[effectiveProjectId]) {
+                            backgroundColor = projectData[effectiveProjectId].color || backgroundColor;
+                        } else if (effectiveCategoryId && categoryMap.has(effectiveCategoryId)) {
+                            const cat = categoryMap.get(effectiveCategoryId);
+                            backgroundColor = cat?.color || backgroundColor;
+                        }
+
+                        // 习惯名称（无前缀图标）
+                        const title = habit.title;
+
+                        const eventObj = {
+                            id: `habit-${habit.id}-${dateStr}`,
+                            title: title,
+                            start: dateStr,
+                            allDay: true,
+                            backgroundColor: backgroundColor,
+                            borderColor: backgroundColor,
+                            textColor: 'var(--b3-theme-on-background)',
+                            className: 'habit-event',
+                            editable: false,
+                            startEditable: false,
+                            durationEditable: false,
+                            extendedProps: {
+                                type: 'habit',
+                                habitId: habit.id,
+                                habitTitle: habit.title,
+                                date: dateStr,
+                                isCompleted: isCompleted,
+                                projectId: effectiveProjectId,
+                                categoryId: effectiveCategoryId
                             }
                         };
                         events.push(eventObj);
@@ -6186,10 +6454,26 @@ export class CalendarView {
 
             // 7. 备注信息
             if (reminder.note?.trim()) {
+                let noteContent = this.lute ? this.lute.Md2HTML(reminder.note) : this.escapeHtml(reminder.note);
+                // 处理列表样式，确保项目符号正常显示
+                if (this.lute) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = noteContent;
+                    const listTags = tempDiv.querySelectorAll('ul, ol');
+                    listTags.forEach(list => {
+                        (list as HTMLElement).style.margin = '0';
+                        (list as HTMLElement).style.paddingLeft = '20px';
+                    });
+                    const liTags = tempDiv.querySelectorAll('li');
+                    liTags.forEach(li => {
+                        (li as HTMLElement).style.margin = '0';
+                    });
+                    noteContent = tempDiv.innerHTML;
+                }
                 htmlParts.push(
-                    `<div style="color: var(--b3-theme-on-surface-light); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--b3-theme-border); font-size: 12px;">`,
+                    `<div style="color: var(--b3-theme-on-surface-light); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--b3-theme-border); font-size: 12px; max-width: 100%;">`,
                     `<div style="margin-bottom: 4px; opacity: 0.7;">${i18n("note")}:</div>`,
-                    `<div>${this.lute ? this.lute.Md2HTML(reminder.note) : this.escapeHtml(reminder.note)}</div>`,
+                    `<div style="max-width: 100%; overflow-x: auto; word-wrap: break-word; overflow-wrap: break-word;">${noteContent}</div>`,
                     `</div>`
                 );
             }

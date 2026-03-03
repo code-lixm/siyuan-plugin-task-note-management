@@ -3,15 +3,19 @@ import { getBlockByID, getBlockDOM } from "../api";
 import { Habit } from "./HabitPanel";
 import { getLocalDateTimeString, getLogicalDateString } from "../utils/dateUtils";
 import { HabitGroupManager } from "../utils/habitGroupManager";
+import { CategoryManager } from "../utils/categoryManager";
+import { StatusManager } from "../utils/statusManager";
 
 export class HabitEditDialog {
     private dialog: Dialog;
     private habit: Habit | null;
     private onSave: (habit: Habit) => Promise<void>;
+    private plugin: any;
 
-    constructor(habit: Habit | null, onSave: (habit: Habit) => Promise<void>) {
+    constructor(habit: Habit | null, onSave: (habit: Habit) => Promise<void>, plugin?: any) {
         this.habit = habit;
         this.onSave = onSave;
+        this.plugin = plugin;
     }
 
     show() {
@@ -146,6 +150,14 @@ export class HabitEditDialog {
         reminderGroup.appendChild(reminderTimesContainer);
         reminderGroup.appendChild(addTimeBtn);
         form.appendChild(reminderGroup);
+
+        // 项目选择
+        const projectSelect = this.createProjectSelect();
+        form.appendChild(projectSelect);
+
+        // 分类选择
+        const categorySelect = this.createCategorySelect();
+        form.appendChild(categorySelect);
 
         // 分组选择
         const groupSelect = this.createGroupSelect();
@@ -542,6 +554,102 @@ export class HabitEditDialog {
         return group;
     }
 
+    private createProjectSelect(): HTMLElement {
+        const group = document.createElement('div');
+        group.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+
+        const label = document.createElement('label');
+        label.textContent = '所属项目（可选）';
+        label.style.cssText = 'font-weight: bold; font-size: 14px;';
+
+        const select = document.createElement('select');
+        select.name = 'projectId';
+        select.className = 'b3-select';
+
+        const noProjectOption = document.createElement('option');
+        noProjectOption.value = 'none';
+        noProjectOption.textContent = '无项目';
+        select.appendChild(noProjectOption);
+
+        // 异步加载数据
+        (async () => {
+            try {
+                const statusManager = StatusManager.getInstance(this.plugin);
+                await statusManager.initialize();
+                const statuses = statusManager.getStatuses();
+                
+                const projectData = await this.plugin.loadProjectData();
+                if (projectData) {
+                    Object.entries(projectData).forEach(([projectId, project]: [string, any]) => {
+                        const projectStatus = statuses.find(s => s.id === project.status);
+                        if (projectStatus && !projectStatus.isArchived) {
+                            const option = document.createElement('option');
+                            option.value = projectId;
+                            option.textContent = project.title || project.name || "未命名项目";
+                            select.appendChild(option);
+                        }
+                    });
+                }
+                
+                if (this.habit?.projectId) {
+                    select.value = this.habit.projectId;
+                }
+            } catch (err) {
+                console.warn('加载项目数据失败', err);
+            }
+        })();
+
+        group.appendChild(label);
+        group.appendChild(select);
+
+        return group;
+    }
+
+    private createCategorySelect(): HTMLElement {
+        const group = document.createElement('div');
+        group.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+
+        const label = document.createElement('label');
+        label.textContent = '所属分类（可选）';
+        label.style.cssText = 'font-weight: bold; font-size: 14px;';
+
+        const select = document.createElement('select');
+        select.name = 'categoryId';
+        select.className = 'b3-select';
+
+        const noCategoryOption = document.createElement('option');
+        noCategoryOption.value = 'none';
+        noCategoryOption.textContent = '无分类';
+        select.appendChild(noCategoryOption);
+
+        // 异步加载数据
+        (async () => {
+            try {
+                const categoryManager = CategoryManager.getInstance(this.plugin);
+                await categoryManager.initialize();
+                const categories = categoryManager.getCategories();
+                
+                categories.forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c.id;
+                    option.textContent = `${c.icon || ''} ${c.name}`.trim();
+                    select.appendChild(option);
+                });
+                
+                if (this.habit?.categoryId) {
+                    select.value = this.habit.categoryId;
+                }
+            } catch (err) {
+                console.warn('加载分类数据失败', err);
+            }
+        })();
+
+        group.appendChild(label);
+        group.appendChild(select);
+
+        return group;
+    }
+
     private createGroupSelect(): HTMLElement {
         const group = document.createElement('div');
         group.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
@@ -625,6 +733,8 @@ export class HabitEditDialog {
             reminderTimes: [],
             blockId: parsedBlockId || undefined,
             priority: formData.get('priority') as any || 'none',
+            projectId: formData.get('projectId') as string === 'none' ? undefined : formData.get('projectId') as string,
+            categoryId: formData.get('categoryId') as string === 'none' ? undefined : formData.get('categoryId') as string,
             groupId: formData.get('groupId') as string === 'none' ? undefined : formData.get('groupId') as string,
             checkInEmojis: this.habit?.checkInEmojis || [
                 { emoji: '✅', meaning: '完成', promptNote: false },

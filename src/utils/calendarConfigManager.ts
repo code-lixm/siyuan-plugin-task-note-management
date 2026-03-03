@@ -16,6 +16,7 @@ export interface CalendarConfig {
     showRepeatTasks: boolean;
     repeatInstanceLimit: number;
     showHiddenTasks: boolean; // 显示不在日历视图显示的任务
+    showHabits: boolean; // 显示习惯打卡
 }
 
 export class CalendarConfigManager {
@@ -37,7 +38,8 @@ export class CalendarConfigManager {
             showSubtasks: true, // 默认显示子任务
             showRepeatTasks: true, // 默认显示重复任务
             repeatInstanceLimit: -1, // 默认显示全部实例 (-1表示不限制)
-            showHiddenTasks: false // 默认不显示隐藏任务
+            showHiddenTasks: false, // 默认不显示隐藏任务
+            showHabits: true // 默认显示习惯打卡
         };
     }
 
@@ -67,6 +69,7 @@ export class CalendarConfigManager {
             settings.calendarShowRepeatTasks = this.config.showRepeatTasks;
             settings.calendarRepeatInstanceLimit = this.config.repeatInstanceLimit;
             settings.calendarShowHiddenTasks = this.config.showHiddenTasks;
+            settings.calendarShowHabits = this.config.showHabits;
             await (this.plugin as any).saveSettings(settings);
         } catch (error) {
             console.error('Failed to save calendar config:', error);
@@ -110,7 +113,8 @@ export class CalendarConfigManager {
                 showSubtasks: settings.calendarShowSubtasks !== false, // 默认为 true
                 showRepeatTasks: settings.calendarShowRepeatTasks !== false, // 默认为 true
                 repeatInstanceLimit: settings.calendarRepeatInstanceLimit !== undefined ? settings.calendarRepeatInstanceLimit : -1, // 默认为 -1
-                showHiddenTasks: settings.calendarShowHiddenTasks === true // 默认为 false
+                showHiddenTasks: settings.calendarShowHiddenTasks === true, // 默认为 false
+                showHabits: settings.calendarShowHabits !== false // 默认为 true
             };
         } catch (error) {
             console.warn('Failed to load calendar config, using defaults:', error);
@@ -126,7 +130,8 @@ export class CalendarConfigManager {
                 showSubtasks: true,
                 showRepeatTasks: true,
                 repeatInstanceLimit: -1,
-                showHiddenTasks: false
+                showHiddenTasks: false,
+                showHabits: true
             };
             try {
                 await this.saveConfig();
@@ -242,6 +247,15 @@ export class CalendarConfigManager {
 
     public getShowHiddenTasks(): boolean {
         return this.config.showHiddenTasks !== undefined ? this.config.showHiddenTasks : false;
+    }
+
+    public async setShowHabits(show: boolean) {
+        this.config.showHabits = show;
+        await this.saveConfig();
+    }
+
+    public getShowHabits(): boolean {
+        return this.config.showHabits !== false;
     }
 
     public getConfig(): CalendarConfig {
