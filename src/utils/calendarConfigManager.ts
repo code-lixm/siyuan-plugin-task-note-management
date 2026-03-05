@@ -5,8 +5,8 @@ const CALENDAR_CONFIG_FILE = 'data/storage/petal/siyuan-plugin-task-daily/calend
 
 export interface CalendarConfig {
     colorBy: 'category' | 'priority' | 'project';
-    viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7';
-    viewType: 'timeline' | 'kanban' | 'list';
+    viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays7';
+    viewType: 'timeline' | 'kanban' | 'list' | 'resource';
     showLunar: boolean;
     showPomodoro: boolean;
     completionFilter: 'all' | 'completed' | 'incomplete';
@@ -17,6 +17,7 @@ export interface CalendarConfig {
     repeatInstanceLimit: number;
     showHiddenTasks: boolean; // 显示不在日历视图显示的任务
     showHabits: boolean; // 显示习惯打卡
+    defaultNotebookId: string; // 默认日记笔记本ID
 }
 
 export class CalendarConfigManager {
@@ -27,19 +28,20 @@ export class CalendarConfigManager {
     private constructor(plugin: Plugin) {
         this.plugin = plugin;
         this.config = {
-            colorBy: 'priority', // 默认按优先级上色
-            viewMode: 'timeGridWeek', // 默认周视图
-            viewType: 'timeline', // 默认视图类型
-            showLunar: true, // 默认显示农历
-            showPomodoro: true, // 默认显示番茄专注时间
-            completionFilter: 'all', // 默认显示全部状态
-            showCrossDayTasks: true, // 默认显示跨天任务
-            crossDayThreshold: -1, // 默认显示全部天数 (-1表示不限制)
-            showSubtasks: true, // 默认显示子任务
-            showRepeatTasks: true, // 默认显示重复任务
-            repeatInstanceLimit: -1, // 默认显示全部实例 (-1表示不限制)
-            showHiddenTasks: false, // 默认不显示隐藏任务
-            showHabits: true // 默认显示习惯打卡
+            colorBy: 'priority',
+            viewMode: 'timeGridWeek',
+            viewType: 'timeline',
+            showLunar: true,
+            showPomodoro: true,
+            completionFilter: 'all',
+            showCrossDayTasks: true,
+            crossDayThreshold: -1,
+            showSubtasks: true,
+            showRepeatTasks: true,
+            repeatInstanceLimit: -1,
+            showHiddenTasks: false,
+            showHabits: true,
+            defaultNotebookId: ''
         };
     }
 
@@ -70,6 +72,7 @@ export class CalendarConfigManager {
             settings.calendarRepeatInstanceLimit = this.config.repeatInstanceLimit;
             settings.calendarShowHiddenTasks = this.config.showHiddenTasks;
             settings.calendarShowHabits = this.config.showHabits;
+            settings.calendarDefaultNotebookId = this.config.defaultNotebookId;
             await (this.plugin as any).saveSettings(settings);
         } catch (error) {
             console.error('Failed to save calendar config:', error);
@@ -105,16 +108,17 @@ export class CalendarConfigManager {
                 colorBy: settings.calendarColorBy || 'priority',
                 viewMode: settings.calendarViewMode || 'timeGridWeek',
                 viewType: settings.calendarViewType || 'timeline',
-                showLunar: settings.calendarShowLunar !== false, // 默认为 true
-                showPomodoro: settings.calendarShowPomodoro !== false, // 默认为 true
+                showLunar: settings.calendarShowLunar !== false,
+                showPomodoro: settings.calendarShowPomodoro !== false,
                 completionFilter: (settings.calendarCompletionFilter as any) || 'all',
-                showCrossDayTasks: settings.calendarShowCrossDayTasks !== false, // 默认为 true
-                crossDayThreshold: settings.calendarCrossDayThreshold !== undefined ? settings.calendarCrossDayThreshold : -1, // 默认为 -1
-                showSubtasks: settings.calendarShowSubtasks !== false, // 默认为 true
-                showRepeatTasks: settings.calendarShowRepeatTasks !== false, // 默认为 true
-                repeatInstanceLimit: settings.calendarRepeatInstanceLimit !== undefined ? settings.calendarRepeatInstanceLimit : -1, // 默认为 -1
-                showHiddenTasks: settings.calendarShowHiddenTasks === true, // 默认为 false
-                showHabits: settings.calendarShowHabits !== false // 默认为 true
+                showCrossDayTasks: settings.calendarShowCrossDayTasks !== false,
+                crossDayThreshold: settings.calendarCrossDayThreshold !== undefined ? settings.calendarCrossDayThreshold : -1,
+                showSubtasks: settings.calendarShowSubtasks !== false,
+                showRepeatTasks: settings.calendarShowRepeatTasks !== false,
+                repeatInstanceLimit: settings.calendarRepeatInstanceLimit !== undefined ? settings.calendarRepeatInstanceLimit : -1,
+                showHiddenTasks: settings.calendarShowHiddenTasks === true,
+                showHabits: settings.calendarShowHabits !== false,
+                defaultNotebookId: settings.calendarDefaultNotebookId || ''
             };
         } catch (error) {
             console.warn('Failed to load calendar config, using defaults:', error);
@@ -131,7 +135,8 @@ export class CalendarConfigManager {
                 showRepeatTasks: true,
                 repeatInstanceLimit: -1,
                 showHiddenTasks: false,
-                showHabits: true
+                showHabits: true,
+                defaultNotebookId: ''
             };
             try {
                 await this.saveConfig();
@@ -155,21 +160,21 @@ export class CalendarConfigManager {
         return this.config.colorBy;
     }
 
-    public async setViewMode(viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7') {
+    public async setViewMode(viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays7') {
         this.config.viewMode = viewMode;
         await this.saveConfig();
     }
 
-    public getViewMode(): 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7' {
+    public getViewMode(): 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays7' {
         return this.config.viewMode;
     }
 
-    public async setViewType(viewType: 'timeline' | 'kanban' | 'list') {
+    public async setViewType(viewType: 'timeline' | 'kanban' | 'list' | 'resource') {
         this.config.viewType = viewType;
         await this.saveConfig();
     }
 
-    public getViewType(): 'timeline' | 'kanban' | 'list' {
+    public getViewType(): 'timeline' | 'kanban' | 'list' | 'resource' {
         return this.config.viewType;
     }
 
@@ -260,5 +265,14 @@ export class CalendarConfigManager {
 
     public getConfig(): CalendarConfig {
         return { ...this.config };
+    }
+
+    public async setDefaultNotebookId(notebookId: string) {
+        this.config.defaultNotebookId = notebookId;
+        await this.saveConfig();
+    }
+
+    public getDefaultNotebookId(): string {
+        return this.config.defaultNotebookId || '';
     }
 }

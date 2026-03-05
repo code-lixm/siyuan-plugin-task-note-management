@@ -32,6 +32,7 @@ interface IResGetChildBlock {
 interface IResGetTemplates {
     content: string;
     path: string;
+    icon?: string;
 }
 
 interface IResReadDir {
@@ -62,4 +63,3 @@ interface IResForwardProxy {
 interface IResExportResources {
     path: string;
 }
-

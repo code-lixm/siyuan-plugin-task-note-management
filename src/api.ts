@@ -736,6 +736,10 @@ export async function currentTime(): Promise<number> {
     return request('/api/system/currentTime', {});
 }
 
+export async function getSystemConf(): Promise<any> {
+    return request('/api/system/getConf', {});
+}
+
 // **************************************** Reminder API ****************************************
 
 
@@ -1057,4 +1061,3 @@ export async function uploadCloud(paths?: string[], silent: boolean = false): Pr
         return null;
     }
 }
-

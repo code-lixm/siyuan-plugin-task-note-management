@@ -2395,3 +2395,19 @@
         opacity: 0.85;
     }
 }
+
+/* 日记标记样式 */
+.fc-day-has-daily-note {
+    .fc-daygrid-day-number {
+        color: var(--b3-theme-primary) !important;
+        text-decoration: underline !important;
+        font-weight: 500;
+    }
+}
+
+/* 年视图中月份的日记标记样式 */
+.fc-multimonth-year {
+    .fc-day-has-daily-note {
+        background-color: var(--b3-theme-primary-lightest);
+    }
+}

@@ -168,6 +168,10 @@ export class ProjectManager {
         }
     }
 
+    public getAllProjects(): Project[] {
+        return [...this.projects];
+    }
+
     public getProjectsGroupedByStatus(): { [key: string]: Project[] } {
         const statuses = this.statusManager.getStatuses();
         const grouped: { [key: string]: Project[] } = {};

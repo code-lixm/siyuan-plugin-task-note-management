@@ -43,6 +43,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.956.0",
+    "@fullcalendar/resource": "^6.1.20",
+    "@fullcalendar/resource-timegrid": "^6.1.20",
+    "@fullcalendar/resource-timeline": "^6.1.20",
     "@milkdown/crepe": "^7.18.0",
     "@milkdown/kit": "^7.18.0",
     "@milkdown/prose": "^7.18.0",

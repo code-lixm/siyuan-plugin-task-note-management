@@ -4,6 +4,8 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
+import resourceTimeGridPlugin from '@fullcalendar/resource-timegrid';
+import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import { showMessage, confirm, openTab, Menu, Dialog, Constants } from "siyuan";
 import { refreshSql, getBlockByID, sql, updateBlock, getBlockKramdown, updateBindBlockAtrrs, openBlock } from "../api";
 import { getLocalDateString, getLocalDateTime, getLocalDateTimeString, compareDateStrings, getLogicalDateString, getRelativeDateString, getDayStartAdjustedDate, getLocaleTag } from "../utils/dateUtils";
@@ -26,6 +28,7 @@ import { getNextLunarMonthlyDate, getNextLunarYearlyDate, getSolarDateLunarStrin
 import { BlockBindingDialog } from "./BlockBindingDialog";
 import { PomodoroRecordManager } from "../utils/pomodoroRecord";
 import { Solar } from 'lunar-typescript';
+import { DailyNoteManager } from "../utils/dailyNoteManager";
 export class CalendarView {
     private container: HTMLElement;
     private calendar: Calendar;
@@ -58,11 +61,9 @@ export class CalendarView {
     private dropIndicator: HTMLElement | null = null; // 拖放放置指示器
     private externalReminderUpdatedHandler: ((e: Event) => void) | null = null;
     private settingUpdateHandler: ((e: Event) => void) | null = null;
-    private hideTooltipTimeout: number | null = null; // 添加提示框隐藏超时控制
-    private tooltipShowTimeout: number | null = null; // 添加提示框显示延迟控制
-    private lastClickTime: number = 0; // 添加双击检测
-    private clickTimeout: number | null = null; // 添加单击延迟超时
-    private refreshTimeout: number | null = null; // 添加刷新防抖超时
+    private hideTooltipTimeout: number | null = null;
+    private tooltipShowTimeout: number | null = null;
+    private refreshTimeout: number | null = null;
     private currentCompletionFilter: string = 'all'; // 当前完成状态过滤
     private isDragging: boolean = false; // 标记是否正在拖动事件
     private allDayDragState: {
@@ -97,7 +98,9 @@ export class CalendarView {
     // 使用全局番茄钟管理器
     private pomodoroManager: PomodoroManager = PomodoroManager.getInstance();
     private pomodoroRecordManager: PomodoroRecordManager;
-    private lute: any; // Markdown 渲染器
+    private lute: any;
+    private dailyNoteManager: DailyNoteManager = DailyNoteManager.getInstance();
+    private dailyNoteDates: Set<string> = new Set();
 
     private async updateSettings() {
         const settings = await this.plugin.loadSettings();
@@ -365,6 +368,9 @@ export class CalendarView {
             let viewMode: string;
             if (viewType === 'list') {
                 viewMode = 'listYear';
+            } else if (viewType === 'resource') {
+                // resource timeline year view
+                viewMode = 'resourceTimelineYear';
             } else {
                 // timeline and kanban both use multiMonthYear
                 viewMode = 'multiMonthYear';
@@ -383,6 +389,9 @@ export class CalendarView {
             let viewMode: string;
             if (viewType === 'list') {
                 viewMode = 'listMonth';
+            } else if (viewType === 'resource') {
+                // resource timeline month view
+                viewMode = 'resourceTimelineMonth';
             } else {
                 // timeline and kanban both use dayGridMonth
                 viewMode = 'dayGridMonth';
@@ -404,6 +413,8 @@ export class CalendarView {
                 viewMode = 'timeGridWeek';
             } else if (viewType === 'kanban') {
                 viewMode = 'dayGridWeek';
+            } else if (viewType === 'resource') {
+                viewMode = 'resourceTimeGridWeek';
             } else { // list
                 viewMode = 'listWeek';
             }
@@ -425,6 +436,9 @@ export class CalendarView {
                 viewMode = 'timeGridMultiDays7';
             } else if (viewType === 'kanban') {
                 viewMode = 'dayGridMultiDays7';
+            } else if (viewType === 'resource') {
+                // resource timeline multi-days view
+                viewMode = 'resourceTimelineMultiDays7';
             } else { // list
                 viewMode = 'listMultiDays7';
             }
@@ -449,6 +463,8 @@ export class CalendarView {
                 viewMode = 'timeGridDay';
             } else if (viewType === 'kanban') {
                 viewMode = 'dayGridDay';
+            } else if (viewType === 'resource') {
+                viewMode = 'resourceTimeGridDay';
             } else { // list
                 viewMode = 'listDay';
             }
@@ -472,7 +488,8 @@ export class CalendarView {
         const viewTypeOptions = [
             { value: 'timeline', text: i18n("viewTypeTimeline") },
             { value: 'kanban', text: i18n("viewTypeKanban") },
-            { value: 'list', text: i18n("viewTypeList") }
+            { value: 'list', text: i18n("viewTypeList") },
+            { value: 'resource', text: i18n("viewTypeResource") || "资源" }
         ];
 
         const currentViewTypeText = viewTypeOptions.find(opt => opt.value === currentViewType)?.text || i18n("viewTypeTimeline");
@@ -510,7 +527,7 @@ export class CalendarView {
 
             optionItem.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const selectedViewType = option.value as 'timeline' | 'kanban' | 'list';
+                const selectedViewType = option.value as 'timeline' | 'kanban' | 'list' | 'resource';
                 const currentViewMode = this.calendarConfigManager.getViewMode();
 
                 // Determine the new view mode based on current view mode and new view type
@@ -518,16 +535,20 @@ export class CalendarView {
 
                 // Extract the time period from current view mode (year, month, week, day)
                 if (currentViewMode === 'multiMonthYear') {
-                    // 对于年视图，按选中的 viewType 决定是保留 timeline/kanban 还是切换为 listYear
+                    // 对于年视图，按选中的 viewType 决定是保留 timeline/kanban 还是切换为 listYear/resourceTimelineYear
                     if (selectedViewType === 'list') {
                         newViewMode = 'listYear';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimelineYear';
                     } else {
                         newViewMode = 'multiMonthYear';
                     }
                 } else if (currentViewMode === 'dayGridMonth') {
-                    // 对于月视图，按选中的 viewType 决定是保留 dayGridMonth 还是切换为 listMonth
+                    // 对于月视图，按选中的 viewType 决定是保留 dayGridMonth 还是切换为 listMonth/resourceTimelineMonth
                     if (selectedViewType === 'list') {
                         newViewMode = 'listMonth';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimelineMonth';
                     } else {
                         newViewMode = 'dayGridMonth';
                     }
@@ -537,6 +558,8 @@ export class CalendarView {
                         newViewMode = 'timeGridWeek';
                     } else if (selectedViewType === 'kanban') {
                         newViewMode = 'dayGridWeek';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimeGridWeek';
                     } else { // list
                         newViewMode = 'listWeek';
                     }
@@ -546,6 +569,8 @@ export class CalendarView {
                         newViewMode = 'timeGridMultiDays7';
                     } else if (selectedViewType === 'kanban') {
                         newViewMode = 'dayGridMultiDays7';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimelineMultiDays7';
                     } else { // list
                         newViewMode = 'listMultiDays7';
                     }
@@ -555,6 +580,8 @@ export class CalendarView {
                         newViewMode = 'timeGridDay';
                     } else if (selectedViewType === 'kanban') {
                         newViewMode = 'dayGridDay';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimeGridDay';
                     } else { // list
                         newViewMode = 'listDay';
                     }
@@ -562,6 +589,8 @@ export class CalendarView {
                     // List month view
                     if (selectedViewType === 'list') {
                         newViewMode = 'listMonth';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimelineMonth';
                     } else {
                         newViewMode = 'dayGridMonth';
                     }
@@ -569,6 +598,8 @@ export class CalendarView {
                     // List year view
                     if (selectedViewType === 'list') {
                         newViewMode = 'listYear';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimelineYear';
                     } else {
                         newViewMode = 'multiMonthYear';
                     }
@@ -578,6 +609,8 @@ export class CalendarView {
                         newViewMode = 'timeGridWeek';
                     } else if (selectedViewType === 'kanban') {
                         newViewMode = 'dayGridWeek';
+                    } else if (selectedViewType === 'resource') {
+                        newViewMode = 'resourceTimeGridWeek';
                     } else { // list
                         newViewMode = 'listWeek';
                     }
@@ -1075,7 +1108,7 @@ export class CalendarView {
         const initialViewMode = this.calendarConfigManager.getViewMode();
         const multiDaysStartDate = getRelativeDateString(-1);
         this.calendar = new Calendar(calendarEl, {
-            plugins: [dayGridPlugin, timeGridPlugin, multiMonthPlugin, listPlugin, interactionPlugin],
+            plugins: [dayGridPlugin, timeGridPlugin, multiMonthPlugin, listPlugin, interactionPlugin, resourceTimeGridPlugin, resourceTimelinePlugin],
             initialView: initialViewMode,
             initialDate: (initialViewMode && initialViewMode.includes('MultiDays')) ? multiDaysStartDate : getLogicalDateString(),
             views: {
@@ -1085,7 +1118,31 @@ export class CalendarView {
                 listDay: { listDayFormat: { weekday: 'short', month: 'numeric', day: 'numeric', omitCommas: true }, listDaySideFormat: false },
                 listWeek: { listDayFormat: { weekday: 'short', month: 'numeric', day: 'numeric', omitCommas: true }, listDaySideFormat: false },
                 listMonth: { listDayFormat: { weekday: 'short', month: 'numeric', day: 'numeric', omitCommas: true }, listDaySideFormat: false },
-                listYear: { listDayFormat: { weekday: 'short', month: 'numeric', day: 'numeric', omitCommas: true }, listDaySideFormat: false }
+                listYear: { listDayFormat: { weekday: 'short', month: 'numeric', day: 'numeric', omitCommas: true }, listDaySideFormat: false },
+                // Resource views
+                resourceTimeGridDay: { type: 'resourceTimeGrid', duration: { days: 1 } },
+                resourceTimeGridWeek: { type: 'resourceTimeGrid', duration: { days: 7 } },
+                resourceTimelineDay: { type: 'resourceTimeline', duration: { days: 1 }, slotDuration: '01:00:00' },
+                resourceTimelineWeek: { type: 'resourceTimeline', duration: { days: 7 }, slotDuration: '01:00:00' },
+                resourceTimelineMonth: { 
+                    type: 'resourceTimeline', 
+                    duration: { months: 1 }, 
+                    slotDuration: '1 day',
+                    slotLabelFormat: [
+                        { month: 'short' },
+                        { day: 'numeric' }
+                    ]
+                },
+                resourceTimelineYear: { 
+                    type: 'resourceTimeline', 
+                    duration: { years: 1 }, 
+                    slotDuration: '1 week',
+                    slotLabelFormat: [
+                        { year: 'numeric' },
+                        { month: 'short', day: 'numeric' }
+                    ]
+                },
+                resourceTimelineMultiDays7: { type: 'resourceTimeline', duration: { days: 7 }, slotDuration: '01:00:00' }
             },
             multiMonthMaxColumns: 1, // force a single column
             headerToolbar: {
@@ -1161,6 +1218,7 @@ export class CalendarView {
             viewDidMount: this.handleViewDidMount.bind(this),
             editable: true,
             selectable: true,
+            selectMinDistance: 6,
             selectMirror: true,
             selectOverlap: true,
             eventResizableFromStart: true, // 允许从事件顶部拖动调整开始时间
@@ -1346,18 +1404,49 @@ export class CalendarView {
                 }
                 return this.handleEventAllow(dropInfo, draggedEvent);
             },
+
             dateClick: this.handleDateClick.bind(this),
             select: this.handleDateSelect.bind(this),
             // 移除自动事件源，改为手动管理事件
             events: [],
+            // 资源数据源 - 将项目作为资源
+            resources: async (fetchInfo, successCallback, failureCallback) => {
+                try {
+                    const projects = await this.projectManager.getAllProjects();
+                    const resources = [
+                        // 添加默认资源：无项目
+                        {
+                            id: 'no-project',
+                            title: i18n("noProject") || "无项目",
+                            eventColor: '#8f8f8f'
+                        },
+                        // 项目资源
+                        ...projects.map(project => ({
+                            id: project.id,
+                            title: project.name,
+                            eventColor: project.color || undefined
+                        }))
+                    ];
+                    successCallback(resources);
+                } catch (error) {
+                    console.error('获取资源失败:', error);
+                    failureCallback(error);
+                }
+            },
             dayCellClassNames: (arg) => {
                 const today = getLogicalDateString();
                 const cellDate = getLocalDateString(arg.date);
+                const classes: string[] = [];
 
                 if (cellDate === today) {
-                    return ['fc-today-custom'];
+                    classes.push('fc-today-custom');
                 }
-                return [];
+
+                if (this.dailyNoteDates.has(cellDate.replace(/-/g, ''))) {
+                    classes.push('fc-day-has-daily-note');
+                }
+
+                return classes;
             },
             dayHeaderClassNames: (arg) => {
                 const today = getLogicalDateString();
@@ -1490,10 +1579,9 @@ export class CalendarView {
                     }
                 }
             },
-            // 添加视图切换和日期变化的监听
             datesSet: () => {
-                // 当视图的日期范围改变时（包括切换前后时间），刷新事件
                 this.refreshEvents();
+                this.refreshDailyNoteDates();
             }
         });
 
@@ -5057,167 +5145,152 @@ export class CalendarView {
         }
     }
 
-    private handleDateClick(info) {
-        // 实现双击检测逻辑
-        const currentTime = Date.now();
-        const timeDiff = currentTime - this.lastClickTime;
-
-        // 清除之前的单击超时
-        if (this.clickTimeout) {
-            clearTimeout(this.clickTimeout);
-            this.clickTimeout = null;
+    private async openOrCreateDailyNote(dateStr: string, notebookId?: string) {
+        const finalNotebookId = notebookId || this.calendarConfigManager.getDefaultNotebookId();
+        if (!finalNotebookId) {
+            showMessage('请先设置默认笔记本', 3000, 'info');
+            return;
         }
 
-        // 如果两次点击间隔小于500ms，认为是双击
-        if (timeDiff < 500) {
-            // 双击事件 - 创建快速提醒
-            this.createQuickReminder(info);
-            this.lastClickTime = 0; // 重置点击时间
-        } else {
-            // 单击事件 - 设置延迟，如果在延迟期间没有第二次点击，则不执行任何操作
-            this.lastClickTime = currentTime;
-            this.clickTimeout = window.setTimeout(() => {
-                // 单击事件不执行任何操作（原来是创建快速提醒，现在改为双击才创建）
-                this.lastClickTime = 0;
-                this.clickTimeout = null;
-            }, 500);
+        // 将日期字符串转换为 yyyyMMdd 格式
+        const date = dateStr.replace(/-/g, '');
+
+        try {
+            const opened = await this.dailyNoteManager.openOrCreateDailyNote(finalNotebookId, date);
+            if (opened) {
+                // 刷新日记标记
+                await this.refreshDailyNoteDates();
+            }
+        } catch (error) {
+            console.error('打开或创建日记失败:', error);
+            showMessage('打开或创建日记失败', 3000, 'error');
         }
     }
 
-    private createQuickReminder(info) {
-        // 双击日期，创建快速提醒
-        const clickedDate = info.dateStr;
-
-        // 获取点击的时间（如果是时间视图且不是all day区域）
-        let clickedTime = null;
-        if (info.date && this.calendar.view.type !== 'dayGridMonth') {
-            // 在周视图或日视图中，检查是否点击在all day区域
-            // 通过检查点击的时间是否为整点且分钟为0来判断是否在all day区域
-            // 或者通过检查info.allDay属性（如果存在）
-            const isAllDayClick = info.allDay ||
-                (info.date.getHours() === 0 && info.date.getMinutes() === 0) ||
-                // 检查点击位置是否在all day区域（通过DOM元素类名判断）
-                this.isClickInAllDayArea(info.jsEvent);
-
-            if (!isAllDayClick) {
-                // 只有在非all day区域点击时才设置具体时间
-                const hours = info.date.getHours();
-                const minutes = info.date.getMinutes();
-                clickedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-            }
+    private async refreshDailyNoteDates() {
+        let notebookId = this.calendarConfigManager.getDefaultNotebookId();
+        
+        if (!notebookId) {
+            const settings = (this.plugin as any).settings;
+            notebookId = settings?.newDocNotebook;
+        }
+        
+        if (!notebookId || !this.calendar) {
+            return;
         }
 
-        // 创建快速提醒对话框，传递默认项目ID和默认分类ID
-        const quickDialog = new QuickReminderDialog(clickedDate, clickedTime, async () => {
-            // 刷新日历事件
-            await this.refreshEvents();
-        }, undefined, {
-            defaultProjectId: (!this.currentProjectFilter.has('all') && !this.currentProjectFilter.has('none') && this.currentProjectFilter.size === 1) ? Array.from(this.currentProjectFilter)[0] : undefined,
-            defaultCategoryId: (!this.currentCategoryFilter.has('all') && !this.currentCategoryFilter.has('none') && this.currentCategoryFilter.size === 1) ? Array.from(this.currentCategoryFilter)[0] : undefined,
-            plugin: this.plugin // 传入plugin实例
-        });
+        try {
+            const view = this.calendar.view;
+            const start = view.activeStart;
+            const end = view.activeEnd;
 
+            const startStr = getLocalDateString(start).replace(/-/g, '');
+            const endStr = getLocalDateString(end).replace(/-/g, '');
+
+            const notes = await this.dailyNoteManager.queryDailyNotes(notebookId, startStr, endStr);
+            this.dailyNoteDates.clear();
+            notes.forEach(note => {
+                this.dailyNoteDates.add(note.date);
+            });
+
+            this.calendar.render();
+        } catch (error) {
+            console.error('刷新日记日期失败:', error);
+        }
+    }
+
+    private handleDateClick(info) {
+        const currentViewType = this.calendar?.view?.type;
+        if (currentViewType !== 'dayGridMonth') {
+            return;
+        }
+
+        const target = info.jsEvent?.target as HTMLElement | null;
+        const isDateTextClick = !!target?.closest('.fc-daygrid-day-number');
+
+        if (isDateTextClick) {
+            const dateStr = (info.dateStr || '').replace(/-/g, '');
+            this.calendarConfigManager.initialize().then(() => {
+                let notebookId = this.calendarConfigManager.getDefaultNotebookId();
+                if (!notebookId) {
+                    const settings = (this.plugin as any).settings;
+                    notebookId = settings?.newDocNotebook;
+                }
+                if (!notebookId) {
+                    showMessage('请先设置默认笔记本', 3000, 'info');
+                    return;
+                }
+                this.openOrCreateDailyNote(dateStr, notebookId);
+            });
+            return;
+        }
+
+        const dateObj = info.date;
+        const { dateStr: startDateStr } = getLocalDateTime(dateObj);
+        const quickDialog = new QuickReminderDialog(
+            startDateStr,
+            null,
+            async () => {
+                await this.refreshEvents();
+            },
+            {
+                endDate: null,
+                endTime: null,
+                isTimeRange: false
+            },
+            {
+                defaultProjectId: !this.currentProjectFilter.has('all') && !this.currentProjectFilter.has('none') && this.currentProjectFilter.size === 1 ? Array.from(this.currentProjectFilter)[0] : undefined,
+                defaultCategoryId: !this.currentCategoryFilter.has('all') && !this.currentCategoryFilter.has('none') && this.currentCategoryFilter.size === 1 ? Array.from(this.currentCategoryFilter)[0] : undefined,
+                plugin: this.plugin
+            }
+        );
         quickDialog.show();
     }
 
-    /**
-     * 检测点击是否在all day区域
-     * @param jsEvent 原生JavaScript事件对象
-     * @returns 是否在all day区域点击
-     */
-    private isClickInAllDayArea(jsEvent: MouseEvent): boolean {
-        if (!jsEvent || !jsEvent.target) {
-            return false;
-        }
-        const target = jsEvent.target as HTMLElement;
-
-        // 检查点击的元素或其父元素是否包含all day相关的类名
-        let element = target;
-        let depth = 0;
-        const maxDepth = 10; // 限制向上查找的深度，避免无限循环
-
-        while (element && depth < maxDepth) {
-            const className = element.className || '';
-
-            // FullCalendar的all day区域通常包含这些类名
-            if (typeof className === 'string' && (
-                className.includes('fc-timegrid-slot-lane') ||
-                className.includes('fc-timegrid-col-frame') ||
-                className.includes('fc-daygrid') ||
-                className.includes('fc-scrollgrid-section-header') ||
-                className.includes('fc-col-header') ||
-                className.includes('fc-timegrid-divider') ||
-                className.includes('fc-timegrid-col-bg')
-            )) {
-                // 如果包含时间网格相关类名，进一步检查是否在all day区域
-                if (className.includes('fc-timegrid-slot-lane') ||
-                    className.includes('fc-timegrid-col-frame')) {
-                    // 检查Y坐标是否在all day区域（通常在顶部）
-                    const rect = element.getBoundingClientRect();
-                    const clickY = jsEvent.clientY;
-
-                    // 如果点击位置在元素的上半部分，可能是all day区域
-                    return clickY < rect.top + (rect.height * 0.2);
-                }
-
-                // 其他all day相关的类名直接返回true
-                if (className.includes('fc-daygrid') ||
-                    className.includes('fc-scrollgrid-section-header') ||
-                    className.includes('fc-col-header')) {
-                    return true;
-                }
-            }
-
-            element = element.parentElement;
-            depth++;
-        }
-
-        return false;
-    }
-
     private handleDateSelect(selectInfo) {
-        // 强制隐藏提示框，防止在创建新提醒时它仍然可见
-        this.forceHideTooltip();
-        // 处理拖拽选择时间段创建事项
+        const currentViewType = this.calendar?.view?.type;
         const startDate = selectInfo.start;
         const endDate = selectInfo.end;
 
-        // 格式化开始日期
+        if (currentViewType === 'dayGridMonth' && startDate && endDate) {
+            const adjustedEndDate = new Date(endDate);
+            adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+            if (startDate.toDateString() === adjustedEndDate.toDateString()) {
+                this.calendar.unselect();
+                return;
+            }
+        }
+        
+        this.forceHideTooltip();
+        
         const { dateStr: startDateStr, timeStr: startTimeStr } = getLocalDateTime(startDate);
 
         let endDateStr = null;
         let endTimeStr = null;
 
-        // 处理结束日期和时间
         if (endDate) {
             if (selectInfo.allDay) {
-                // 全天事件：FullCalendar 的结束日期是排他的，需要减去一天
                 const adjustedEndDate = new Date(endDate);
                 adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
                 const { dateStr } = getLocalDateTime(adjustedEndDate);
 
-                // 只有当结束日期不同于开始日期时才设置结束日期
                 if (dateStr !== startDateStr) {
                     endDateStr = dateStr;
                 }
             } else {
-                // 定时事件
                 const { dateStr: endDtStr, timeStr: endTmStr } = getLocalDateTime(endDate);
                 endDateStr = endDtStr;
                 endTimeStr = endTmStr;
             }
         }
 
-        // 对于all day选择，不传递时间信息
         const finalStartTime = selectInfo.allDay ? null : startTimeStr;
         const finalEndTime = selectInfo.allDay ? null : endTimeStr;
 
-        // 创建快速提醒对话框，传递时间段信息和默认项目ID
         const quickDialog = new QuickReminderDialog(
             startDateStr,
             finalStartTime,
             async () => {
-                // 刷新日历事件
                 await this.refreshEvents();
             },
             {
@@ -5228,13 +5301,11 @@ export class CalendarView {
             {
                 defaultProjectId: !this.currentProjectFilter.has('all') && !this.currentProjectFilter.has('none') && this.currentProjectFilter.size === 1 ? Array.from(this.currentProjectFilter)[0] : undefined,
                 defaultCategoryId: !this.currentCategoryFilter.has('all') && !this.currentCategoryFilter.has('none') && this.currentCategoryFilter.size === 1 ? Array.from(this.currentCategoryFilter)[0] : undefined,
-                plugin: this.plugin // 传入plugin实例
+                plugin: this.plugin
             }
         );
 
         quickDialog.show();
-
-        // 清除选择
         this.calendar.unselect();
     }
 
@@ -5646,6 +5717,7 @@ export class CalendarView {
                             startEditable: false,
                             durationEditable: false,
                             allDay: false,
+                            resourceId: reminder?.projectId || 'no-project', // 关联到项目资源
                             extendedProps: {
                                 type: 'pomodoro',
                                 eventId: session.eventId, // Associated Task ID
@@ -5737,6 +5809,7 @@ export class CalendarView {
                             editable: false,
                             startEditable: false,
                             durationEditable: false,
+                            resourceId: effectiveProjectId || 'no-project', // 关联到项目资源
                             extendedProps: {
                                 type: 'habit',
                                 habitId: habit.id,
@@ -6051,6 +6124,7 @@ export class CalendarView {
             editable: !reminder.isSubscribed, // 如果是订阅任务，禁止编辑
             startEditable: !reminder.isSubscribed, // 如果是订阅任务，禁止拖动开始时间
             durationEditable: !reminder.isSubscribed, // 如果是订阅任务，禁止调整时长
+            resourceId: reminder.projectId || 'no-project', // 关联到资源视图的项目
             extendedProps: {
                 completed: isCompleted,
                 note: reminder.note || '',
@@ -6716,12 +6790,6 @@ export class CalendarView {
         if (this.hideTooltipTimeout) {
             clearTimeout(this.hideTooltipTimeout);
             this.hideTooltipTimeout = null;
-        }
-
-        // 清理双击检测超时
-        if (this.clickTimeout) {
-            clearTimeout(this.clickTimeout);
-            this.clickTimeout = null;
         }
 
         // 清理刷新防抖超时
@@ -7482,24 +7550,29 @@ export class CalendarView {
         // 根据当前视图模式设置激活按钮
         switch (currentViewMode) {
             case 'dayGridMonth':
+            case 'resourceTimelineMonth':
                 this.monthBtn.classList.add('b3-button--primary');
                 break;
             case 'timeGridWeek':
             case 'dayGridWeek':
             case 'listWeek':
+            case 'resourceTimeGridWeek':
                 this.weekBtn.classList.add('b3-button--primary');
                 break;
             case 'timeGridDay':
             case 'dayGridDay':
             case 'listDay':
+            case 'resourceTimeGridDay':
                 this.dayBtn.classList.add('b3-button--primary');
                 break;
             case 'multiMonthYear':
+            case 'resourceTimelineYear':
                 this.yearBtn.classList.add('b3-button--primary');
                 break;
             case 'timeGridMultiDays7':
             case 'dayGridMultiDays7':
             case 'listMultiDays7':
+            case 'resourceTimelineMultiDays7':
                 if (this.multiDaysBtn) this.multiDaysBtn.classList.add('b3-button--primary');
                 break;
             case 'listMonth':
@@ -7507,6 +7580,12 @@ export class CalendarView {
                 break;
             case 'listYear':
                 this.yearBtn.classList.add('b3-button--primary');
+                break;
+            case 'resourceTimelineDay':
+                this.dayBtn.classList.add('b3-button--primary');
+                break;
+            case 'resourceTimelineWeek':
+                this.weekBtn.classList.add('b3-button--primary');
                 break;
         }
     }

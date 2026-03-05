@@ -414,6 +414,20 @@
                     title: i18n('calendarShowHoliday'),
                     description: i18n('calendarShowHolidayDesc'),
                 },
+                {
+                    key: 'calendarDefaultNotebookId',
+                    value: settings.calendarDefaultNotebookId,
+                    type: 'select',
+                    title: i18n('calendarDefaultNotebookId'),
+                    description: i18n('calendarDefaultNotebookIdDesc'),
+                    options: notebooks.reduce(
+                        (acc, notebook) => {
+                            acc[notebook.id] = notebook.name;
+                            return acc;
+                        },
+                        { '': i18n('pleaseSelectNotebook') } as { [key: string]: string }
+                    ),
+                },
 
                 {
                     key: 'calendarHolidayIcsUrl',
