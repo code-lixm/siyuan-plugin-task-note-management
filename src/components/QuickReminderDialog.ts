@@ -1,6 +1,6 @@
 import { showMessage, Dialog } from "siyuan";
 import { getBlockByID, getBlockDOM, refreshSql, updateBindBlockAtrrs, updateBlock } from "../api";
-import { compareDateStrings, getLogicalDateString, parseNaturalDateTime, autoDetectDateTimeFromTitle } from "../utils/dateUtils";
+import { compareDateStrings, getLogicalDateString, autoDetectDateTimeFromTitle } from "../utils/dateUtils";
 import { CategoryManager } from "../utils/categoryManager";
 import { ProjectManager } from "../utils/projectManager";
 import { i18n } from "../pluginInstance";
@@ -30,6 +30,7 @@ export class QuickReminderDialog {
     private reminder?: any;
     private onSaved?: (modifiedReminder?: any) => void;
     private mode: 'quick' | 'block' | 'edit' | 'batch_edit' | 'note' = 'quick'; // 模式：快速创建、块绑定创建、编辑、批量编辑、仅备注
+    private isSimpleCreateMode: boolean = true;
 
     private findMarkRange(doc: any, pos: number, type: any) {
         let $pos = doc.resolve(pos);
@@ -155,7 +156,7 @@ export class QuickReminderDialog {
     private categoryManager: CategoryManager;
     private projectManager: ProjectManager;
     private pomodoroRecordManager: PomodoroRecordManager;
-    private autoDetectDateTime?: boolean; // 是否自动识别日期时间（undefined 表示未指定，使用插件设置）
+    private autoDetectDateTime: boolean = true; // 自动识别日期时间（快速创建内置开启）
     private defaultProjectId?: string;
     private showKanbanStatus?: 'todo' | 'term' | 'none' = 'term'; // 看板状态显示模式，默认为 'term'
     private defaultStatus?: 'short_term' | 'long_term' | 'doing' | 'todo'; // 默认任务状态
@@ -255,6 +256,9 @@ export class QuickReminderDialog {
             this.defaultSort = options.defaultSort;
             this.skipSave = options.skipSave || false;
         }
+
+        // 新建任务默认使用简化模式，编辑/批量编辑默认显示完整表单
+        this.isSimpleCreateMode = this.mode === 'quick' || this.mode === 'block';
 
         // 如果是编辑模式，确保有reminder
         if (this.mode === 'edit' && !this.reminder) {
@@ -1160,106 +1164,6 @@ export class QuickReminderDialog {
         }
     }
 
-    // 显示自然语言输入对话框
-    private showNaturalLanguageDialog() {
-        // 获取标题输入框的内容作为默认值
-        const titleInput = this.dialog.element.querySelector('#quickReminderTitle') as HTMLTextAreaElement;
-        const defaultValue = titleInput?.value?.trim() || '';
-
-        const nlDialog = new Dialog({
-            title: i18n("smartDateRecognition"),
-            content: `
-                <div class="nl-dialog">
-                    <div class="b3-dialog__content">
-                        <div class="b3-form__group">
-                            <label class="b3-form__label">${i18n("nlInputLabel")}</label>
-                            <input type="text" id="quickNlInput" class="b3-text-field" value="${defaultValue}" placeholder="${i18n("nlInputPlaceholder")}" style="width: 100%;" autofocus>
-                            <div class="b3-form__desc">${i18n("nlInputDesc")}</div>
-                        </div>
-                        <div class="b3-form__group">
-                            <label class="b3-form__label">${i18n("recognitionResultPreview")}</label>
-                            <div id="quickNlPreview" class="nl-preview">${i18n("pleaseEnterDateTimeDesc")}</div>
-                        </div>
-                    </div>
-                    <div class="b3-dialog__action">
-                        <button class="b3-button b3-button--cancel" id="quickNlCancelBtn">${i18n("cancel")}</button>
-                        <button class="b3-button b3-button--primary" id="quickNlConfirmBtn" disabled>${i18n("apply")}</button>
-                    </div>
-                </div>
-            `,
-            width: "400px",
-            height: "30%"
-        });
-
-        const nlInput = nlDialog.element.querySelector('#quickNlInput') as HTMLInputElement;
-        const nlPreview = nlDialog.element.querySelector('#quickNlPreview') as HTMLElement;
-        const nlCancelBtn = nlDialog.element.querySelector('#quickNlCancelBtn') as HTMLButtonElement;
-        const nlConfirmBtn = nlDialog.element.querySelector('#quickNlConfirmBtn') as HTMLButtonElement;
-
-        let currentParseResult: any = {};
-
-        // 实时解析输入
-        const updatePreview = () => {
-            const text = nlInput.value.trim();
-            if (!text) {
-                nlPreview.textContent = '请输入日期时间描述';
-                nlPreview.className = 'nl-preview';
-                nlConfirmBtn.disabled = true;
-                return;
-            }
-
-            currentParseResult = parseNaturalDateTime(text);
-
-            if (currentParseResult.date || currentParseResult.endDate) {
-                let previewText = `📅 ${currentParseResult.date || currentParseResult.endDate || ''}`;
-                if (currentParseResult.time || currentParseResult.endTime) {
-                    previewText += ` ⏰ ${currentParseResult.time || currentParseResult.endTime || ''}`;
-                }
-
-                if (currentParseResult.date && currentParseResult.endDate) {
-                    previewText = `📅 ${currentParseResult.date}${currentParseResult.time ? ' ' + currentParseResult.time : ''} ➡️ ${currentParseResult.endDate}${currentParseResult.endTime ? ' ' + currentParseResult.endTime : ''}`;
-                } else if (currentParseResult.endDate && !currentParseResult.date) {
-                    previewText = `🏁 截止：${currentParseResult.endDate}${currentParseResult.endTime ? ' ' + currentParseResult.endTime : ''}`;
-                }
-
-                nlPreview.textContent = previewText;
-                nlPreview.className = 'nl-preview nl-preview--success';
-                nlConfirmBtn.disabled = false;
-            } else {
-                nlPreview.textContent = '❌ 无法识别日期时间，请尝试其他表达方式';
-                nlPreview.className = 'nl-preview nl-preview--error';
-                nlConfirmBtn.disabled = true;
-            }
-        };
-
-        // 绑定事件
-        nlInput.addEventListener('input', updatePreview);
-        nlInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !nlConfirmBtn.disabled) {
-                this.applyNaturalLanguageResult(currentParseResult);
-                nlDialog.destroy();
-            }
-        });
-
-        nlCancelBtn.addEventListener('click', () => {
-            nlDialog.destroy();
-        });
-
-        nlConfirmBtn.addEventListener('click', () => {
-            this.applyNaturalLanguageResult(currentParseResult);
-            nlDialog.destroy();
-        });
-
-        // 自动聚焦输入框并触发预览更新
-        setTimeout(() => {
-            nlInput.focus();
-            // 如果有默认值，立即触发预览更新
-            if (defaultValue) {
-                updatePreview();
-            }
-        }, 100);
-    }
-
     // 应用自然语言识别结果
     private applyNaturalLanguageResult(result: {
         date?: string;
@@ -1312,20 +1216,8 @@ export class QuickReminderDialog {
         // 初始化分类管理器
         await this.categoryManager.initialize();
 
-        // 如果未通过构造器显式指定 autoDetectDateTime，则从插件设置中读取（如果有传入 plugin）
-        if (this.autoDetectDateTime === undefined) {
-            if (this.plugin && typeof this.plugin.getAutoDetectDateTimeEnabled === 'function') {
-                try {
-                    this.autoDetectDateTime = await this.plugin.getAutoDetectDateTimeEnabled();
-                } catch (err) {
-                    console.warn('获取自动识别设置失败，使用默认值 false:', err);
-                    this.autoDetectDateTime = false;
-                }
-            } else {
-                // 如果未提供 plugin，默认关闭自动识别以保守处理
-                this.autoDetectDateTime = false;
-            }
-        }
+        // 自动识别在快速创建中内置开启
+        this.autoDetectDateTime = true;
 
         // 初始化自定义提醒时间
         if (this.reminder && this.reminder.reminderTimes) {
@@ -1336,8 +1228,6 @@ export class QuickReminderDialog {
         } else {
             this.customTimes = [];
         }
-
-        const currentTime = this.initialTime;
 
         // 如果传入了blockId，尝试获取块内容作为默认标题（优先 DOM 内容；文档根直接使用块/文档标题）
         // 对于batch_edit模式，块内容已从reminder中设置
@@ -1395,26 +1285,26 @@ export class QuickReminderDialog {
                 <div class="quick-reminder-dialog">
                     <div class="b3-dialog__content">
                         <div class="b3-form__group">
-                            <label class="b3-form__label">${i18n("eventTitle")}</label>
                             <div class="title-input-container" style="display: flex; gap: 8px; align-items: flex-start;">
-                                <textarea id="quickReminderTitle" class="b3-text-field" rows="1" placeholder="${i18n("enterReminderTitle")}" spellcheck="false" style="flex: 1; max-height: 200px; resize: vertical; overflow-y: auto; padding: 4px 8px; line-height: 1.5;" required autofocus></textarea>
-                                <button type="button" id="quickNlBtn" class="b3-button b3-button--outline" title="${i18n("smartDateRecognition")}">
-                                    ✨
-                                </button>
+                                <textarea id="quickReminderTitle" class="b3-text-field" rows="1" placeholder="${i18n("enterReminderTitleAutoDetect")}" spellcheck="false" style="flex: 1; max-height: 200px; resize: vertical; overflow-y: auto; padding: 4px 8px; line-height: 1.5;" required autofocus></textarea>
                             </div>
                         </div>
-                        <div class="b3-form__group" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                            <label class="b3-checkbox" style="display: flex; align-items: center;">
-                                <input type="checkbox" class="b3-switch" id="quickPasteAutoDetect" ${this.autoDetectDateTime ? 'checked' : ''}>
-                                <span class="b3-checkbox__graphic"></span>
-                                <span class="b3-checkbox__label">${i18n("pasteAutoDetectDate")}</span>
-                            </label>
-                            <div id="quickSyncBlockTitleContainer" style="display: none;">
-                                <button type="button" id="quickSyncBlockTitleBtn" class="b3-button b3-button--outline b3-button--small" style="display: flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px;">
-                                    <svg style="width: 12px; height: 12px;"><use xlink:href="#iconRefresh"></use></svg>
-                                    <span>${i18n("syncBlockTitle")}</span>
-                                </button>
+                        <div class="b3-form__group quick-top-controls">
+                            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                                <div id="quickSyncBlockTitleContainer" style="display: none;">
+                                    <button type="button" id="quickSyncBlockTitleBtn" class="b3-button b3-button--outline b3-button--small" style="display: flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px;">
+                                        <svg style="width: 12px; height: 12px;"><use xlink:href="#iconRefresh"></use></svg>
+                                        <span>${i18n("syncBlockTitle")}</span>
+                                    </button>
+                                </div>
                             </div>
+                            ${(this.mode === 'quick' || this.mode === 'block') ? `
+                            <div class="quick-form-mode-inline">
+                                <span class="quick-form-mode-label">${i18n("formMode")}</span>
+                                <button type="button" id="quickSimpleModeBtn" class="b3-button quick-form-mode-btn ${this.isSimpleCreateMode ? 'b3-button--primary quick-form-mode-btn--active' : 'b3-button--outline'}" style="padding: 4px 10px;">${i18n("simpleMode")}</button>
+                                <button type="button" id="quickFullModeBtn" class="b3-button quick-form-mode-btn ${!this.isSimpleCreateMode ? 'b3-button--primary quick-form-mode-btn--active' : 'b3-button--outline'}" style="padding: 4px 10px;">${i18n("fullMode")}</button>
+                            </div>
+                            ` : ''}
                         </div>
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("reminderDate")}</label>
@@ -1435,10 +1325,6 @@ export class QuickReminderDialog {
                                         </button>
                                     </div>
                                 </div>
-                                <!-- 持续天数行: allow wrap when narrow -->
-                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                    <span style="font-size: 13px; color: var(--b3-theme-on-surface-light);">${i18n("daysUnit")}</span>
-                                </div>
                                 <!-- 结束行: responsive, keep end time + clear button together -->
                                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                     <span style="font-size: 13px; color: var(--b3-theme-on-surface); white-space: nowrap; flex: 0 0 auto;">${i18n("endLabel")}</span>
@@ -1456,7 +1342,7 @@ export class QuickReminderDialog {
                                     </div>
                                 </div>
                             </div>
-                            <div class="b3-form__desc">${i18n("dateTimeOptionalDesc")}</div>
+                            <div class="b3-form__desc" style="${this.isSimpleCreateMode ? 'display: none;' : ''}">${i18n("dateTimeOptionalDesc")}</div>
                         </div>
                         <!-- 完成时间显示和编辑 -->
                         <div class="b3-form__group" id="quickCompletedTimeGroup" style="display: none;">
@@ -1471,7 +1357,7 @@ export class QuickReminderDialog {
                                 </button>
                             </div>
                         </div>
-                        <div class="b3-form__group">
+                        <div class="b3-form__group" id="quickCustomReminderGroup" style="${this.isSimpleCreateMode ? 'display: none;' : ''}">
                             <label class="b3-form__label">${i18n("customReminderTimes")}</label>
                             <div id="quickCustomTimeList" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
                                 <!-- Added times will be shown here -->
@@ -1507,7 +1393,7 @@ export class QuickReminderDialog {
                         </div>
                         
                         <!-- 添加重复设置 -->
-                        <div class="b3-form__group" id="repeatSettingsGroup" style="${this.isInstanceEdit ? 'display: none;' : ''}">
+                        <div class="b3-form__group" id="repeatSettingsGroup" style="${(this.isInstanceEdit || this.isSimpleCreateMode) ? 'display: none;' : ''}">
                             <label class="b3-form__label">${i18n("repeatSettings")}</label>
                             <div class="repeat-setting-container">
                                 <button type="button" id="quickRepeatSettingsBtn" class="b3-button b3-button--outline" style="width: 100%;">
@@ -1516,6 +1402,7 @@ export class QuickReminderDialog {
                                 </button>
                             </div>
                         </div>
+                        <div id="quickAdvancedSection" style="${this.isSimpleCreateMode ? 'display: none;' : ''}">
                         <!-- 绑定块/文档输入，允许手动输入块 ID 或文档 ID -->
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("bindToBlock") || '块或文档 ID'}</label>
@@ -1597,6 +1484,7 @@ export class QuickReminderDialog {
                                 </button>
                             </div>
                         </div>
+                        </div>
 
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("eventCategory")}
@@ -1608,6 +1496,7 @@ export class QuickReminderDialog {
                                 <!-- 分类选择器将在这里渲染 -->
                             </div>
                         </div>
+                        <div id="quickAdvancedExtraSection" style="${this.isSimpleCreateMode ? 'display: none;' : ''}">
                         <div class="b3-form__group" id="quickProjectGroup" style="${this.hideProjectSelector ? 'display: none;' : ''}">
                             <label class="b3-form__label">${i18n("setProject")}</label>
                             <div class="custom-select" id="quickProjectSelectCustom" style="position: relative;">
@@ -1652,6 +1541,7 @@ export class QuickReminderDialog {
                                 <!-- 标签选择器将在这里渲染 -->
                             </div>
                         </div>
+                        </div>
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("priority")}</label>
                             <div class="priority-selector" id="quickPrioritySelector">
@@ -1673,6 +1563,7 @@ export class QuickReminderDialog {
                                 </div>
                             </div>
                         </div>
+                        <div id="quickAdvancedDisplaySection" style="${this.isSimpleCreateMode ? 'display: none;' : ''}">
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("displaySettings")}</label>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -1692,6 +1583,7 @@ export class QuickReminderDialog {
                                 </label>
                             </div>
                         </div>
+                        </div>
 
                         
                     </div>
@@ -1702,8 +1594,14 @@ export class QuickReminderDialog {
                 </div>
             `,
             width: "min(500px, 90%)",
-            height: this.mode === 'note' ? "auto" : "81vh"
+            height: "auto"
         });
+
+        const dialogTitleEl = this.dialog.element.querySelector('.b3-dialog__header .b3-dialog__title') as HTMLElement;
+        if (dialogTitleEl) {
+            dialogTitleEl.style.textAlign = 'left';
+            dialogTitleEl.style.marginRight = 'auto';
+        }
 
         // Initialize Vditor
         setTimeout(() => {
@@ -2456,7 +2354,6 @@ export class QuickReminderDialog {
         const categorySelector = this.dialog.element.querySelector('#quickCategorySelector') as HTMLElement;
         const repeatSettingsBtn = this.dialog.element.querySelector('#quickRepeatSettingsBtn') as HTMLButtonElement;
         const manageCategoriesBtn = this.dialog.element.querySelector('#quickManageCategoriesBtn') as HTMLButtonElement;
-        const nlBtn = this.dialog.element.querySelector('#quickNlBtn') as HTMLButtonElement;
         const createDocBtn = this.dialog.element.querySelector('#quickCreateDocBtn') as HTMLButtonElement;
         const pasteBlockRefBtn = this.dialog.element.querySelector('#quickPasteBlockRefBtn') as HTMLButtonElement;
         const titleInput = this.dialog.element.querySelector('#quickReminderTitle') as HTMLTextAreaElement;
@@ -2466,6 +2363,13 @@ export class QuickReminderDialog {
         const durationInput = this.dialog.element.querySelector('#quickDurationDays') as HTMLInputElement;
         const syncBlockTitleBtn = this.dialog.element.querySelector('#quickSyncBlockTitleBtn') as HTMLButtonElement;
         const syncTitleToBlockBtn = this.dialog.element.querySelector('#quickSyncTitleToBlockBtn') as HTMLButtonElement;
+        const simpleModeBtn = this.dialog.element.querySelector('#quickSimpleModeBtn') as HTMLButtonElement;
+        const fullModeBtn = this.dialog.element.querySelector('#quickFullModeBtn') as HTMLButtonElement;
+        const advancedSection = this.dialog.element.querySelector('#quickAdvancedSection') as HTMLElement;
+        const advancedExtraSection = this.dialog.element.querySelector('#quickAdvancedExtraSection') as HTMLElement;
+        const advancedDisplaySection = this.dialog.element.querySelector('#quickAdvancedDisplaySection') as HTMLElement;
+        const customReminderGroup = this.dialog.element.querySelector('#quickCustomReminderGroup') as HTMLElement;
+        const repeatSettingsGroup = this.dialog.element.querySelector('#repeatSettingsGroup') as HTMLElement;
 
         // 更新标题为绑定块内容
         syncBlockTitleBtn?.addEventListener('click', () => {
@@ -2509,6 +2413,46 @@ export class QuickReminderDialog {
                 showMessage(i18n('selectBlockFirst'), 3000, 'error');
             }
         });
+
+        const applyFormMode = (simpleMode: boolean) => {
+            this.isSimpleCreateMode = simpleMode;
+
+            if (advancedSection) {
+                advancedSection.style.display = simpleMode ? 'none' : 'block';
+            }
+
+            if (advancedExtraSection) {
+                advancedExtraSection.style.display = simpleMode ? 'none' : 'block';
+            }
+
+            if (advancedDisplaySection) {
+                advancedDisplaySection.style.display = simpleMode ? 'none' : 'block';
+            }
+
+            if (customReminderGroup) {
+                customReminderGroup.style.display = simpleMode ? 'none' : 'block';
+            }
+
+            if (repeatSettingsGroup) {
+                repeatSettingsGroup.style.display = (simpleMode || this.isInstanceEdit) ? 'none' : 'block';
+            }
+
+            if (simpleModeBtn) {
+                simpleModeBtn.classList.toggle('b3-button--primary', simpleMode);
+                simpleModeBtn.classList.toggle('b3-button--outline', !simpleMode);
+                simpleModeBtn.classList.toggle('quick-form-mode-btn--active', simpleMode);
+            }
+
+            if (fullModeBtn) {
+                fullModeBtn.classList.toggle('b3-button--primary', !simpleMode);
+                fullModeBtn.classList.toggle('b3-button--outline', simpleMode);
+                fullModeBtn.classList.toggle('quick-form-mode-btn--active', !simpleMode);
+            }
+        };
+
+        simpleModeBtn?.addEventListener('click', () => applyFormMode(true));
+        fullModeBtn?.addEventListener('click', () => applyFormMode(false));
+        applyFormMode(this.isSimpleCreateMode);
 
         // 持续天数与日期的联动逻辑
         // 初始约束：结束日期不能早于开始日期
@@ -2674,24 +2618,21 @@ export class QuickReminderDialog {
                 }
 
                 // 如果启用了自动识别，检测日期时间
-                const pasteAutoDetect = this.dialog.element.querySelector('#quickPasteAutoDetect') as HTMLInputElement;
-                if (pasteAutoDetect && pasteAutoDetect.checked) {
-                    // 使用粘贴的所有非空行进行识别，以便第二行或后续行中的自然语言也能被识别
-                    const joined = lines.join(' ');
-                    const detected = autoDetectDateTimeFromTitle(joined);
-                    if (detected && (detected.date || detected.endDate)) {
-                        this.applyNaturalLanguageResult(detected);
+                // 自动识别内置开启：使用粘贴的所有非空行进行识别，支持第二行或后续行
+                const joined = lines.join(' ');
+                const detected = autoDetectDateTimeFromTitle(joined);
+                if (detected && (detected.date || detected.endDate)) {
+                    this.applyNaturalLanguageResult(detected);
 
-                        // 识别后移除日期
-                        this.plugin.getRemoveDateAfterDetectionEnabled().then((removeEnabled: boolean) => {
-                            if (removeEnabled && detected.cleanTitle !== undefined) {
-                                // 重新计算 titleInput 的值，将粘贴的那部分替换为清理后的文本
-                                const cleanPart = detected.cleanTitle || '';
-                                titleInput.value = before + cleanPart + after;
-                                titleInput.selectionStart = titleInput.selectionEnd = start + cleanPart.length;
-                            }
-                        });
-                    }
+                    // 识别后移除日期
+                    this.plugin.getRemoveDateAfterDetectionEnabled().then((removeEnabled: boolean) => {
+                        if (removeEnabled && detected.cleanTitle !== undefined) {
+                            // 重新计算 titleInput 的值，将粘贴的那部分替换为清理后的文本
+                            const cleanPart = detected.cleanTitle || '';
+                            titleInput.value = before + cleanPart + after;
+                            titleInput.selectionStart = titleInput.selectionEnd = start + cleanPart.length;
+                        }
+                    });
                 }
             }
         });
@@ -2836,13 +2777,33 @@ export class QuickReminderDialog {
             this.saveReminder();
         });
 
-        // Ctrl+Enter 自动保存关闭弹窗
+        // 快捷键保存：Ctrl/Cmd+Enter 强制保存；普通 Enter 在核心输入框内快速保存
         this.dialog.element.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            if (e.key !== 'Enter') return;
+
+            const target = e.target as HTMLElement | null;
+            const targetId = target?.id || '';
+            const coreInputIds = [
+                'quickReminderTitle',
+                'quickReminderDate',
+                'quickReminderTime',
+                'quickReminderEndDate',
+                'quickReminderEndTime'
+            ];
+
+            if (e.ctrlKey || e.metaKey) {
                 this.saveReminder();
                 e.preventDefault();
                 e.stopPropagation();
+                return;
             }
+
+            if (e.shiftKey) return;
+            if (!coreInputIds.includes(targetId)) return;
+
+            this.saveReminder();
+            e.preventDefault();
+            e.stopPropagation();
         });
 
         // 日期验证
@@ -2917,11 +2878,6 @@ export class QuickReminderDialog {
         // 管理分类按钮事件
         manageCategoriesBtn?.addEventListener('click', () => {
             this.showCategoryManageDialog();
-        });
-
-        // 自然语言识别按钮
-        nlBtn?.addEventListener('click', () => {
-            this.showNaturalLanguageDialog();
         });
 
         // 新建文档按钮

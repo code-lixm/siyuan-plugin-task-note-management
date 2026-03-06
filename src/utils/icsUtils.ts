@@ -10,7 +10,7 @@
 import * as ics from 'ics';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { lunarToSolar, solarToLunar } from './lunarUtils';
-import { pushErrMsg, pushMsg, putFile, getBlockKramdown, uploadCloud, getFileBlob } from '../api';
+import { pushErrMsg, pushMsg, putFile, uploadCloud, getFileBlob } from '../api';
 import { Constants } from 'siyuan';
 
 const useShell = async (cmd: 'showItemInFolder' | 'openPath', filePath: string) => {
@@ -51,9 +51,118 @@ export async function exportIcsFile(
             return [parts[0], parts[1]];
         }
 
+        function normalizeReminderItems(reminder: any): Array<{ raw: string; note?: string }> {
+            const items: Array<{ raw: string; note?: string }> = [];
+
+            if (Array.isArray(reminder?.reminderTimes)) {
+                for (const entry of reminder.reminderTimes) {
+                    if (typeof entry === 'string' && entry.trim()) {
+                        items.push({ raw: entry.trim() });
+                    } else if (entry && typeof entry === 'object' && typeof entry.time === 'string' && entry.time.trim()) {
+                        items.push({ raw: entry.time.trim(), note: typeof entry.note === 'string' ? entry.note.trim() : undefined });
+                    }
+                }
+            }
+
+            if (typeof reminder?.customReminderTime === 'string' && reminder.customReminderTime.trim()) {
+                items.push({ raw: reminder.customReminderTime.trim() });
+            }
+
+            return items;
+        }
+
+        function parseReminderDateTime(raw: string, fallbackDate: string): Date | null {
+            if (!raw) return null;
+
+            // YYYY-MM-DDTHH:mm / YYYY-MM-DD HH:mm
+            const fullDateTime = raw.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})(?::\d{2})?$/);
+            if (fullDateTime) {
+                const dt = new Date(`${fullDateTime[1]}T${fullDateTime[2]}:00`);
+                return Number.isNaN(dt.getTime()) ? null : dt;
+            }
+
+            // HH:mm
+            const timeOnly = raw.match(/^(\d{1,2}):(\d{2})$/);
+            if (timeOnly) {
+                const hour = parseInt(timeOnly[1], 10);
+                const minute = parseInt(timeOnly[2], 10);
+                if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+                const dt = new Date(`${fallbackDate}T00:00:00`);
+                dt.setHours(hour, minute, 0, 0);
+                return Number.isNaN(dt.getTime()) ? null : dt;
+            }
+
+            return null;
+        }
+
+        function buildIcsAlarms(reminder: any, startDateArray: [number, number, number], startTimeArray: [number, number] | null, title: string) {
+            if (!startTimeArray) return undefined;
+            if (reminder?.completed) return undefined;
+
+            const startDateStr = `${startDateArray[0]}-${String(startDateArray[1]).padStart(2, '0')}-${String(startDateArray[2]).padStart(2, '0')}`;
+            const eventStart = new Date(startDateArray[0], startDateArray[1] - 1, startDateArray[2], startTimeArray[0], startTimeArray[1], 0, 0);
+
+            const normalizedItems = normalizeReminderItems(reminder);
+            const dedup = new Set<string>();
+            const alarms: any[] = [];
+
+            for (const item of normalizedItems) {
+                const reminderDate = parseReminderDateTime(item.raw, startDateStr);
+                if (!reminderDate) continue;
+
+                const diffMinutes = Math.round((eventStart.getTime() - reminderDate.getTime()) / (60 * 1000));
+                const before = diffMinutes >= 0;
+                const minutes = Math.abs(diffMinutes);
+                const desc = item.note || title;
+                const key = `${before ? 'B' : 'A'}-${minutes}-${desc}`;
+                if (dedup.has(key)) continue;
+                dedup.add(key);
+
+                alarms.push({
+                    action: 'display',
+                    description: desc,
+                    trigger: { before, minutes },
+                });
+            }
+
+            if (alarms.length > 0) return alarms;
+
+            // 回退：未设置自定义提醒时，保持原有默认提前 15 分钟
+            return [{
+                action: 'display',
+                description: title,
+                trigger: { before: true, minutes: 15 },
+            }];
+        }
+
+        function parseTimestamp(value: any): Date | null {
+            if (!value) return null;
+            const dt = new Date(value);
+            return Number.isNaN(dt.getTime()) ? null : dt;
+        }
+
+        function toIcsDateTuple(date: Date): [number, number, number, number, number, number] {
+            return [
+                date.getUTCFullYear(),
+                date.getUTCMonth() + 1,
+                date.getUTCDate(),
+                date.getUTCHours(),
+                date.getUTCMinutes(),
+                date.getUTCSeconds(),
+            ];
+        }
+
+        function applyEventVersionMeta(event: any, entity: any) {
+            const updated = parseTimestamp(entity?.updatedAt) || parseTimestamp(entity?.createdAt);
+            if (!updated) return;
+
+            event.lastModified = toIcsDateTuple(updated);
+            event.sequence = Math.max(0, Math.floor(updated.getTime() / 1000));
+        }
+
         const events: any[] = [];
 
-        function buildRRuleFromRepeat(repeat: any, startDateStr: string) {
+        function buildRRuleFromRepeat(repeat: any) {
             if (!repeat || !repeat.enabled) return null;
             const parts: string[] = [];
             const type = repeat.type || 'daily';
@@ -260,7 +369,7 @@ export async function exportIcsFile(
                                 uid: `${child.id || ''}-${child.date || ''}${child.time ? '-' + child.time.replace(/:/g, '') : ''}@siyuan`,
                                 title: childTitle,
                                 description: childNote,
-                                status: child.completed ? 'CONFIRMED' : 'TENTATIVE', // 不能用CONFIRM，否则outlook会把全天高亮
+                                status: 'CONFIRMED',
                             };
 
                             let childMatches = true;
@@ -322,23 +431,13 @@ export async function exportIcsFile(
                                     created.getUTCSeconds(),
                                 ];
                             }
+                            applyEventVersionMeta(childEvent, child);
 
-                            if (!child.completed && childStartTimeArray) {
-                                childEvent.alarms = [
-                                    {
-                                        action: 'display',
-                                        description: childTitle,
-                                        trigger: { before: true, minutes: 15 },
-                                    },
-                                ];
-                            }
+                            childEvent.alarms = buildIcsAlarms(child, childStartDateArray, childStartTimeArray, childTitle);
 
                             if (child.repeat && child.repeat.enabled) {
                                 try {
-                                    const childRrule = buildRRuleFromRepeat(
-                                        child.repeat,
-                                        child.date || r.date
-                                    );
+                                    const childRrule = buildRRuleFromRepeat(child.repeat);
                                     if (childRrule) {
                                         childEvent.recurrenceRule = childRrule;
                                     }
@@ -486,7 +585,7 @@ export async function exportIcsFile(
                 uid: `${id}-${r.date}${r.time ? '-' + r.time.replace(/:/g, '') : ''}@siyuan`,
                 title: title,
                 description: description,
-                status: r.completed ? 'CONFIRMED' : 'TENTATIVE',
+                status: 'CONFIRMED',
             };
 
             if (startTimeArray) {
@@ -555,16 +654,9 @@ export async function exportIcsFile(
                     created.getUTCSeconds(),
                 ];
             }
+            applyEventVersionMeta(event, r);
 
-            if (!r.completed && startTimeArray) {
-                event.alarms = [
-                    {
-                        action: 'display',
-                        description: title,
-                        trigger: { before: true, minutes: 15 },
-                    },
-                ];
-            }
+            event.alarms = buildIcsAlarms(r, startDateArray, startTimeArray, title);
 
             if (r.repeat && r.repeat.enabled) {
                 // 特殊处理：农历年事件，生成今年和明年两个普通事件
@@ -585,7 +677,7 @@ export async function exportIcsFile(
                                 uid: `${id}-${solar}@siyuan`,
                                 title: title,
                                 description: description,
-                                status: r.completed ? 'CONFIRMED' : 'TENTATIVE',
+                                status: 'CONFIRMED',
                             };
 
                             if (startTimeArray) {
@@ -638,16 +730,9 @@ export async function exportIcsFile(
                                     created.getUTCSeconds(),
                                 ];
                             }
+                            applyEventVersionMeta(occEvent, r);
 
-                            if (!r.completed && startTimeArray) {
-                                occEvent.alarms = [
-                                    {
-                                        action: 'display',
-                                        description: title,
-                                        trigger: { before: true, minutes: 15 },
-                                    },
-                                ];
-                            }
+                            occEvent.alarms = buildIcsAlarms(r, occDateArr as [number, number, number], startTimeArray, title);
 
                             events.push(occEvent);
                         }
@@ -686,7 +771,7 @@ export async function exportIcsFile(
                                             uid: `${id}-${solarStr}@siyuan`,
                                             title: title,
                                             description: description,
-                                            status: r.completed ? 'CONFIRMED' : 'TENTATIVE',
+                                            status: 'CONFIRMED',
                                         };
 
                                         if (startTimeArray) {
@@ -739,16 +824,9 @@ export async function exportIcsFile(
                                                 created.getUTCSeconds(),
                                             ];
                                         }
+                                        applyEventVersionMeta(occEvent, r);
 
-                                        if (!r.completed && startTimeArray) {
-                                            occEvent.alarms = [
-                                                {
-                                                    action: 'display',
-                                                    description: title,
-                                                    trigger: { before: true, minutes: 15 },
-                                                },
-                                            ];
-                                        }
+                                        occEvent.alarms = buildIcsAlarms(r, occDateArr as [number, number, number], startTimeArray, title);
 
                                         events.push(occEvent);
                                     }
@@ -766,7 +844,7 @@ export async function exportIcsFile(
 
                 // 处理其他重复类型的 RRULE
                 try {
-                    const rrule = buildRRuleFromRepeat(r.repeat, r.date);
+                const rrule = buildRRuleFromRepeat(r.repeat);
                     event.recurrenceRule = rrule;
                 } catch (e) {
                     console.warn('构建 RRULE 失败', e, r);

@@ -3805,7 +3805,7 @@ export class ProjectKanbanView {
                 milestones: [{
                     id: '__no_milestone__',
                     name: i18n('noMilestone') || '无里程碑',
-                    icon: '🚫'
+                    icon: ''
                 }],
                 groupId: targetGroupId // 在 Status 视图下，targetGroupId 是 Status ID；Custom 视图下是 Group ID
             });
@@ -11182,7 +11182,7 @@ export class ProjectKanbanView {
             { id: 'tomorrow', name: i18n('tomorrow') || '明日', icon: '🗓️' },
             { id: 'other_date', name: i18n('otherDate'), icon: '📆' },
 
-            { id: 'no_date', name: i18n('noDateReminders') || '无日期', icon: '🚫' },
+            { id: 'no_date', name: i18n('noDateReminders') || '无日期', icon: '' },
             { id: 'completed_today', name: i18n('todayCompletedReminders') || '今日完成', icon: '✅' }
         ];
 
@@ -11246,7 +11246,7 @@ export class ProjectKanbanView {
         tagsActions.appendChild(clearTagsBtn);
         menu.appendChild(tagsActions);
 
-        renderItem('__no_tag__', i18n('noTag'), 'tag', undefined, '🚫');
+        renderItem('__no_tag__', i18n('noTag'), 'tag', undefined, '');
         tags.forEach(tag => {
             renderItem(tag.id, tag.name, 'tag', tag.color);
         });
@@ -12005,12 +12005,13 @@ export class ProjectKanbanView {
                 padding: 16px 24px;
                 border-bottom: 1px solid var(--b3-theme-border);
                 background: var(--b3-theme-background);
-                gap: 16px;
+                gap: 12px;
             }
 
             .project-kanban-title {
                 width: 100%;
                 border-bottom: 1px solid var(--b3-theme-border);
+                padding-bottom: 8px;
             }
 
             .project-kanban-controls {
@@ -12019,6 +12020,37 @@ export class ProjectKanbanView {
                 align-items: center;
                 flex-wrap: wrap;
                 margin-left: auto;
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .project-kanban-controls .b3-button,
+            .project-kanban-controls .kanban-mode-select,
+            .project-kanban-controls .search-input {
+                height: 36px;
+                box-sizing: border-box;
+            }
+
+            .project-kanban-controls .b3-button,
+            .project-kanban-controls .kanban-mode-select {
+                display: inline-flex;
+                align-items: center;
+            }
+
+            .project-kanban-controls .b3-button__icon {
+                margin-right: 4px;
+            }
+
+            .project-kanban-controls .kanban-mode-select {
+                min-width: 140px;
+                line-height: 1;
+                padding: 0 10px;
+            }
+
+            .project-kanban-controls .kanban-search-container {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
             }
 
             /* 响应式布局 - 窄屏优化 */
@@ -12046,6 +12078,10 @@ export class ProjectKanbanView {
                     min-width: auto;
                     font-size: 12px;
                     padding: 4px 8px;
+                }
+
+                .project-kanban-controls .kanban-mode-select {
+                    min-width: 120px;
                 }
             }
 
@@ -15916,7 +15952,6 @@ export class ProjectKanbanView {
         // 无论是否选中任务，只要开启多选模式就显示工具栏
         this.updateBatchToolbar();
 
-        showMessage(this.isMultiSelectMode ? (i18n('batchSelectModeOn') || '已进入批量选择模式') : (i18n('batchSelectModeOff') || '已退出批量选择模式'));
     }
 
     /**

@@ -414,7 +414,7 @@ export class CalendarView {
             } else if (viewType === 'kanban') {
                 viewMode = 'dayGridWeek';
             } else if (viewType === 'resource') {
-                viewMode = 'resourceTimeGridWeek';
+                viewMode = 'resourceTimelineWeek';
             } else { // list
                 viewMode = 'listWeek';
             }
@@ -559,7 +559,7 @@ export class CalendarView {
                     } else if (selectedViewType === 'kanban') {
                         newViewMode = 'dayGridWeek';
                     } else if (selectedViewType === 'resource') {
-                        newViewMode = 'resourceTimeGridWeek';
+                        newViewMode = 'resourceTimelineWeek';
                     } else { // list
                         newViewMode = 'listWeek';
                     }
@@ -610,7 +610,7 @@ export class CalendarView {
                     } else if (selectedViewType === 'kanban') {
                         newViewMode = 'dayGridWeek';
                     } else if (selectedViewType === 'resource') {
-                        newViewMode = 'resourceTimeGridWeek';
+                        newViewMode = 'resourceTimelineWeek';
                     } else { // list
                         newViewMode = 'listWeek';
                     }
@@ -1123,26 +1123,28 @@ export class CalendarView {
                 resourceTimeGridDay: { type: 'resourceTimeGrid', duration: { days: 1 } },
                 resourceTimeGridWeek: { type: 'resourceTimeGrid', duration: { days: 7 } },
                 resourceTimelineDay: { type: 'resourceTimeline', duration: { days: 1 }, slotDuration: '01:00:00' },
-                resourceTimelineWeek: { type: 'resourceTimeline', duration: { days: 7 }, slotDuration: '01:00:00' },
-                resourceTimelineMonth: { 
-                    type: 'resourceTimeline', 
-                    duration: { months: 1 }, 
+                resourceTimelineWeek: { type: 'resourceTimeline', duration: { days: 7 }, slotDuration: '01:00:00', slotMinWidth: 200 },
+                resourceTimelineMonth: {
+                    type: 'resourceTimeline',
+                    duration: { months: 1 },
                     slotDuration: '1 day',
+                    slotMinWidth: 200,
                     slotLabelFormat: [
                         { month: 'short' },
                         { day: 'numeric' }
                     ]
                 },
-                resourceTimelineYear: { 
-                    type: 'resourceTimeline', 
-                    duration: { years: 1 }, 
+                resourceTimelineYear: {
+                    type: 'resourceTimeline',
+                    duration: { years: 1 },
                     slotDuration: '1 week',
+                    slotMinWidth: 200,
                     slotLabelFormat: [
                         { year: 'numeric' },
                         { month: 'short', day: 'numeric' }
                     ]
                 },
-                resourceTimelineMultiDays7: { type: 'resourceTimeline', duration: { days: 7 }, slotDuration: '01:00:00' }
+                resourceTimelineMultiDays7: { type: 'resourceTimeline', duration: { days: 7 }, slotDuration: '01:00:00', slotMinWidth: 200 }
             },
             multiMonthMaxColumns: 1, // force a single column
             headerToolbar: {
@@ -1249,34 +1251,55 @@ export class CalendarView {
                 const propsA = a.extendedProps;
                 const propsB = b.extendedProps;
 
-                // 1. 订阅事件排最后
+                // 1. 订阅事件排最前面
                 const subA = propsA.isSubscribed ? 1 : 0;
                 const subB = propsB.isSubscribed ? 1 : 0;
-                if (subA !== subB) return subA - subB;
+                if (subA !== subB) return subB - subA;
 
                 // 2. 跨天事件排最前，跨越天数越多越靠上
+                // 分类：1=跨天(>1天), 2=全天(=1天), 3=非全天(有时刻的事件)
                 const getDurationDays = (event: any) => {
+                    const props = event.extendedProps || {};
+                    const dayMs = 1000 * 60 * 60 * 24;
+
+                    // 优先使用业务字段 date/endDate（endDate 为包含式日期）
+                    if (props.endDate) {
+                        const startDateStr = props.date || getLocalDateString(event.start);
+                        const start = new Date(startDateStr);
+                        const end = new Date(props.endDate);
+                        if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+                            return Math.max(1, Math.floor((end.getTime() - start.getTime()) / dayMs) + 1);
+                        }
+                    }
+
+                    // 回退到 FullCalendar 事件时间
                     if (!event.end) return 1;
                     const start = new Date(event.start);
                     const end = new Date(event.end);
-                    return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                    return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / dayMs));
                 };
-                const daysA = getDurationDays(a);
-                const daysB = getDurationDays(b);
-                const isMultiA = daysA > 1 ? 1 : 0;
-                const isMultiB = daysB > 1 ? 1 : 0;
-                if (isMultiA !== isMultiB) return isMultiB - isMultiA;
-                if (isMultiA && isMultiB && daysA !== daysB) return daysB - daysA;
-
-                // 3. 按优先级排序：high > medium > low > none
-                const priorityMap: { [key: string]: number } = {
-                    'high': 0, 'medium': 1, 'low': 2, 'none': 3
+                const getCategory = (event: any) => {
+                    if (!event.allDay) return 3; // 非全天事件排最后
+                    const days = getDurationDays(event);
+                    return days > 1 ? 1 : 2; // 跨天(>1)排第一，全天(=1)排第二
                 };
-                const pA = priorityMap[propsA.priority || 'none'] ?? 3;
-                const pB = priorityMap[propsB.priority || 'none'] ?? 3;
-                if (pA !== pB) return pA - pB;
+                const catA = getCategory(a);
+                const catB = getCategory(b);
+                if (catA !== catB) return catA - catB;
 
-                // 4. 同优先级内按 sort 字段排序
+                // 同类别内：跨天事件按天数降序
+                if (catA === 1 && catB === 1) {
+                    const daysA = getDurationDays(a);
+                    const daysB = getDurationDays(b);
+                    if (daysA !== daysB) return daysB - daysA;
+                }
+
+                // 3. 按开始时间排序：从低到高（早的在前）
+                const startA = a.start ? new Date(a.start).getTime() : Infinity;
+                const startB = b.start ? new Date(b.start).getTime() : Infinity;
+                if (startA !== startB) return startA - startB;
+
+                // 4. 同开始时间内按 sort 字段排序
                 const sortA = typeof propsA.sort === 'number' ? propsA.sort : 0;
                 const sortB = typeof propsB.sort === 'number' ? propsB.sort : 0;
                 return sortA - sortB;
@@ -1988,7 +2011,7 @@ export class CalendarView {
             };
 
             // 首先添加"无项目"可选项
-            container.appendChild(createCheckboxItem('none', i18n("noProject") || "无项目", '🚫 '));
+            container.appendChild(createCheckboxItem('none', i18n("noProject") || "无项目", ''));
 
             if (projectData && Object.keys(projectData).length > 0) {
                 const projectsByStatus: { [key: string]: any[] } = {};
@@ -2110,7 +2133,7 @@ export class CalendarView {
             };
 
             // 首先添加"无分类"
-            container.appendChild(createCheckboxItem('none', i18n("noCategory") || "无分类", '🚫 '));
+            container.appendChild(createCheckboxItem('none', i18n("noCategory") || "无分类", ''));
 
             if (categories && categories.length > 0) {
                 categories.forEach(category => {
@@ -2849,7 +2872,6 @@ export class CalendarView {
         try {
             // 检查是否有绑定的块ID
             if (!calendarEvent.extendedProps.blockId) {
-                showMessage(i18n("unboundReminder") + "，请先绑定到块");
                 return;
             }
 
@@ -3260,12 +3282,15 @@ export class CalendarView {
         // 如果有绑定块，将内容包裹在 span 中并添加虚线边框
         if (props.blockId && !props.isSubscribed) {
             const textSpan = document.createElement('span');
-            const textColor = (event && event.textColor) ? event.textColor : '#fff';
             textSpan.innerHTML = event.title;
             textSpan.style.display = 'inline-block';
             textSpan.style.boxSizing = 'border-box';
-            textSpan.style.paddingBottom = '2px';
-            textSpan.style.borderBottom = `2px dashed currentColor `;
+            textSpan.style.paddingBottom = '0';
+            textSpan.style.borderBottom = 'none';
+            textSpan.style.textDecorationLine = 'underline';
+            textSpan.style.textDecorationStyle = 'dashed';
+            textSpan.style.textDecorationThickness = '1px';
+            textSpan.style.textUnderlineOffset = '2px';
             textSpan.style.cursor = 'pointer';
             textSpan.title = '已绑定块';
 
@@ -3731,17 +3756,33 @@ export class CalendarView {
 
             const dayEvents = dayTemplateIds.map(id => reminderData[id]).filter(r => !!r);
 
-            // 按当前可见顺序排序 (优先级优先，sort 其次)
+            // 按当前可见顺序排序 (订阅在最前，跨天次之，然后按结束时间排序)
             dayEvents.sort((a, b) => {
-                const priorityMap: { [key: string]: number } = {
-                    'high': 0,
-                    'medium': 1,
-                    'low': 2,
-                    'none': 3
+                // 1. 订阅事件排最前面
+                const subA = a.isSubscribed ? 1 : 0;
+                const subB = b.isSubscribed ? 1 : 0;
+                if (subA !== subB) return subB - subA;
+
+                // 2. 跨天事件排最前，跨越天数越多越靠上
+                const getDurationDays = (reminder: any) => {
+                    if (!reminder.endDate) return 1;
+                    const start = new Date(reminder.date);
+                    const end = new Date(reminder.endDate);
+                    return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
                 };
-                const scoreA = priorityMap[a.priority || 'none'] ?? 3;
-                const scoreB = priorityMap[b.priority || 'none'] ?? 3;
-                if (scoreA !== scoreB) return scoreA - scoreB;
+                const daysA = getDurationDays(a);
+                const daysB = getDurationDays(b);
+                const isMultiA = daysA > 1 ? 1 : 0;
+                const isMultiB = daysB > 1 ? 1 : 0;
+                if (isMultiA !== isMultiB) return isMultiB - isMultiA;
+                if (isMultiA && isMultiB && daysA !== daysB) return daysB - daysA;
+
+                // 3. 按时间排序：结束时间晚的排前面（从高往低）
+                const endA = a.endDate ? new Date(a.endDate).getTime() : Infinity;
+                const endB = b.endDate ? new Date(b.endDate).getTime() : Infinity;
+                if (endA !== endB) return endB - endA;
+
+                // 4. 同结束时间内按 sort 字段排序
                 return (a.sort || 0) - (b.sort || 0);
             });
 
@@ -3778,20 +3819,6 @@ export class CalendarView {
                     // 计算插入位置
                     const insertPos = state.isAbove ? targetIndex : targetIndex + 1;
                     newList = [...filteredEvents.slice(0, insertPos), currentEvent, ...filteredEvents.slice(insertPos)];
-
-                    // --- 核心改进：根据插入位置自动调整优先级 ---
-                    // 逻辑：使被拖拽的任务优先级与它落点周围的任务一致
-                    // 如果列表只有一个，或者放在了首/尾，则参考邻居
-                    // 如果放在两个任务中间，则根据当前可见的排序规则调整
-                    if (state.isAbove) {
-                        // 拖动到了 targetEvent 的上方
-                        const targetEventInList = filteredEvents[targetIndex];
-                        currentEvent.priority = targetEventInList.priority || 'none';
-                    } else {
-                        // 拖动到了 targetEvent 的下方
-                        const targetEventInList = filteredEvents[targetIndex];
-                        currentEvent.priority = targetEventInList.priority || 'none';
-                    }
                 } else {
                     newList = [...filteredEvents, currentEvent];
                 }
@@ -3800,17 +3827,10 @@ export class CalendarView {
             }
 
             // 分配新的 sort 值
-            // 注意：为了让 FullCalendar 的 eventOrder (priority-first) 表现正常，
-            // 我们需要对全天列表在相同优先级块内部重新赋予递增的 sort
-            let currentPriority = '';
-            let prioritySort = 0;
+            // 按照用户拖拽后的视觉顺序重新赋予递增的 sort
+            let sortIndex = 0;
             newList.forEach((r) => {
                 if (r) {
-                    const p = r.priority || 'none';
-                    if (p !== currentPriority) {
-                        currentPriority = p;
-                        prioritySort = 0;
-                    }
                     // 对于重复实例，将 sort 存储到 instanceModifications 中
                     if (isDraggedInstance && r.id === draggedId && draggedInstanceDate) {
                         if (!r.repeat) r.repeat = {};
@@ -3818,9 +3838,9 @@ export class CalendarView {
                         if (!r.repeat.instanceModifications[draggedInstanceDate]) {
                             r.repeat.instanceModifications[draggedInstanceDate] = {};
                         }
-                        r.repeat.instanceModifications[draggedInstanceDate].sort = prioritySort++;
+                        r.repeat.instanceModifications[draggedInstanceDate].sort = sortIndex++;
                     } else {
-                        r.sort = prioritySort++;
+                        r.sort = sortIndex++;
                     }
                 }
             });
@@ -3860,12 +3880,10 @@ export class CalendarView {
         const reminder = info.event.extendedProps;
         const blockId = reminder.blockId || info.event.id; // 兼容旧数据格式
 
-        // 如果没有绑定块，提示用户绑定块 (订阅任务除外)
+        // 如果没有绑定块，直接返回（不再弹出未绑定提示）
         if (!reminder.blockId) {
             if (reminder.isSubscribed) {
                 showMessage(i18n("subscribedTaskReadOnly") || "订阅任务（只读）");
-            } else {
-                showMessage(i18n("unboundReminder") + "，请右键选择\"绑定到块\"");
             }
             return;
         }
@@ -5169,12 +5187,12 @@ export class CalendarView {
 
     private async refreshDailyNoteDates() {
         let notebookId = this.calendarConfigManager.getDefaultNotebookId();
-        
+
         if (!notebookId) {
             const settings = (this.plugin as any).settings;
             notebookId = settings?.newDocNotebook;
         }
-        
+
         if (!notebookId || !this.calendar) {
             return;
         }
@@ -5260,9 +5278,9 @@ export class CalendarView {
                 return;
             }
         }
-        
+
         this.forceHideTooltip();
-        
+
         const { dateStr: startDateStr, timeStr: startTimeStr } = getLocalDateTime(startDate);
 
         let endDateStr = null;
