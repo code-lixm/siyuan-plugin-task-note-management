@@ -766,7 +766,19 @@ export class PasteTaskDialog {
     private async batchCreateTasksWithHierarchy(tasks: HierarchicalTask[], selectedStatus?: string, selectedGroupId?: string | null, selectedMilestoneId?: string): Promise<any[]> {
         const parentTask = this.config.parentTask;
         const projectId = this.config.projectId || (parentTask ? parentTask.projectId : undefined);
-        const categoryId = parentTask ? parentTask.categoryId : undefined;
+        let categoryId = parentTask ? parentTask.categoryId : undefined;
+
+        if (!categoryId && projectId && this.config.plugin?.loadProjectData) {
+            try {
+                const projectData = await this.config.plugin.loadProjectData();
+                const projectCategoryId = projectData?.[projectId]?.categoryId;
+                if (typeof projectCategoryId === 'string' && projectCategoryId.trim()) {
+                    categoryId = projectCategoryId;
+                }
+            } catch (error) {
+                console.warn('读取项目分类失败:', error);
+            }
+        }
 
         // 临时模式下不需要从数据库读取
         const reminderData = this.config.isTempMode ? {} : await getAllReminders(this.config.plugin, undefined, true);

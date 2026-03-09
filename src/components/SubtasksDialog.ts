@@ -84,6 +84,18 @@ export class SubtasksDialog {
 
         this.renderSubtasks();
         this.bindEvents();
+
+        try {
+            const settings = await this.plugin?.loadSettings?.();
+            if (settings?.showAdvancedFeatures !== true) {
+                const pasteBtn = this.dialog.element.querySelector('#pasteSubtaskBtn') as HTMLElement;
+                if (pasteBtn) {
+                    pasteBtn.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.warn('load showAdvancedFeatures failed in SubtasksDialog:', error);
+        }
     }
 
     private renderDialogTitle(): string {
@@ -1019,6 +1031,18 @@ export class SubtasksDialog {
 
     // 显示粘贴新建子任务对话框
     private async showPasteSubtaskDialog() {
+        try {
+            const settings = await this.plugin?.loadSettings?.();
+            if (settings?.showAdvancedFeatures !== true) {
+                showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+                return;
+            }
+        } catch (error) {
+            console.warn('load showAdvancedFeatures failed in showPasteSubtaskDialog:', error);
+            showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+            return;
+        }
+
         let parentTask: any = null;
         
         if (!this.isTempMode) {

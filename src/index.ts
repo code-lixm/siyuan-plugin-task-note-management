@@ -89,9 +89,10 @@ export const DEFAULT_SETTINGS = {
     defaultHeadingPosition: 'prepend', // 新增：新建标题的默认位置（'prepend' | 'append'），默认为最前
     weekStartDay: 1, // 新增：周视图的一周开始日 (0=周日, 1=周一，默认周一)
     // 控制侧边栏显示
+    showAdvancedFeatures: false, // 是否显示高级功能入口（四象限/习惯侧栏/高级设置分组）
     enableReminderDock: true, // 侧边栏：提醒（任务管理）
     enableProjectDock: true, // 侧边栏：项目管理
-    enableHabitDock: true, // 侧边栏：习惯管理
+    enableHabitDock: false, // 侧边栏：习惯管理（默认隐藏，需开启高级功能）
     // 停靠栏徽章显示控制
     enableDockBadge: true, // 是否在停靠栏显示数字徽章
     // 单独控制每个侧栏是否显示徽章（优先级高于 enableDockBadge）
@@ -569,9 +570,10 @@ export default class ReminderPlugin extends Plugin {
         window.addEventListener('reminderSettingsUpdated', async () => {
             try {
                 const settings = await this.loadSettings();
+                const showAdvancedFeatures = settings.showAdvancedFeatures === true;
                 this.toggleDockVisibility('project_dock', settings.enableProjectDock !== false);
                 this.toggleDockVisibility('reminder_dock', settings.enableReminderDock !== false);
-                this.toggleDockVisibility('habit_dock', settings.enableHabitDock !== false);
+                this.toggleDockVisibility('habit_dock', showAdvancedFeatures && settings.enableHabitDock !== false);
                 // 同步刷新徽章（显示/隐藏数字）
                 this.updateBadges();
                 this.updateProjectBadges();
@@ -1049,7 +1051,12 @@ export default class ReminderPlugin extends Plugin {
         // 注册四象限视图标签页
         this.addTab({
             type: EISENHOWER_TAB_TYPE,
-            init: ((tab) => {
+            init: (async (tab) => {
+                const settings = await this.loadSettings();
+                if (settings.showAdvancedFeatures !== true) {
+                    tab.element.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--b3-theme-on-surface-light);">${i18n('showAdvancedFeaturesDesc')}</div>`;
+                    return;
+                }
                 const eisenhowerView = new EisenhowerMatrixView(tab.element, this);
                 // 保存实例引用用于清理
                 this.tabViews.set(tab.id, eisenhowerView);
@@ -1079,7 +1086,13 @@ export default class ReminderPlugin extends Plugin {
         // 注册番茄钟标签页
         this.addTab({
             type: POMODORO_TAB_TYPE,
-            init: ((tab) => {
+            init: (async (tab) => {
+                const settingsGlobal = await this.loadSettings();
+                if (settingsGlobal.showAdvancedFeatures !== true) {
+                    tab.element.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--b3-theme-on-surface-light);">${i18n('showAdvancedFeaturesDesc')}</div>`;
+                    return;
+                }
+
                 const reminder = tab.data?.reminder;
                 const settings = tab.data?.settings;
                 const isCountUp = tab.data?.isCountUp || false;
@@ -1114,9 +1127,10 @@ export default class ReminderPlugin extends Plugin {
 
         // 根据设置隐藏或显示停靠栏图标
         try {
+            const showAdvancedFeatures = settings.showAdvancedFeatures === true;
             this.toggleDockVisibility('project_dock', settings.enableProjectDock !== false);
             this.toggleDockVisibility('reminder_dock', settings.enableReminderDock !== false);
-            this.toggleDockVisibility('habit_dock', settings.enableHabitDock !== false);
+            this.toggleDockVisibility('habit_dock', showAdvancedFeatures && settings.enableHabitDock !== false);
         } catch (err) {
             console.warn('初始化停靠栏可见性失败:', err);
         }
@@ -2038,7 +2052,7 @@ export default class ReminderPlugin extends Plugin {
                         projectId: (parentProject as any).id,
                         groupId: undefined,
                         milestoneId: undefined,
-                        categoryId: undefined
+                        categoryId: (parentProject as any).categoryId || undefined
                     };
                 }
 
@@ -2051,7 +2065,7 @@ export default class ReminderPlugin extends Plugin {
                                 projectId: p.id,
                                 groupId: group.id,
                                 milestoneId: undefined,
-                                categoryId: undefined
+                                categoryId: p.categoryId || undefined
                             };
                         }
                     }
@@ -2070,7 +2084,7 @@ export default class ReminderPlugin extends Plugin {
                     projectId: (project as any).id,
                     groupId: undefined,
                     milestoneId: undefined,
-                    categoryId: undefined
+                    categoryId: (project as any).categoryId || undefined
                 };
             }
 
@@ -2083,7 +2097,7 @@ export default class ReminderPlugin extends Plugin {
                             projectId: p.id,
                             groupId: group.id,
                             milestoneId: undefined,
-                            categoryId: undefined
+                            categoryId: p.categoryId || undefined
                         };
                     }
                 }
@@ -2119,6 +2133,11 @@ export default class ReminderPlugin extends Plugin {
                 i18n("setTimeReminder"),
             click: async () => {
                 if (documentIds.length > 1) {
+                    const settings = await this.loadSettings();
+                    if (settings.showAdvancedFeatures !== true) {
+                        showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+                        return;
+                    }
                     // 确保 batchReminderDialog 已初始化
                     if (!this.batchReminderDialog) {
                         this.batchReminderDialog = new BatchReminderDialog(this);
@@ -2327,6 +2346,12 @@ export default class ReminderPlugin extends Plugin {
                 dialog.show();
             }
         } else {
+            const settings = await this.loadSettings();
+            if (settings.showAdvancedFeatures !== true) {
+                showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+                return;
+            }
+
             // 确保 batchReminderDialog 已初始化
             if (!this.batchReminderDialog) {
                 this.batchReminderDialog = new BatchReminderDialog(this);
@@ -3394,7 +3419,21 @@ export default class ReminderPlugin extends Plugin {
     }
 
     // 打开四象限矩阵标签页
-    openEisenhowerMatrixTab() {
+    async openEisenhowerMatrixTab() {
+        try {
+            const settings = await this.loadSettings();
+            if (settings.showAdvancedFeatures !== true) {
+                showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+                this.openCalendarTab();
+                return;
+            }
+        } catch (error) {
+            console.warn('检查高级功能开关失败，按默认简化模式处理:', error);
+            showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+            this.openCalendarTab();
+            return;
+        }
+
         const isMobile = getFrontend().endsWith('mobile');
 
         if (isMobile) {

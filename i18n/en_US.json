@@ -927,6 +927,8 @@
     "calendarAutoOpenDesc": "Automatically open the calendar view when SiYuan starts",
 
     "sidebarSettings": "Sidebar Settings",
+    "showAdvancedFeatures": "Show Advanced Features",
+    "showAdvancedFeaturesDesc": "Enable to reveal advanced entries and settings (habit dock, advanced pomodoro, ICS upload, etc.)",
     "enableReminderDock": "Show Task Sidebar",
     "enableReminderDockDesc": "Show or hide the Task (Reminder) panel in the sidebar",
     "enableProjectDock": "Show Project Sidebar",

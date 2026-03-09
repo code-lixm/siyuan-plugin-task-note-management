@@ -1057,11 +1057,12 @@ export class CalendarView {
         moreBtn.className = 'b3-button b3-button--outline';
         moreBtn.title = i18n('more') || '更多';
         moreBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconMore"></use></svg>';
-        moreBtn.addEventListener('click', (e) => {
+        moreBtn.addEventListener('click', async (e) => {
             try {
                 e.stopPropagation();
                 e.preventDefault();
                 const menu = new Menu('calendar-more-menu');
+                const settings = await this.plugin.loadSettings();
 
                 menu.addItem({
                     icon: 'iconTags',
@@ -1069,11 +1070,13 @@ export class CalendarView {
                     click: () => this.showCategoryManageDialog()
                 });
 
-                menu.addItem({
-                    icon: 'iconProject',
-                    label: i18n('projectColor') || '项目颜色',
-                    click: () => this.showProjectColorDialog()
-                });
+                if (settings?.showAdvancedFeatures === true) {
+                    menu.addItem({
+                        icon: 'iconProject',
+                        label: i18n('projectColor') || '项目颜色',
+                        click: () => this.showProjectColorDialog()
+                    });
+                }
 
                 menu.addItem({
                     icon: 'iconSettings',

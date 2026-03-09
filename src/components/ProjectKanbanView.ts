@@ -20,6 +20,8 @@ import { ProjectDialog } from "./ProjectDialog";
 export class ProjectKanbanView {
     private container: HTMLElement;
     private plugin: any;
+    private showAdvancedFeatures: boolean = false;
+    private settingsUpdatedHandler: () => void;
     private projectId: string;
     private project: any;
     private categoryManager: CategoryManager;
@@ -139,6 +141,20 @@ export class ProjectKanbanView {
         this.projectId = projectId;
         this.categoryManager = CategoryManager.getInstance(this.plugin);
         this.projectManager = ProjectManager.getInstance(this.plugin);
+
+        this.settingsUpdatedHandler = async () => {
+            try {
+                const settings = await this.plugin.loadSettings();
+                const nextShowAdvanced = settings?.showAdvancedFeatures === true;
+                if (nextShowAdvanced !== this.showAdvancedFeatures) {
+                    this.showAdvancedFeatures = nextShowAdvanced;
+                    this.initUI();
+                    await this.loadTasks();
+                }
+            } catch (error) {
+                console.warn('刷新高级设置失败:', error);
+            }
+        };
 
         try {
             if ((window as any).Lute) {
@@ -342,6 +358,14 @@ export class ProjectKanbanView {
     }
 
     private async initializeAsync() {
+        try {
+            const settings = await this.plugin.loadSettings();
+            this.showAdvancedFeatures = settings?.showAdvancedFeatures === true;
+        } catch (error) {
+            console.warn('load showAdvancedFeatures failed:', error);
+            this.showAdvancedFeatures = false;
+        }
+
         await this.categoryManager.initialize();
         await this.loadProject();
         await this.loadKanbanMode();
@@ -372,6 +396,15 @@ export class ProjectKanbanView {
                 this.toggleMultiSelectMode();
             }
         });
+
+        // 监听设置更新，实时刷新高级功能入口显隐
+        window.addEventListener('reminderSettingsUpdated', this.settingsUpdatedHandler);
+    }
+
+    public destroy() {
+        if (this.settingsUpdatedHandler) {
+            window.removeEventListener('reminderSettingsUpdated', this.settingsUpdatedHandler);
+        }
     }
 
     private async loadProject() {
@@ -3372,11 +3405,13 @@ export class ProjectKanbanView {
         addTaskBtn.addEventListener('click', () => this.showCreateTaskDialog());
         controlsGroup.appendChild(addTaskBtn);
 
-        const pasteTaskBtn = document.createElement('button');
-        pasteTaskBtn.className = 'b3-button';
-        pasteTaskBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg> ${i18n('pasteNew')}`;
-        pasteTaskBtn.addEventListener('click', () => this.showPasteTaskDialog(undefined, undefined, undefined, true));
-        controlsGroup.appendChild(pasteTaskBtn);
+        if (this.showAdvancedFeatures) {
+            const pasteTaskBtn = document.createElement('button');
+            pasteTaskBtn.className = 'b3-button';
+            pasteTaskBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg> ${i18n('pasteNew')}`;
+            pasteTaskBtn.addEventListener('click', () => this.showPasteTaskDialog(undefined, undefined, undefined, true));
+            controlsGroup.appendChild(pasteTaskBtn);
+        }
 
         // 排序按钮
         this.sortButton = document.createElement('button');
@@ -3570,36 +3605,38 @@ export class ProjectKanbanView {
                 }
             });
 
-            menu.addItem({
-                icon: "iconSettings",
-                label: i18n('manageKanbanStatuses'),
-                click: () => {
-                    this.showManageKanbanStatusesDialog();
-                }
-            });
+            if (this.showAdvancedFeatures) {
+                menu.addItem({
+                    icon: "iconSettings",
+                    label: i18n('manageKanbanStatuses'),
+                    click: () => {
+                        this.showManageKanbanStatusesDialog();
+                    }
+                });
 
-            menu.addItem({
-                icon: "iconSettings",
-                label: i18n('manageCustomGroups'),
-                click: () => {
-                    this.showManageGroupsDialog();
-                }
-            });
+                menu.addItem({
+                    icon: "iconSettings",
+                    label: i18n('manageCustomGroups'),
+                    click: () => {
+                        this.showManageGroupsDialog();
+                    }
+                });
 
-            menu.addItem({
-                icon: "iconSettings",
-                label: i18n('manageProjectTags'),
-                click: () => {
-                    this.showManageTagsDialog();
-                }
-            });
+                menu.addItem({
+                    icon: "iconSettings",
+                    label: i18n('manageProjectTags'),
+                    click: () => {
+                        this.showManageTagsDialog();
+                    }
+                });
 
 
-            menu.addItem({
-                icon: "iconSettings",
-                label: i18n('manageMilestones'),
-                click: () => this.showManageMilestonesDialog()
-            });
+                menu.addItem({
+                    icon: "iconSettings",
+                    label: i18n('manageMilestones'),
+                    click: () => this.showManageMilestonesDialog()
+                });
+            }
 
             // 插件设置
             menu.addItem({
@@ -3634,14 +3671,16 @@ export class ProjectKanbanView {
         });
         controlsGroup.appendChild(moreBtn);
 
-        // 多选模式按钮
-        const multiSelectBtn = document.createElement('button');
-        multiSelectBtn.className = 'b3-button b3-button--outline';
-        multiSelectBtn.id = 'multiSelectBtn';
-        multiSelectBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconCheck"></use></svg> ${i18n('batchSelect')}`;
-        multiSelectBtn.title = i18n('batchSelectMode');
-        multiSelectBtn.addEventListener('click', () => this.toggleMultiSelectMode());
-        controlsGroup.appendChild(multiSelectBtn);
+        // 多选模式按钮（高级功能）
+        if (this.showAdvancedFeatures) {
+            const multiSelectBtn = document.createElement('button');
+            multiSelectBtn.className = 'b3-button b3-button--outline';
+            multiSelectBtn.id = 'multiSelectBtn';
+            multiSelectBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconCheck"></use></svg> ${i18n('batchSelect')}`;
+            multiSelectBtn.title = i18n('batchSelectMode');
+            multiSelectBtn.addEventListener('click', () => this.toggleMultiSelectMode());
+            controlsGroup.appendChild(multiSelectBtn);
+        }
 
         toolbar.appendChild(controlsGroup);
 
@@ -4150,17 +4189,19 @@ export class ProjectKanbanView {
 
             rightContainer.appendChild(addTaskBtn);
 
-            // 粘贴新建任务按钮
-            const pasteTaskBtn = document.createElement('button');
-            pasteTaskBtn.className = 'b3-button b3-button--outline';
-            pasteTaskBtn.title = i18n('pasteNew');
-            pasteTaskBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg>`;
-            pasteTaskBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.showPasteTaskDialog(undefined, this.lastSelectedCustomGroupId, status, true);
-            });
+            if (this.showAdvancedFeatures) {
+                // 粘贴新建任务按钮
+                const pasteTaskBtn = document.createElement('button');
+                pasteTaskBtn.className = 'b3-button b3-button--outline';
+                pasteTaskBtn.title = i18n('pasteNew');
+                pasteTaskBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg>`;
+                pasteTaskBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.showPasteTaskDialog(undefined, this.lastSelectedCustomGroupId, status, true);
+                });
 
-            rightContainer.appendChild(pasteTaskBtn);
+                rightContainer.appendChild(pasteTaskBtn);
+            }
         }
 
         header.appendChild(rightContainer);
@@ -8135,17 +8176,19 @@ export class ProjectKanbanView {
             });
             headerRight.appendChild(addTaskBtn);
 
-            const pasteTaskBtn = document.createElement('button');
-            pasteTaskBtn.className = 'b3-button b3-button--text';
-            pasteTaskBtn.style.cssText = 'padding: 2px; margin-left: 2px;';
-            pasteTaskBtn.title = i18n('pasteNew');
-            pasteTaskBtn.innerHTML = `<svg style="width: 14px; height: 14px;"><use xlink:href="#iconPaste"></use></svg>`;
-            pasteTaskBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // 显示选择器
-                this.showPasteTaskDialog(undefined, group.id, status as any, true);
-            });
-            headerRight.appendChild(pasteTaskBtn);
+            if (this.showAdvancedFeatures) {
+                const pasteTaskBtn = document.createElement('button');
+                pasteTaskBtn.className = 'b3-button b3-button--text';
+                pasteTaskBtn.style.cssText = 'padding: 2px; margin-left: 2px;';
+                pasteTaskBtn.title = i18n('pasteNew');
+                pasteTaskBtn.innerHTML = `<svg style="width: 14px; height: 14px;"><use xlink:href="#iconPaste"></use></svg>`;
+                pasteTaskBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // 显示选择器
+                    this.showPasteTaskDialog(undefined, group.id, status as any, true);
+                });
+                headerRight.appendChild(pasteTaskBtn);
+            }
         }
 
         groupHeader.appendChild(headerRight);
@@ -8402,18 +8445,20 @@ export class ProjectKanbanView {
             });
             headerRight.appendChild(addTaskBtn);
 
-            const pasteTaskBtn = document.createElement('button');
-            pasteTaskBtn.className = 'b3-button b3-button--text';
-            pasteTaskBtn.style.cssText = 'padding: 2px; margin-left: 2px;';
-            pasteTaskBtn.title = i18n('pasteNew');
-            pasteTaskBtn.innerHTML = `<svg style="width: 14px; height: 14px;"><use xlink:href="#iconPaste"></use></svg>`;
-            pasteTaskBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const gid = group.id === 'ungrouped' ? null : group.id;
-                // 显示选择器
-                this.showPasteTaskDialog(undefined, gid, status as any, true);
-            });
-            headerRight.appendChild(pasteTaskBtn);
+            if (this.showAdvancedFeatures) {
+                const pasteTaskBtn = document.createElement('button');
+                pasteTaskBtn.className = 'b3-button b3-button--text';
+                pasteTaskBtn.style.cssText = 'padding: 2px; margin-left: 2px;';
+                pasteTaskBtn.title = i18n('pasteNew');
+                pasteTaskBtn.innerHTML = `<svg style="width: 14px; height: 14px;"><use xlink:href="#iconPaste"></use></svg>`;
+                pasteTaskBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const gid = group.id === 'ungrouped' ? null : group.id;
+                    // 显示选择器
+                    this.showPasteTaskDialog(undefined, gid, status as any, true);
+                });
+                headerRight.appendChild(pasteTaskBtn);
+            }
         }
 
         groupHeader.appendChild(headerRight);
@@ -10055,12 +10100,14 @@ export class ProjectKanbanView {
             click: () => this.showCreateTaskDialog(task)
         });
 
-        // 粘贴新建子任务
-        menu.addItem({
-            iconHTML: "📋",
-            label: i18n('pasteCreateSubtask'),
-            click: () => this.showPasteTaskDialog(task)
-        });
+        // 粘贴新建子任务（高级功能）
+        if (this.showAdvancedFeatures) {
+            menu.addItem({
+                iconHTML: "📋",
+                label: i18n('pasteCreateSubtask'),
+                click: () => this.showPasteTaskDialog(task)
+            });
+        }
 
         // 父子任务管理
         if (task.parentId) {
@@ -11631,6 +11678,11 @@ export class ProjectKanbanView {
     }
 
     private async showPasteTaskDialog(parentTask?: any, customGroupId?: string, defaultStatus?: string, showSelectors: boolean = false) {
+        if (!this.showAdvancedFeatures) {
+            showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+            return;
+        }
+
         // 如果需要显示选择器，获取项目配置
         let projectGroups: any[] = [];
         let projectMilestones: any[] = [];

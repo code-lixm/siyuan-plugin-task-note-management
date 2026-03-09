@@ -267,6 +267,7 @@
 
     interface ISettingGroup {
         name: string;
+        advanced?: boolean;
         items: ISettingItem[];
     }
 
@@ -287,6 +288,13 @@
         {
             name: i18n('sidebarSettings'),
             items: [
+                {
+                    key: 'showAdvancedFeatures',
+                    value: settings.showAdvancedFeatures,
+                    type: 'checkbox',
+                    title: i18n('showAdvancedFeatures'),
+                    description: i18n('showAdvancedFeaturesDesc'),
+                },
                 {
                     key: 'enableReminderDock',
                     value: settings.enableReminderDock,
@@ -589,6 +597,7 @@
         },
         {
             name: i18n('pomodoroSettings'),
+            advanced: true,
             items: [
                 {
                     key: 'pomodoroHint',
@@ -717,6 +726,7 @@
         },
         {
             name: i18n('randomRestSettings'),
+            advanced: true,
             items: [
                 {
                     key: 'randomRestEnabled',
@@ -851,6 +861,7 @@
         },
         {
             name: i18n('exportSettings'),
+            advanced: true,
             items: [
                 {
                     key: 'exportIcs',
@@ -869,6 +880,7 @@
         },
         {
             name: i18n('importSettings'),
+            advanced: true,
             items: [
                 {
                     key: 'importIcs',
@@ -906,6 +918,7 @@
         },
         {
             name: i18n('icsSubscription'),
+            advanced: true,
             items: [
                 {
                     key: 'icsSubscriptionHint',
@@ -931,6 +944,7 @@
         },
         {
             name: i18n('calendarUpload'),
+            advanced: true,
             items: [
                 {
                     key: 'icsSyncHint',
@@ -1321,46 +1335,63 @@
     }
 
     // 根据 icsSyncEnabled 和 icsSyncMethod 控制相关项的显示和隐藏
-    $: filteredGroups = groups.map(group => ({
-        ...group,
-        items: group.items.map(item => {
-            const updated = { ...item } as any;
+    $: filteredGroups = groups
+        .map(group => ({
+            ...group,
+            items: group.items.map(item => {
+                const updated = { ...item } as any;
 
-            // 通用同步设置，仅在同步启用时可用
-            if (item.key === 'icsSyncInterval') {
-                updated.disabled = !settings.icsSyncEnabled;
-            }
+                const showAdvancedFeatures = settings.showAdvancedFeatures === true;
 
-            // S3专用设置 - s3UseSiyuanConfig仅在启用同步且选择S3存储时显示
-            if (item.key === 's3UseSiyuanConfig') {
-                updated.hidden = !settings.icsSyncEnabled || settings.icsSyncMethod !== 's3';
-            }
+                if (!showAdvancedFeatures && ['enableHabitDock', 'enableHabitDockBadge'].includes(item.key)) {
+                    updated.hidden = true;
+                }
 
-            // S3 bucket、存储路径和自定义域名 - 仅在启用同步且选择S3存储时显示（即使使用思源配置也允许覆盖）
-            if (['s3Bucket', 's3StoragePath', 's3CustomDomain'].includes(item.key)) {
-                updated.hidden = !settings.icsSyncEnabled || settings.icsSyncMethod !== 's3';
-            }
+                // 通用同步设置，仅在同步启用时可用
+                if (item.key === 'icsSyncInterval') {
+                    updated.disabled = !settings.icsSyncEnabled;
+                }
 
-            // S3详细配置 - 仅在启用同步、选择S3存储且未启用"使用思源S3设置"时显示
-            if (
-                [
-                    's3Endpoint',
-                    's3Region',
-                    's3AccessKeyId',
-                    's3AccessKeySecret',
-                    's3ForcePathStyle',
-                    's3TlsVerify',
-                ].includes(item.key)
-            ) {
-                updated.hidden =
-                    !settings.icsSyncEnabled ||
-                    settings.icsSyncMethod !== 's3' ||
-                    settings.s3UseSiyuanConfig === true;
-            }
+                // S3专用设置 - s3UseSiyuanConfig仅在启用同步且选择S3存储时显示
+                if (item.key === 's3UseSiyuanConfig') {
+                    updated.hidden = !settings.icsSyncEnabled || settings.icsSyncMethod !== 's3';
+                }
 
-            return updated;
-        }),
-    }));
+                // S3 bucket、存储路径和自定义域名 - 仅在启用同步且选择S3存储时显示（即使使用思源配置也允许覆盖）
+                if (['s3Bucket', 's3StoragePath', 's3CustomDomain'].includes(item.key)) {
+                    updated.hidden = !settings.icsSyncEnabled || settings.icsSyncMethod !== 's3';
+                }
+
+                // S3详细配置 - 仅在启用同步、选择S3存储且未启用"使用思源S3设置"时显示
+                if (
+                    [
+                        's3Endpoint',
+                        's3Region',
+                        's3AccessKeyId',
+                        's3AccessKeySecret',
+                        's3ForcePathStyle',
+                        's3TlsVerify',
+                    ].includes(item.key)
+                ) {
+                    updated.hidden =
+                        !settings.icsSyncEnabled ||
+                        settings.icsSyncMethod !== 's3' ||
+                        settings.s3UseSiyuanConfig === true;
+                }
+
+                return updated;
+            }),
+        }))
+        .filter(group => settings.showAdvancedFeatures === true || group.advanced !== true)
+        .map(group => ({
+            ...group,
+            items: group.items.filter(item => !(item as any).hidden),
+        }))
+        .filter(group => group.items.length > 0);
+
+    $: if (!filteredGroups.find(group => group.name === focusGroup) && filteredGroups.length > 0) {
+        focusGroup = filteredGroups[0].name;
+    }
 
     $: currentGroup = filteredGroups.find(group => group.name === focusGroup);
 
@@ -1995,7 +2026,7 @@
 
 <div class="fn__flex-1 fn__flex config__panel">
     <ul class="b3-tab-bar b3-list b3-list--background">
-        {#each groups as group}
+        {#each filteredGroups as group}
             <li
                 data-name="editor"
                 class:b3-list-item--focus={group.name === focusGroup}

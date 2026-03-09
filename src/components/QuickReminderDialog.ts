@@ -3373,6 +3373,24 @@ export class QuickReminderDialog {
         await this.renderTagsSelector();
     }
 
+    private async getProjectCategoryId(projectId?: string): Promise<string | undefined> {
+        if (!projectId || !this.plugin?.loadProjectData) {
+            return undefined;
+        }
+
+        try {
+            const projectData = await this.plugin.loadProjectData();
+            const projectCategoryId = projectData?.[projectId]?.categoryId;
+            if (typeof projectCategoryId === 'string' && projectCategoryId.trim()) {
+                return projectCategoryId;
+            }
+        } catch (error) {
+            console.warn('读取项目分类失败:', error);
+        }
+
+        return undefined;
+    }
+
     /**
      * 渲染自定义分组选择器
      */
@@ -3718,6 +3736,8 @@ export class QuickReminderDialog {
         const categoryId = this.selectedCategoryIds.length > 0 ? this.selectedCategoryIds.join(',') : undefined;
 
         const projectId = projectSelector.value || undefined;
+        const inheritedProjectCategoryId = await this.getProjectCategoryId(projectId);
+        const effectiveCategoryId = categoryId || inheritedProjectCategoryId;
         // 获取选中的kanbanStatus，如果没有选中则使用第一个可用状态
         let kanbanStatus = selectedStatus?.getAttribute('data-status-type');
         if (!kanbanStatus) {
@@ -3797,7 +3817,7 @@ export class QuickReminderDialog {
                 endTime: endTime,
                 note: note,
                 priority: priority,
-                categoryId: categoryId,
+                categoryId: effectiveCategoryId,
                 projectId: projectId,
                 customGroupId: customGroupId,
                 milestoneId: milestoneId,
@@ -3916,7 +3936,7 @@ export class QuickReminderDialog {
                 endTime: endTime,
                 completed: false,
                 priority: priority,
-                categoryId: categoryId,
+                categoryId: effectiveCategoryId,
                 projectId: projectId,
                 customGroupId: customGroupId,
                 tagIds: tagIds.length > 0 ? tagIds : undefined,
@@ -4021,7 +4041,7 @@ export class QuickReminderDialog {
                         reminder.endTime = endTime;
                         reminder.note = note;
                         reminder.priority = priority;
-                        reminder.categoryId = categoryId;
+                        reminder.categoryId = effectiveCategoryId;
                         reminder.projectId = projectId;
                         reminder.customGroupId = customGroupId;
                         reminder.milestoneId = milestoneId;
@@ -4254,7 +4274,7 @@ export class QuickReminderDialog {
                         date: date || undefined, // 允许日期为空
                         completed: false,
                         priority: priority,
-                        categoryId: categoryId,
+                        categoryId: effectiveCategoryId,
                         projectId: projectId,
                         customGroupId: customGroupId,
                         milestoneId: milestoneId,

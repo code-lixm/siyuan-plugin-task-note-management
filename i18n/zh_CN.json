@@ -925,6 +925,8 @@
     "calendarAutoOpen": "启动时打开日历",
     "calendarAutoOpenDesc": "思源启动时，是否默认自动打开日历视图标签页",
     "sidebarSettings": "侧栏设置",
+    "showAdvancedFeatures": "显示高级功能",
+    "showAdvancedFeaturesDesc": "开启后显示进阶入口和高级设置（如习惯侧栏、番茄高级、ICS上传）",
     "enableReminderDock": "显示任务管理侧栏",
     "enableReminderDockDesc": "在侧边栏显示/隐藏任务管理面板（提醒面板）",
     "enableProjectDock": "显示项目管理侧栏",

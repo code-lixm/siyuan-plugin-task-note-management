@@ -34,6 +34,7 @@ export class ReminderPanel {
     private currentSortOrder: 'asc' | 'desc' = 'asc';
     private reminderUpdatedHandler: (event?: CustomEvent) => void;
     private sortConfigUpdatedHandler: (event: CustomEvent) => void;
+    private settingsUpdatedHandler: () => void;
     private categoryManager: CategoryManager; // 添加分类管理器
     private isDragging: boolean = false;
     private draggedElement: HTMLElement | null = null;
@@ -61,6 +62,7 @@ export class ReminderPanel {
     private currentPage: number = 1;
     private itemsPerPage: number = 30;
     private isPaginationEnabled: boolean = true; // 是否启用分页
+    private showAdvancedFeatures: boolean = false;
     private totalPages: number = 1;
     private totalItems: number = 0;
     private lastTruncatedTotal: number = 0;
@@ -120,6 +122,28 @@ export class ReminderPanel {
             }
         };
 
+        this.settingsUpdatedHandler = async () => {
+            try {
+                const settings = await this.plugin.loadSettings();
+                const nextShowAdvanced = settings?.showAdvancedFeatures === true;
+                const nextShowCompletedSubtasks = settings?.showCompletedSubtasks !== undefined
+                    ? !!settings.showCompletedSubtasks
+                    : this.showCompletedSubtasks;
+
+                if (
+                    nextShowAdvanced !== this.showAdvancedFeatures ||
+                    nextShowCompletedSubtasks !== this.showCompletedSubtasks
+                ) {
+                    this.showAdvancedFeatures = nextShowAdvanced;
+                    this.showCompletedSubtasks = nextShowCompletedSubtasks;
+                    this.initUI();
+                    this.loadReminders();
+                }
+            } catch (error) {
+                console.warn('刷新高级设置失败:', error);
+            }
+        };
+
         this.initializeAsync();
     }
 
@@ -136,6 +160,7 @@ export class ReminderPanel {
             if (settings.showCompletedSubtasks !== undefined) {
                 this.showCompletedSubtasks = !!settings.showCompletedSubtasks;
             }
+            this.showAdvancedFeatures = settings?.showAdvancedFeatures === true;
         } catch (e) {
             // ignore
         }
@@ -152,6 +177,8 @@ export class ReminderPanel {
         window.addEventListener('reminderUpdated', this.reminderUpdatedHandler);
         // 监听排序配置更新事件
         window.addEventListener('sortConfigUpdated', this.sortConfigUpdatedHandler);
+        // 监听设置变更，实时刷新高级功能显隐
+        window.addEventListener('reminderSettingsUpdated', this.settingsUpdatedHandler);
     }
 
     // 添加销毁方法以清理事件监听器
@@ -168,6 +195,9 @@ export class ReminderPanel {
         }
         if (this.sortConfigUpdatedHandler) {
             window.removeEventListener('sortConfigUpdated', this.sortConfigUpdatedHandler);
+        }
+        if (this.settingsUpdatedHandler) {
+            window.removeEventListener('reminderSettingsUpdated', this.settingsUpdatedHandler);
         }
 
         // 清理当前番茄钟实例
@@ -264,25 +294,27 @@ export class ReminderPanel {
             });
             actionContainer.appendChild(calendarBtn);
 
-            // 添加四象限面板按钮
-            const eisenhowerBtn = document.createElement('button');
-            eisenhowerBtn.className = 'b3-button b3-button--outline';
-            eisenhowerBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconGrid"></use></svg>';
-            eisenhowerBtn.title = i18n("eisenhowerMatrix") || "四象限面板";
-            eisenhowerBtn.addEventListener('click', () => {
-                this.openEisenhowerMatrix();
-            });
-            actionContainer.appendChild(eisenhowerBtn);
+            if (this.showAdvancedFeatures) {
+                // 添加四象限面板按钮
+                const eisenhowerBtn = document.createElement('button');
+                eisenhowerBtn.className = 'b3-button b3-button--outline';
+                eisenhowerBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconGrid"></use></svg>';
+                eisenhowerBtn.title = i18n("eisenhowerMatrix") || "四象限面板";
+                eisenhowerBtn.addEventListener('click', () => {
+                    this.openEisenhowerMatrix();
+                });
+                actionContainer.appendChild(eisenhowerBtn);
 
-            // 添加番茄钟统计按钮
-            const pomodoroStatsBtn = document.createElement('button');
-            pomodoroStatsBtn.className = 'b3-button b3-button--outline';
-            pomodoroStatsBtn.innerHTML = '📊';
-            pomodoroStatsBtn.title = i18n("pomodoroStats");
-            pomodoroStatsBtn.addEventListener('click', () => {
-                this.showPomodoroStatsView();
-            });
-            actionContainer.appendChild(pomodoroStatsBtn);
+                // 添加番茄钟统计按钮
+                const pomodoroStatsBtn = document.createElement('button');
+                pomodoroStatsBtn.className = 'b3-button b3-button--outline';
+                pomodoroStatsBtn.innerHTML = '📊';
+                pomodoroStatsBtn.title = i18n("pomodoroStats");
+                pomodoroStatsBtn.addEventListener('click', () => {
+                    this.showPomodoroStatsView();
+                });
+                actionContainer.appendChild(pomodoroStatsBtn);
+            }
 
 
 
@@ -5790,12 +5822,14 @@ export class ReminderPanel {
             label: i18n("createSubtask"),
             click: () => this.showCreateSubtaskDialog(reminder)
         });
-        // 粘贴新建子任务（参考 ProjectKanbanView 的实现）
-        menu.addItem({
-            iconHTML: "📋",
-            label: i18n("pasteCreateSubtask"),
-            click: () => this.showPasteTaskDialog(reminder)
-        });
+        // 粘贴新建子任务（高级功能）
+        if (this.showAdvancedFeatures) {
+            menu.addItem({
+                iconHTML: "📋",
+                label: i18n("pasteCreateSubtask"),
+                click: () => this.showPasteTaskDialog(reminder)
+            });
+        }
         // 解除父子任务关系（仅当任务有父任务时显示）
         if (reminder.parentId) {
             menu.addItem({
@@ -7856,6 +7890,11 @@ export class ReminderPanel {
     }
 
     private showPasteTaskDialog(parentReminder: any) {
+        if (!this.showAdvancedFeatures) {
+            showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+            return;
+        }
+
         const dialog = new PasteTaskDialog({
             plugin: this.plugin,
             parentTask: parentReminder,
@@ -8487,12 +8526,14 @@ export class ReminderPanel {
                 click: () => this.showCategoryManageDialog()
             });
 
-            // 添加过滤器管理
-            menu.addItem({
-                icon: 'iconFilter',
-                label: i18n("manageFilters"),
-                click: () => this.showFilterManagement()
-            });
+            // 添加过滤器管理（高级功能）
+            if (this.showAdvancedFeatures) {
+                menu.addItem({
+                    icon: 'iconFilter',
+                    label: i18n("manageFilters"),
+                    click: () => this.showFilterManagement()
+                });
+            }
 
             // 添加插件设置
             menu.addItem({

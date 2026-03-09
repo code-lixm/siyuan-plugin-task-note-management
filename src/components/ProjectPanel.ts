@@ -37,6 +37,7 @@ export class ProjectPanel {
     private statusManager: StatusManager;
     private projectUpdatedHandler: () => void;
     private reminderUpdatedHandler: (e: any) => void;
+    private settingsUpdatedHandler: () => void;
     // 添加拖拽相关属性
     private isDragging: boolean = false;
     private draggedElement: HTMLElement | null = null;
@@ -46,6 +47,7 @@ export class ProjectPanel {
     private groupCollapsedState: Record<string, boolean> = {};
     // 缓存提醒数据，避免为每个项目重复读取
     private reminderDataCache: any = null;
+    private showAdvancedFeatures: boolean = false;
 
     constructor(container: HTMLElement, plugin?: any) {
         this.container = container;
@@ -85,10 +87,32 @@ export class ProjectPanel {
             this.loadProjects();
         };
 
+        this.settingsUpdatedHandler = async () => {
+            try {
+                const settings = await this.plugin?.loadSettings?.();
+                const nextShowAdvanced = settings?.showAdvancedFeatures === true;
+                if (nextShowAdvanced !== this.showAdvancedFeatures) {
+                    this.showAdvancedFeatures = nextShowAdvanced;
+                    this.initUI();
+                    this.loadProjects();
+                }
+            } catch (error) {
+                console.warn('刷新高级设置失败:', error);
+            }
+        };
+
         this.initializeAsync();
     }
 
     private async initializeAsync() {
+        try {
+            const settings = await this.plugin?.loadSettings?.();
+            this.showAdvancedFeatures = settings?.showAdvancedFeatures === true;
+        } catch (error) {
+            console.warn('load showAdvancedFeatures failed:', error);
+            this.showAdvancedFeatures = false;
+        }
+
         await this.categoryManager.initialize();
         await this.statusManager.initialize();
         this.initUI();
@@ -98,6 +122,8 @@ export class ProjectPanel {
         window.addEventListener('projectUpdated', this.projectUpdatedHandler);
         // 监听提醒更新事件，更新计数缓存
         window.addEventListener('reminderUpdated', this.reminderUpdatedHandler);
+        // 监听设置更新，实时刷新高级功能入口显隐
+        window.addEventListener('reminderSettingsUpdated', this.settingsUpdatedHandler);
     }
 
     public destroy() {
@@ -106,6 +132,9 @@ export class ProjectPanel {
         }
         if (this.reminderUpdatedHandler) {
             window.removeEventListener('reminderUpdated', this.reminderUpdatedHandler);
+        }
+        if (this.settingsUpdatedHandler) {
+            window.removeEventListener('reminderSettingsUpdated', this.settingsUpdatedHandler);
         }
     }
 
@@ -168,25 +197,27 @@ export class ProjectPanel {
             });
             actionContainer.appendChild(calendarBtn);
 
-            // 添加四象限面板按钮（放在日历按钮旁边）
-            const eisenhowerBtn = document.createElement('button');
-            eisenhowerBtn.className = 'b3-button b3-button--outline';
-            eisenhowerBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconGrid"></use></svg>';
-            eisenhowerBtn.title = i18n("eisenhowerMatrix") || "四象限面板";
-            eisenhowerBtn.addEventListener('click', () => {
-                this.openEisenhowerMatrix();
-            });
-            actionContainer.appendChild(eisenhowerBtn);
+            if (this.showAdvancedFeatures) {
+                // 添加四象限面板按钮（放在日历按钮旁边）
+                const eisenhowerBtn = document.createElement('button');
+                eisenhowerBtn.className = 'b3-button b3-button--outline';
+                eisenhowerBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconGrid"></use></svg>';
+                eisenhowerBtn.title = i18n("eisenhowerMatrix") || "四象限面板";
+                eisenhowerBtn.addEventListener('click', () => {
+                    this.openEisenhowerMatrix();
+                });
+                actionContainer.appendChild(eisenhowerBtn);
 
-            // 添加番茄钟看板按钮
-            const pomodoroStatsBtn = document.createElement('button');
-            pomodoroStatsBtn.className = 'b3-button b3-button--outline';
-            pomodoroStatsBtn.innerHTML = '📊';
-            pomodoroStatsBtn.title = i18n("pomodoroStats") || "番茄钟统计";
-            pomodoroStatsBtn.addEventListener('click', () => {
-                this.showPomodoroStatsView();
-            });
-            actionContainer.appendChild(pomodoroStatsBtn);
+                // 添加番茄钟看板按钮
+                const pomodoroStatsBtn = document.createElement('button');
+                pomodoroStatsBtn.className = 'b3-button b3-button--outline';
+                pomodoroStatsBtn.innerHTML = '📊';
+                pomodoroStatsBtn.title = i18n("pomodoroStats") || "番茄钟统计";
+                pomodoroStatsBtn.addEventListener('click', () => {
+                    this.showPomodoroStatsView();
+                });
+                actionContainer.appendChild(pomodoroStatsBtn);
+            }
 
             // 添加刷新按钮
             const refreshBtn = document.createElement('button');
@@ -2132,14 +2163,16 @@ export class ProjectPanel {
                 }
             });
 
-            // 添加状态管理
-            menu.addItem({
-                icon: 'iconSettings',
-                label: i18n("manageStatuses") || "管理状态",
-                click: () => {
-                    this.showStatusManageDialog();
-                }
-            });
+            // 添加状态管理（高级功能）
+            if (this.showAdvancedFeatures) {
+                menu.addItem({
+                    icon: 'iconSettings',
+                    label: i18n("manageStatuses") || "管理状态",
+                    click: () => {
+                        this.showStatusManageDialog();
+                    }
+                });
+            }
 
             // 添加插件设置（在更多菜单中）
             menu.addItem({
