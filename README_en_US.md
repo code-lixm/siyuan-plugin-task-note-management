@@ -12,6 +12,10 @@ A task management plugin for SiYuan Notes, developed to practice the Bullet Jour
 
 See: [CHANGELOG.md](https://cdn.jsdelivr.net/gh/code-lixm/siyuan-plugin-task-daily@main/CHANGELOG.md)
 
+## Usage
+
+Help Documentation: https://www.zhihu.com/column/c_1998349446233202806
+
 ## 🤔 Guiding Philosophy Behind the Plugin: Bullet Journal Method
 
 ### What is the Bullet Journal Method

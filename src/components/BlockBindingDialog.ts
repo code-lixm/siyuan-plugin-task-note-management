@@ -1,5 +1,5 @@
 import { Dialog } from "siyuan";
-
+import { i18n } from "../pluginInstance";
 /**
  * 块绑定对话框组件
  * 支持三种模式：绑定现有块、新建文档、新建标题
@@ -48,7 +48,7 @@ export class BlockBindingDialog {
         this.forGroup = options?.forGroup || false;
 
         this.dialog = new Dialog({
-            title: options?.title || "绑定块",
+            title: options?.title || i18n("bindBlock") || "绑定块",
             content: this.createDialogContent(),
             width: "600px",
             height: "500px"
@@ -73,9 +73,9 @@ export class BlockBindingDialog {
             <div class="create-doc-heading-dialog" style="display: flex; flex-direction: column; height: 100%;">
                 <!-- 按钮切换 -->
                 <div style="margin-bottom: 16px; flex-shrink: 0; display: flex; gap: 8px; justify-content: center;">
-                    <button class="b3-button b3-button--outline tab-switch-btn" data-tab="bind">绑定块</button>
-                    <button class="b3-button b3-button--outline tab-switch-btn" data-tab="document">新建文档</button>
-                    <button class="b3-button tab-switch-btn" data-tab="heading">新建标题</button>
+                    <button class="b3-button b3-button--outline tab-switch-btn" data-tab="bind">${i18n("bindBlock") || "绑定块"}</button>
+                    <button class="b3-button b3-button--outline tab-switch-btn" data-tab="heading">${i18n("newHeading") || "新建标题"}</button>
+                    <button class="b3-button tab-switch-btn" data-tab="document">${i18n("newDocument") || "新建文档"}</button>
                 </div>
 
                 <!-- 内容区域 -->
@@ -84,19 +84,19 @@ export class BlockBindingDialog {
                     <div class="tab-content" data-content="bind" style="display: none;">
                         <div class="b3-dialog__content">
                             <div class="b3-form__group">
-                                <label class="b3-form__label">块ID</label>
+                                <label class="b3-form__label">${i18n("blockId") || "块ID"}</label>
                                 <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
-                                    <input type="text" id="bindBlockInput" class="b3-text-field" placeholder="输入块ID或搜索" style="flex: 1;">
+                                    <input type="text" id="bindBlockInput" class="b3-text-field" placeholder="${i18n("inputBlockIdOrSearch") || "输入块ID或搜索"}" style="flex: 1;">
                                     <label style="margin: 0;">
                                         <input type="checkbox" id="bindIncludeHeadingsCheckbox" class="b3-switch">
                                         <span class="b3-switch__slider"></span>
                                     </label>
-                                    <span style="font-size: 12px; color: var(--b3-theme-on-surface); white-space: nowrap;">搜索包含标题</span>
+                                    <span style="font-size: 12px; color: var(--b3-theme-on-surface); white-space: nowrap;">${i18n("searchIncludesHeadings") || "搜索包含标题"}</span>
                                 </div>
                                 <div id="bindSearchResults" style="max-height: 150px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--b3-border-color); border-radius: 4px; display: none;"></div>
                                 <!-- 块预览区域 -->
                                 <div id="bindBlockPreview" style="margin-top: 8px; padding: 8px; background: var(--b3-theme-background-light); border: 1px solid var(--b3-border-color); border-radius: 4px; display: none;">
-                                    <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;">当前选择：</div>
+                                    <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;">${i18n("currentSelection") || "当前选择："}</div>
                                     <div id="bindBlockPreviewContent" style="font-size: 13px; color: var(--b3-theme-on-surface);"></div>
                                 </div>
                             </div>
@@ -107,22 +107,22 @@ export class BlockBindingDialog {
                     <div class="tab-content" data-content="document" style="display: none;">
                         <div class="b3-dialog__content">
                                     <div class="b3-form__group">
-                                        <label class="b3-form__label">文档标题</label>
-                                        <input type="text" id="docTitleInput" class="b3-text-field" value="" placeholder="请输入文档标题" style="width: 100%; margin-top: 8px;">
+                                        <label class="b3-form__label">${i18n("documentTitle") || "文档标题"}</label>
+                                        <input type="text" id="docTitleInput" class="b3-text-field" value="" placeholder="${i18n("inputDocumentTitle") || "请输入文档标题"}" style="width: 100%; margin-top: 8px;">
                                     </div>
 
                                     <div class="b3-form__group">
-                                        <label class="b3-form__label">保存路径（相对于所选笔记本）</label>
+                                        <label class="b3-form__label">${i18n("savePathRelativeToNotebook") || "保存路径（相对于所选笔记本）"}</label>
                                         <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-                                            <input type="text" id="docParentPathInput" class="b3-text-field" placeholder="输入或搜索路径，例如 /项目/子页" style="flex:1;">
-                                            <button class="b3-button b3-button--outline" id="useParentDocPathBtn" style="display:none; white-space:nowrap;">使用父块文档路径</button>
+                                            <input type="text" id="docParentPathInput" class="b3-text-field" placeholder="${i18n("inputOrSearchPathDesc") || "输入或搜索路径，例如 /项目/子页"}" style="flex:1;">
+                                            <button class="b3-button b3-button--outline" id="useParentDocPathBtn" style="display:none; white-space:nowrap;">${i18n("useParentBlockDocPath") || "使用父块文档路径"}</button>
                                         </div>
                                         <div id="docPathSearchResults" style="max-height:150px; overflow-y:auto; margin-top:8px; border:1px solid var(--b3-border-color); border-radius:4px; display:none;"></div>
                                     </div>
 
                                     <div class="b3-form__group">
-                                        <label class="b3-form__label">文档内容（可选）</label>
-                                        <textarea id="docContentInput" class="b3-text-field" placeholder="请输入文档内容" style="width: 100%; margin-top: 8px; min-height: 80px; resize: vertical;"></textarea>
+                                        <label class="b3-form__label">${i18n("documentContentOptional") || "文档内容（可选）"}</label>
+                                        <textarea id="docContentInput" class="b3-text-field" placeholder="${i18n("inputDocumentContent") || "请输入文档内容"}" style="width: 100%; margin-top: 8px; min-height: 80px; resize: vertical;"></textarea>
                                     </div>
                         </div>
                     </div>
@@ -131,30 +131,30 @@ export class BlockBindingDialog {
                     <div class="tab-content" data-content="heading">
                         <div class="b3-dialog__content">
                             <div class="b3-form__group">
-                                <label class="b3-form__label">标题内容</label>
-                                <input type="text" id="headingContentInput" class="b3-text-field" value="" placeholder="请输入标题内容" style="width: 100%; margin-top: 8px;">
+                                <label class="b3-form__label">${i18n("headingContent") || "标题内容"}</label>
+                                <input type="text" id="headingContentInput" class="b3-text-field" value="" placeholder="${i18n("inputHeadingContent") || "请输入标题内容"}" style="width: 100%; margin-top: 8px;">
                             </div>
                             
                             <div class="b3-form__group">
-                                <label class="b3-form__label">父块</label>
+                                <label class="b3-form__label">${i18n("parentBlock") || "父块"}</label>
                                 <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
-                                    <input type="text" id="headingParentInput" class="b3-text-field" placeholder="输入块ID或搜索" style="flex: 1;">
+                                    <input type="text" id="headingParentInput" class="b3-text-field" placeholder="${i18n("inputBlockIdOrSearch") || "输入块ID或搜索"}" style="flex: 1;">
                                     <label style="margin: 0;">
                                         <input type="checkbox" id="headingIncludeHeadingsCheckbox" class="b3-switch">
                                         <span class="b3-switch__slider"></span>
                                     </label>
-                                    <span style="font-size: 12px; color: var(--b3-theme-on-surface); white-space: nowrap;">搜索包含标题</span>
+                                    <span style="font-size: 12px; color: var(--b3-theme-on-surface); white-space: nowrap;">${i18n("searchIncludesHeadings") || "搜索包含标题"}</span>
                                 </div>
                                 <div id="headingSearchResults" style="max-height: 150px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--b3-border-color); border-radius: 4px; display: none;"></div>
                                 <!-- 块预览区域 -->
                                 <div id="headingBlockPreview" style="margin-top: 8px; padding: 8px; background: var(--b3-theme-background-light); border: 1px solid var(--b3-border-color); border-radius: 4px; display: none;">
-                                    <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;">当前选择：</div>
+                                    <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;">${i18n("currentSelection") || "当前选择："}</div>
                                     <div id="headingBlockPreviewContent" style="font-size: 13px; color: var(--b3-theme-on-surface);"></div>
                                 </div>
                             </div>
 
                             <div class="b3-form__group">
-                                <label class="b3-form__label">插入的标题层级</label>
+                                <label class="b3-form__label">${i18n("insertedHeadingLevel") || "插入的标题层级"}</label>
                                 <select id="headingLevelSelect" class="b3-select" style="width: 100%; margin-top: 8px;">
                                     <option value="1">H1</option>
                                     <option value="2">H2</option>
@@ -166,11 +166,16 @@ export class BlockBindingDialog {
                             </div>
 
                             <div class="b3-form__group">
-                                <label class="b3-form__label">插入位置</label>
+                                <label class="b3-form__label">${i18n("insertPosition") || "插入位置"}</label>
                                 <select id="headingPositionSelect" class="b3-select" style="width: 100%; margin-top: 8px;">
-                                    <option value="prepend">插入到最前</option>
-                                    <option value="append" selected>插入到最后</option>
+                                    <option value="prepend">${i18n("insertAtBeginning") || "插入到最前"}</option>
+                                    <option value="append" selected>${i18n("insertAtEnd") || "插入到最后"}</option>
                                 </select>
+                            </div>
+
+                            <div class="b3-form__group">
+                                <label class="b3-form__label">${i18n("headingContentOptional") || "标题下内容（可选）"}</label>
+                                <textarea id="headingSubContentInput" class="b3-text-field" placeholder="${i18n("inputHeadingSubContent") || "请输入标题下内容"}" style="width: 100%; margin-top: 8px; min-height: 80px; resize: vertical;"></textarea>
                             </div>
                         </div>
                     </div>
@@ -178,8 +183,8 @@ export class BlockBindingDialog {
 
                 <!-- 按钮区域 -->
                 <div class="b3-dialog__action" style="flex-shrink: 0; margin-top: 16px;">
-                    <button class="b3-button b3-button--cancel" id="quickCreateCancelBtn">取消</button>
-                    <button class="b3-button b3-button--primary" id="quickCreateConfirmBtn">确定</button>
+                    <button class="b3-button b3-button--cancel" id="quickCreateCancelBtn">${i18n("cancel") || "取消"}</button>
+                    <button class="b3-button b3-button--primary" id="quickCreateConfirmBtn">${i18n("confirm") || "确定"}</button>
                 </div>
             </div>
         `;
@@ -368,6 +373,7 @@ export class BlockBindingDialog {
      */
     private async initDocumentTab() {
         const docTitleInput = this.dialog.element.querySelector('#docTitleInput') as HTMLInputElement;
+        const docContentInput = this.dialog.element.querySelector('#docContentInput') as HTMLTextAreaElement;
         const parentPathInput = this.dialog.element.querySelector('#docParentPathInput') as HTMLInputElement;
         const pathSearchResults = this.dialog.element.querySelector('#docPathSearchResults') as HTMLElement;
         const useParentDocPathBtn = this.dialog.element.querySelector('#useParentDocPathBtn') as HTMLButtonElement;
@@ -375,6 +381,11 @@ export class BlockBindingDialog {
         // 如果有reminder，设置默认标题，否则使用默认标题
         if (docTitleInput) {
             docTitleInput.value = (this.reminder?.title || this.defaultTitle) || '';
+        }
+
+        // 自动填充备注到内容域
+        if (docContentInput && this.reminder?.note) {
+            docContentInput.value = this.reminder.note;
         }
 
         // 加载笔记本列表
@@ -448,6 +459,7 @@ export class BlockBindingDialog {
                         try {
                             const { ProjectManager } = await import('../utils/projectManager');
                             const projectManager = ProjectManager.getInstance(this.plugin);
+                            await projectManager.initialize();
 
                             if (this.defaultCustomGroupId) {
                                 const groups = await projectManager.getProjectCustomGroups(this.defaultProjectId);
@@ -466,14 +478,55 @@ export class BlockBindingDialog {
 
                     if (boundDocBlockId) {
                         const boundBlock = await getBlockByID(boundDocBlockId);
-                        if (boundBlock && boundBlock.type === 'd') {
-                            const rawHPath = boundBlock.hpath || boundBlock.hPath || '';
-                            // 使用完整的 hPath（包含笔记本名）填充输入框，并记录 notebook id
-                            useParentDocPathBtn.style.display = 'inline-block';
-                            useParentDocPathBtn.addEventListener('click', () => {
-                                parentPathInput.value = rawHPath || '/';
-                                this.selectedPathNotebookId = boundBlock.box || undefined;
-                            });
+                        if (boundBlock) {
+                            // 对于非文档块，通过 root_id 获取所在文档的 hpath
+                            let rawHPath = '';
+                            let pathBox = boundBlock.box || undefined;
+                            if (boundBlock.type === 'd') {
+                                rawHPath = boundBlock.hpath || (boundBlock as any).hPath || '';
+                            } else if (boundBlock.root_id) {
+                                // 非文档块：获取其所在文档的路径
+                                const rootBlock = await getBlockByID(boundBlock.root_id);
+                                if (rootBlock) {
+                                    rawHPath = rootBlock.hpath || (rootBlock as any).hPath || '';
+                                    pathBox = rootBlock.box || pathBox;
+                                }
+                            }
+                            if (rawHPath) {
+                                const defaultPath = parentPathInput.value;
+                                const defaultNotebookId: string | undefined = undefined;
+
+                                // 拼接笔记本名称到路径前面
+                                let fullHPath = rawHPath;
+                                if (pathBox && this.notebooks?.notebooks) {
+                                    const nb = this.notebooks.notebooks.find((n: any) => n.id === pathBox);
+                                    if (nb?.name) {
+                                        fullHPath = '/' + nb.name + (rawHPath.startsWith('/') ? rawHPath : '/' + rawHPath);
+                                    }
+                                }
+
+                                // 自动填充父块文档路径
+                                parentPathInput.value = fullHPath;
+                                this.selectedPathNotebookId = pathBox;
+
+                                // 按钮改为"使用默认路径"，支持在父块路径与默认路径之间切换
+                                useParentDocPathBtn.textContent = i18n('useDefaultPath') || '使用默认路径';
+                                useParentDocPathBtn.style.display = 'inline-block';
+                                let usingParentPath = true;
+                                useParentDocPathBtn.addEventListener('click', () => {
+                                    if (usingParentPath) {
+                                        parentPathInput.value = defaultPath;
+                                        this.selectedPathNotebookId = defaultNotebookId;
+                                        useParentDocPathBtn.textContent = i18n('useParentBlockDocPath') || '使用父块文档路径';
+                                        usingParentPath = false;
+                                    } else {
+                                        parentPathInput.value = fullHPath;
+                                        this.selectedPathNotebookId = pathBox;
+                                        useParentDocPathBtn.textContent = i18n('useDefaultPath') || '使用默认路径';
+                                        usingParentPath = true;
+                                    }
+                                });
+                            }
                         }
                     }
                 } catch (err) {
@@ -504,7 +557,7 @@ export class BlockBindingDialog {
 
                             const mapped = (results || []).map((doc: any) => ({ ...doc, hPathRel: toRelativePath(doc.hPath || doc.hpath || ''), hPathFull: doc.hPath || doc.hpath || '' }));
                             if (!mapped || mapped.length === 0) {
-                                pathSearchResults.innerHTML = `<div style="padding:8px;text-align:center;color:var(--b3-theme-on-surface-light);">未找到匹配结果</div>`;
+                                pathSearchResults.innerHTML = `<div style="padding:8px;text-align:center;color:var(--b3-theme-on-surface-light);">${i18n("noMatchResult") || "未找到匹配结果"}</div>`;
                                 pathSearchResults.style.display = 'block';
                                 return;
                             }
@@ -528,7 +581,7 @@ export class BlockBindingDialog {
                             });
                         } catch (err) {
                             console.error('路径搜索失败:', err);
-                            pathSearchResults.innerHTML = `<div style="padding:8px;text-align:center;color:var(--b3-theme-error);">搜索失败</div>`;
+                            pathSearchResults.innerHTML = `<div style="padding:8px;text-align:center;color:var(--b3-theme-error);">${i18n("searchFailed") || "搜索失败"}</div>`;
                             pathSearchResults.style.display = 'block';
                         }
                     }, 300);
@@ -544,6 +597,7 @@ export class BlockBindingDialog {
      */
     private async initHeadingTab() {
         const headingContentInput = this.dialog.element.querySelector('#headingContentInput') as HTMLInputElement;
+        const headingSubContentInput = this.dialog.element.querySelector('#headingSubContentInput') as HTMLTextAreaElement;
         const headingParentInput = this.dialog.element.querySelector('#headingParentInput') as HTMLInputElement;
         const headingIncludeHeadingsCheckbox = this.dialog.element.querySelector('#headingIncludeHeadingsCheckbox') as HTMLInputElement;
         const headingSearchResults = this.dialog.element.querySelector('#headingSearchResults') as HTMLElement;
@@ -554,6 +608,11 @@ export class BlockBindingDialog {
         // 如果有reminder，设置默认标题内容，否则使用默认标题
         if (headingContentInput) {
             headingContentInput.value = (this.reminder?.title || this.defaultTitle) || '';
+        }
+
+        // 自动填充备注到标题下内容域
+        if (headingSubContentInput && this.reminder?.note) {
+            headingSubContentInput.value = this.reminder.note;
         }
 
         // 加载默认设置
@@ -708,6 +767,7 @@ export class BlockBindingDialog {
             if (!autoFillBlockId && this.defaultProjectId) {
                 const { ProjectManager } = await import('../utils/projectManager');
                 const projectManager = ProjectManager.getInstance(this.plugin);
+                await projectManager.initialize();
 
                 // 检查是否有自定义分组
                 if (this.defaultCustomGroupId) {
@@ -861,7 +921,7 @@ export class BlockBindingDialog {
             const results = await sql(sqlQuery);
 
             if (!results || results.length === 0) {
-                resultsContainer.innerHTML = `<div style="padding: 8px; text-align: center; color: var(--b3-theme-on-surface-light);">未找到匹配结果</div>`;
+                resultsContainer.innerHTML = `<div style="padding: 8px; text-align: center; color: var(--b3-theme-on-surface-light);">${i18n("noMatchResult") || "未找到匹配结果"}</div>`;
                 resultsContainer.style.display = 'block';
                 return;
             }
@@ -900,7 +960,7 @@ export class BlockBindingDialog {
             });
         } catch (error) {
             console.error('搜索块失败:', error);
-            resultsContainer.innerHTML = `<div style="padding: 8px; text-align: center; color: var(--b3-theme-error);">搜索失败</div>`;
+            resultsContainer.innerHTML = `<div style="padding: 8px; text-align: center; color: var(--b3-theme-error);">${i18n("searchFailed") || "搜索失败"}</div>`;
             resultsContainer.style.display = 'block';
         }
     }
@@ -923,14 +983,9 @@ export class BlockBindingDialog {
 
             if (parentBlock.type === 'h') {
                 const parentLevel = parseInt(parentBlock.subtype.replace('h', ''));
-                // 只有当默认层级高于父块（数字更小，例如 H2 高于 H3）时，才调整为父块层级 + 1
-                if (defaultLevel < parentLevel) {
-                    const newLevel = Math.min(parentLevel + 1, 6);
-                    levelSelect.value = newLevel.toString();
-                } else {
-                    // 否则（默认层级低于或等于父块）不调整，保持默认层级
-                    levelSelect.value = defaultLevel.toString();
-                }
+                // 父块是标题块时，自动降一级
+                const newLevel = Math.min(parentLevel + 1, 6);
+                levelSelect.value = newLevel.toString();
             } else {
                 // 父块是文档，使用默认层级
                 levelSelect.value = defaultLevel.toString();
@@ -962,7 +1017,7 @@ export class BlockBindingDialog {
                     blockId = await this.handleHeadingConfirm();
                     break;
                 default:
-                    throw new Error('未知的标签页类型');
+                    throw new Error(i18n("unknownTabType") || '未知的标签页类型');
             }
 
             if (blockId) {
@@ -983,14 +1038,14 @@ export class BlockBindingDialog {
         const blockId = input?.value?.trim();
 
         if (!blockId) {
-            throw new Error('请输入块ID');
+            throw new Error(i18n("pleaseInputBlockId") || '请输入块ID');
         }
 
         // 验证块是否存在
         const { getBlockByID } = await import("../api");
         const block = await getBlockByID(blockId);
         if (!block) {
-            throw new Error('块不存在');
+            throw new Error(i18n("blockNotExistError") || '块不存在');
         }
 
         return blockId;
@@ -1001,14 +1056,50 @@ export class BlockBindingDialog {
      */
     private async handleDocumentConfirm(): Promise<string> {
         const titleInput = this.dialog.element.querySelector('#docTitleInput') as HTMLInputElement;
+        const contentInput = this.dialog.element.querySelector('#docContentInput') as HTMLTextAreaElement;
         const parentPathInput = this.dialog.element.querySelector('#docParentPathInput') as HTMLInputElement;
 
-        const title = titleInput?.value?.trim();
+        let title = titleInput?.value?.trim();
         let notebookId: string | undefined;
         let parentPath = parentPathInput?.value?.trim();
 
         if (!title) {
-            throw new Error('请输入文档标题');
+            throw new Error(i18n("pleaseInputDocumentTitle") || '请输入文档标题');
+        }
+
+        let content = contentInput?.value || '';
+
+        // 处理/data/storage/petal/siyuan-plugin-task-note-management/assets到/data/assets的转换
+        if (content.includes('/data/storage/petal/siyuan-plugin-task-note-management/assets/')) {
+            try {
+                const { putFile } = await import('../api');
+                const assetRegex = /\/data\/storage\/petal\/siyuan-plugin-task-note-management\/assets\/([^)"\s]+)/g;
+                let match;
+                while ((match = assetRegex.exec(content)) !== null) {
+                    const fileName = match[1];
+                    const sourcePath = match[0];
+                    const targetPath = `/data/assets/${fileName}`;
+
+                    try {
+                        let response = await fetch('/api/file/getFile', {
+                            method: 'POST',
+                            body: JSON.stringify({ path: sourcePath })
+                        });
+
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            await putFile(targetPath, false, blob);
+                            // 替换内容中的路径为思源标准资源路径 assets/xxxx
+                            content = content.replace(sourcePath, `assets/${fileName}`);
+                            // 可选：删除原文件或者不保留
+                        }
+                    } catch (e) {
+                        console.error('转移图片资源失败', sourcePath, e);
+                    }
+                }
+            } catch (error) {
+                console.error('处理资源图片失败', error);
+            }
         }
 
         // 如果没有选择笔记本，尝试使用插件设置中的默认值
@@ -1070,7 +1161,7 @@ export class BlockBindingDialog {
                     } else {
                         // 如果没有匹配到笔记本名，且没有预设的目标笔记本，抛出错误
                         if (!targetNotebookId) {
-                            throw new Error('路径中的笔记本名不存在，请检查笔记本名或选择有效的笔记本');
+                            throw new Error(i18n("notebookNameInPathNotExist") || '路径中的笔记本名不存在，请检查笔记本名或选择有效的笔记本');
                         }
                         // 否则，保留完整渲染结果作为相对路径
                         relativePath = finalRendered;
@@ -1083,7 +1174,7 @@ export class BlockBindingDialog {
         }
 
         if (!targetNotebookId) {
-            throw new Error('无法确定目标笔记本，请在路径中包含笔记本名或在设置中指定默认笔记本，或通过路径搜索选择目标文档');
+            throw new Error(i18n("cannotDetermineTargetNotebookSearch") || '无法确定目标笔记本，请在路径中包含笔记本名或在设置中指定默认笔记本，或通过路径搜索选择目标文档');
         }
 
         // 如果仍然没有目标笔记本，自动选择第一个可用的笔记本
@@ -1092,11 +1183,11 @@ export class BlockBindingDialog {
         }
 
         if (!targetNotebookId) {
-            throw new Error('无法确定目标笔记本，请在路径中包含笔记本名或设置默认笔记本');
+            throw new Error(i18n("cannotDetermineTargetNotebook") || '无法确定目标笔记本，请在路径中包含笔记本名或设置默认笔记本');
         }
 
         // 最终调用 createDocWithMd，路径应为相对于笔记本的路径
-        const result = await createDocWithMd(targetNotebookId, relativePath, '');
+        const result = await createDocWithMd(targetNotebookId, relativePath, content);
 
         return result;
     }
@@ -1106,32 +1197,34 @@ export class BlockBindingDialog {
      */
     private async handleHeadingConfirm(): Promise<string> {
         const contentInput = this.dialog.element.querySelector('#headingContentInput') as HTMLInputElement;
+        const subContentInput = this.dialog.element.querySelector('#headingSubContentInput') as HTMLTextAreaElement;
         const parentInput = this.dialog.element.querySelector('#headingParentInput') as HTMLInputElement;
         const levelSelect = this.dialog.element.querySelector('#headingLevelSelect') as HTMLSelectElement;
         const positionSelect = this.dialog.element.querySelector('#headingPositionSelect') as HTMLSelectElement;
 
         const content = contentInput?.value?.trim();
+        const subContent = subContentInput?.value;
         const parentId = parentInput?.value?.trim();
         const level = parseInt(levelSelect?.value || '3');
         const position = positionSelect?.value as 'prepend' | 'append';
 
         if (!content) {
-            throw new Error('请输入标题内容');
+            throw new Error(i18n("pleaseInputHeadingContent") || '请输入标题内容');
         }
 
         if (!parentId) {
-            throw new Error('请输入父块ID');
+            throw new Error(i18n("pleaseInputParentBlockId") || '请输入父块ID');
         }
 
         // 验证父块是否存在
         const { getBlockByID } = await import("../api");
         const parentBlock = await getBlockByID(parentId);
         if (!parentBlock) {
-            throw new Error('父块不存在');
+            throw new Error(i18n("parentBlockNotExist") || '父块不存在');
         }
 
         // 创建标题
-        const blockId = await this.createHeading(content, parentId, level, position, parentBlock);
+        const blockId = await this.createHeading(content, parentId, level, position, parentBlock, subContent);
         return blockId;
     }
 
@@ -1143,12 +1236,49 @@ export class BlockBindingDialog {
         parentId: string,
         level: number,
         position: 'prepend' | 'append',
-        parentBlock: any
+        parentBlock: any,
+        subContent?: string
     ): Promise<string> {
         const { prependBlock, appendBlock, insertBlock, getHeadingChildrenDOM } = await import("../api");
 
         const hashes = '#'.repeat(level);
-        const markdownContent = `${hashes} ${content}`;
+
+        // 处理/data/storage/petal/siyuan-plugin-task-note-management/assets到/data/assets的转换
+        let processedSubContent = subContent || '';
+        if (processedSubContent.includes('/data/storage/petal/siyuan-plugin-task-note-management/assets/')) {
+            try {
+                const { putFile } = await import('../api');
+                const assetRegex = /\/data\/storage\/petal\/siyuan-plugin-task-note-management\/assets\/([^)"\s]+)/g;
+                let match;
+                while ((match = assetRegex.exec(processedSubContent)) !== null) {
+                    const fileName = match[1];
+                    const sourcePath = match[0];
+                    const targetPath = `/data/assets/${fileName}`;
+
+                    try {
+                        let response = await fetch('/api/file/getFile', {
+                            method: 'POST',
+                            body: JSON.stringify({ path: sourcePath })
+                        });
+
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            await putFile(targetPath, false, blob);
+                            processedSubContent = processedSubContent.replace(sourcePath, `assets/${fileName}`);
+                        }
+                    } catch (e) {
+                        console.error('转移图片资源失败', sourcePath, e);
+                    }
+                }
+            } catch (error) {
+                console.error('处理资源图片失败', error);
+            }
+        }
+
+        let markdownContent = `${hashes} ${content}`;
+        if (processedSubContent) {
+            markdownContent += `\n${processedSubContent}`;
+        }
 
         let response: any;
 
@@ -1209,6 +1339,6 @@ export class BlockBindingDialog {
             return response[0].doOperations[0].id;
         }
 
-        throw new Error('创建标题失败：无法获取新建块ID');
+        throw new Error(i18n("createHeadingFailed") || '创建标题失败：无法获取新建块ID');
     }
 }

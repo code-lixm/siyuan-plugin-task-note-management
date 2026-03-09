@@ -4,6 +4,7 @@ import { getBlockByID, updateBindBlockAtrrs, getBlockReminderIds } from "../api"
 import { getLocaleTag } from "../utils/dateUtils";
 import { CategoryManager } from "../utils/categoryManager";
 import { ProjectManager } from "../utils/projectManager";
+import { i18n } from "../pluginInstance";
 
 /**
  * 块绑定任务查看对话框
@@ -34,14 +35,14 @@ export class BlockRemindersDialog {
             // 获取块信息
             const block = await getBlockByID(this.blockId);
             if (!block) {
-                showMessage("块不存在", 3000, "error");
+                showMessage(i18n("blockNotExistError") || "块不存在", 3000, "error");
                 return;
             }
 
             // 获取绑定的提醒ID
             const reminderIds = await getBlockReminderIds(this.blockId);
             if (reminderIds.length === 0) {
-                showMessage("该块没有绑定任务", 3000, "info");
+                showMessage(i18n("noBoundTasks") || "该块没有绑定任务", 3000, "info");
                 return;
             }
 
@@ -52,13 +53,13 @@ export class BlockRemindersDialog {
                 .filter(r => r); // 过滤掉不存在的提醒
 
             if (reminders.length === 0) {
-                showMessage("该块没有绑定任务", 3000, "info");
+                showMessage(i18n("noBoundTasks") || "该块没有绑定任务", 3000, "info");
                 return;
             }
 
             // 创建对话框
             this.dialog = new Dialog({
-                title: `块绑定任务 - ${block.content.substring(0, 30)}${block.content.length > 30 ? '...' : ''}`,
+                title: `${i18n("blockBoundTasks") || "块绑定任务"} - ${block.content.substring(0, 30)}${block.content.length > 30 ? '...' : ''}`,
                 content: `<div id="blockRemindersContent" style="min-height: 200px; max-height: 500px; overflow-y: auto;padding: 20px;"></div>`,
                 width: "600px",
                 height: "auto",
@@ -88,8 +89,8 @@ export class BlockRemindersDialog {
             this.renderReminders(container, reminders);
 
         } catch (error) {
-            console.error("显示块绑定任务失败:", error);
-            showMessage("加载失败", 3000, "error");
+            console.error("Failed to show block bound tasks:", error);
+            showMessage(i18n("loadFailed") || "加载失败", 3000, "error");
         }
     }
 
@@ -97,7 +98,7 @@ export class BlockRemindersDialog {
         container.innerHTML = '';
 
         if (reminders.length === 0) {
-            container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--b3-theme-on-surface-light);">该块没有绑定任务</div>`;
+            container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--b3-theme-on-surface-light);">${i18n("noBoundTasks") || "该块没有绑定任务"}</div>`;
             return;
         }
 
@@ -111,7 +112,7 @@ export class BlockRemindersDialog {
             incompleteSection.style.marginBottom = '20px';
 
             const incompleteTitle = document.createElement('h3');
-            incompleteTitle.textContent = `未完成 (${incompleteReminders.length})`;
+            incompleteTitle.textContent = `${i18n("uncompleted") || "未完成"} (${incompleteReminders.length})`;
             incompleteTitle.style.cssText = 'font-size: 14px; font-weight: bold; margin-bottom: 10px; color: var(--b3-theme-on-surface);';
             incompleteSection.appendChild(incompleteTitle);
 
@@ -128,7 +129,7 @@ export class BlockRemindersDialog {
             const completedSection = document.createElement('div');
 
             const completedTitle = document.createElement('h3');
-            completedTitle.textContent = `已完成 (${completedReminders.length})`;
+            completedTitle.textContent = `${i18n("completed") || "已完成"} (${completedReminders.length})`;
             completedTitle.style.cssText = 'font-size: 14px; font-weight: bold; margin-bottom: 10px; color: var(--b3-theme-on-surface); opacity: 0.7;';
             completedSection.appendChild(completedTitle);
 
@@ -202,7 +203,7 @@ export class BlockRemindersDialog {
         // 标题
         const titleEl = document.createElement('div');
         titleEl.className = 'reminder-item__title';
-        titleEl.textContent = reminder.title || '无标题';
+        titleEl.textContent = reminder.title || i18n("untitledTask") || '无标题';
         titleEl.style.fontSize = '14px';
         titleEl.style.fontWeight = '500';
         titleEl.style.marginBottom = '4px';
@@ -225,7 +226,7 @@ export class BlockRemindersDialog {
         if (reminder.repeat?.enabled) {
             const repeatIcon = document.createElement('span');
             repeatIcon.textContent = '🔄';
-            repeatIcon.title = '重复任务';
+            repeatIcon.title = i18n("repeatTask") || '重复任务';
             timeContainer.appendChild(repeatIcon);
         }
 
@@ -415,7 +416,7 @@ export class BlockRemindersDialog {
         const editBtn = document.createElement('button');
         editBtn.className = 'b3-button b3-button--text';
         editBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconEdit"></use></svg>';
-        editBtn.title = '编辑';
+        editBtn.title = i18n("edit") || '编辑';
         editBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -430,7 +431,7 @@ export class BlockRemindersDialog {
                 dialog.show();
             } catch (err) {
                 console.error('打开编辑对话框失败:', err);
-                showMessage('无法打开编辑对话框', 3000, 'error');
+                showMessage(i18n("openModifyDialogFailed") || '打开修改对话框失败，请重试', 3000, 'error');
             }
         });
         actions.appendChild(editBtn);
@@ -439,7 +440,7 @@ export class BlockRemindersDialog {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'b3-button b3-button--text';
         deleteBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconTrashcan"></use></svg>';
-        deleteBtn.title = '删除';
+        deleteBtn.title = i18n("delete") || '删除';
         deleteBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -462,7 +463,7 @@ export class BlockRemindersDialog {
                 dialog.show();
             } catch (err) {
                 console.error('打开编辑对话框失败:', err);
-                showMessage('无法打开编辑对话框', 3000, 'error');
+                showMessage(i18n("openModifyDialogFailed") || '打开修改对话框失败，请重试', 3000, 'error');
             }
         };
 
@@ -494,11 +495,11 @@ export class BlockRemindersDialog {
                 // 触发更新事件
                 window.dispatchEvent(new CustomEvent('reminderUpdated'));
 
-                showMessage(completed ? "任务已完成" : "任务已取消完成", 2000);
+                showMessage(completed ? (i18n("taskCompleted") || "任务已完成") : (i18n("taskUncompleted") || "任务已取消完成"), 2000);
             }
         } catch (error) {
             console.error("切换任务完成状态失败:", error);
-            showMessage("操作失败", 3000, "error");
+            showMessage(i18n("operationFailed") || "操作失败", 3000, "error");
         }
     }
 
@@ -512,15 +513,15 @@ export class BlockRemindersDialog {
 
         let dateStr = '';
         if (isToday) {
-            dateStr = '今天';
+            dateStr = i18n("today") || '今天';
         } else if (isTomorrow) {
-            dateStr = '明天';
+            dateStr = i18n("tomorrow") || '明天';
         } else if (isYesterday) {
-            dateStr = '昨天';
+            dateStr = i18n("yesterday") || '昨天';
         } else {
             const diffDays = Math.floor((targetDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
             if (diffDays > 0 && diffDays <= 7) {
-                const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+                const weekdays = [i18n("sunday") || '周日', i18n("monday") || '周一', i18n("tuesday") || '周二', i18n("wednesday") || '周三', i18n("thursday") || '周四', i18n("friday") || '周五', i18n("saturday") || '周六'];
                 dateStr = weekdays[targetDate.getDay()];
             } else {
                 dateStr = date;
@@ -532,10 +533,19 @@ export class BlockRemindersDialog {
             timeStr = time;
         }
 
-        if (endDate && endDate !== date) {
-            const endDateStr = endDate === today ? '今天' : endDate;
+        // 显示结束时间：跨日期或有结束时间
+        if (endDate && (endDate !== date || endTime)) {
+            const isEndToday = endDate === today;
+            const isEndSameDay = endDate === date;
+            let endDateStr = isEndToday ? (i18n("today") || '今天') : endDate;
             const endTimeStr = endTime || '';
-            return `${dateStr} ${timeStr} - ${endDateStr} ${endTimeStr}`.trim();
+            
+            // 同一天只显示结束时间，跨日期显示结束日期+时间
+            if (isEndSameDay) {
+                return `${dateStr} ${timeStr} - ${endTimeStr}`.trim();
+            } else {
+                return `${dateStr} ${timeStr} - ${endDateStr} ${endTimeStr}`.trim();
+            }
         }
 
         return `${dateStr} ${timeStr}`.trim();
@@ -556,13 +566,13 @@ export class BlockRemindersDialog {
         countdownEl.style.cssText = 'font-size: 11px; color: var(--b3-theme-on-surface-light); background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 10px;';
 
         if (diffDays === 0) {
-            countdownEl.textContent = '今天到期';
+            countdownEl.textContent = i18n("dueToday") || '今天到期';
             countdownEl.style.background = 'rgba(255, 193, 7, 0.1)';
             countdownEl.style.color = '#ffc107';
         } else if (diffDays === 1) {
-            countdownEl.textContent = '明天到期';
+            countdownEl.textContent = i18n("tomorrowDeadline") || '明天到期';
         } else if (diffDays <= 7) {
-            countdownEl.textContent = `${diffDays}天后`;
+            countdownEl.textContent = i18n("deadlineInNDays")?.replace("${days}", diffDays.toString()) || `${diffDays}天后`;
         } else {
             return null; // 不显示太远的倒计时
         }
@@ -577,11 +587,11 @@ export class BlockRemindersDialog {
         const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
 
         if (diffDays === 0) {
-            return `今天 ${completed.toLocaleTimeString(getLocaleTag(), { hour: '2-digit', minute: '2-digit' })}`;
+            return `${i18n("today") || "今天"} ${completed.toLocaleTimeString(getLocaleTag(), { hour: '2-digit', minute: '2-digit' })}`;
         } else if (diffDays === 1) {
-            return `昨天 ${completed.toLocaleTimeString(getLocaleTag(), { hour: '2-digit', minute: '2-digit' })}`;
+            return `${i18n("yesterday") || "昨天"} ${completed.toLocaleTimeString(getLocaleTag(), { hour: '2-digit', minute: '2-digit' })}`;
         } else if (diffDays <= 7) {
-            return `${diffDays}天前 ${completed.toLocaleTimeString(getLocaleTag(), { hour: '2-digit', minute: '2-digit' })}`;
+            return `${i18n("daysAgo")?.replace("${days}", diffDays.toString()) || diffDays + "天前"} ${completed.toLocaleTimeString(getLocaleTag(), { hour: '2-digit', minute: '2-digit' })}`;
         } else {
             return completed.toLocaleDateString(getLocaleTag());
         }
@@ -589,8 +599,8 @@ export class BlockRemindersDialog {
 
     private async deleteReminder(reminder: any) {
         await confirm(
-            "确认删除",
-            `确定要删除任务 "${reminder.title}"？`,
+            i18n("confirmDeleteTitle") || "确认删除",
+            (i18n("confirmDeleteTask") || `确定要删除任务 "${reminder.title}"？`).replace("${title}", reminder.title),
             async () => {
                 // 用户确认删除
                 try {
@@ -612,13 +622,13 @@ export class BlockRemindersDialog {
                     if (reminders.length === 0) {
                         // 如果没有任务了，关闭对话框
                         this.dialog.destroy();
-                        showMessage("所有任务已删除", 2000);
+                        showMessage(i18n("allTasksDeleted") || "所有任务已删除", 2000);
                     } else {
-                        showMessage("任务已删除", 2000);
+                        showMessage(i18n("taskDeleted") || "任务已删除", 2000);
                     }
                 } catch (error) {
                     console.error("删除任务失败:", error);
-                    showMessage("删除失败", 3000, "error");
+                    showMessage(i18n("deleteFailed") || "删除失败", 3000, "error");
                 }
             }
         );

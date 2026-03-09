@@ -10,7 +10,7 @@
 import * as ics from 'ics';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { lunarToSolar, solarToLunar } from './lunarUtils';
-import { pushErrMsg, pushMsg, putFile, uploadCloud, getFileBlob } from '../api';
+import { pushErrMsg, pushMsg, putFile, getBlockKramdown, uploadCloud, getFileBlob, forwardProxy } from '../api';
 import { Constants } from 'siyuan';
 
 const useShell = async (cmd: 'showItemInFolder' | 'openPath', filePath: string) => {
@@ -375,6 +375,7 @@ export async function exportIcsFile(
                             let childMatches = true;
                             if (filterType === 'completed' && !child.completed) childMatches = false;
                             if (filterType === 'uncompleted' && child.completed) childMatches = false;
+                            if (child.hideInCalendar) childMatches = false;
 
                             if (!childMatches) continue;
 
@@ -463,6 +464,7 @@ export async function exportIcsFile(
             let parentMatches = true;
             if (filterType === 'completed' && !r.completed) parentMatches = false;
             if (filterType === 'uncompleted' && r.completed) parentMatches = false;
+            if (r.hideInCalendar) parentMatches = false;
 
             if (!parentMatches) continue;
 
@@ -844,7 +846,7 @@ export async function exportIcsFile(
 
                 // 处理其他重复类型的 RRULE
                 try {
-                const rrule = buildRRuleFromRepeat(r.repeat);
+                    const rrule = buildRRuleFromRepeat(r.repeat);
                     event.recurrenceRule = rrule;
                 } catch (e) {
                     console.warn('构建 RRULE 失败', e, r);
@@ -895,7 +897,7 @@ export async function uploadIcsToCloud(plugin: any, settings: any, silent: boole
             icsFileName = `reminder-${genId}`;
             settings.icsFileName = icsFileName;
             try {
-                await plugin.saveData('reminder-settings.json', settings);
+                await plugin.saveSettings(settings);
                 try {
                     window.dispatchEvent(new CustomEvent('reminderSettingsUpdated'));
                 } catch (e) {
@@ -931,6 +933,9 @@ export async function uploadIcsToCloud(plugin: any, settings: any, silent: boole
         if (syncMethod === 's3') {
             // S3 同步方式
             await uploadToS3(settings, icsContent, fullFileName, plugin, silent);
+        } else if (syncMethod === 'webdav') {
+            // WebDAV 同步方式
+            await uploadToWebdav(settings, icsContent, fullFileName, plugin, silent);
         } else {
             // 思源服务器同步方式
             await uploadToSiyuan(settings, icsContent, plugin, silent);
@@ -938,6 +943,153 @@ export async function uploadIcsToCloud(plugin: any, settings: any, silent: boole
     } catch (err) {
         console.error('上传ICS到云端失败:', err);
         await pushErrMsg('上传ICS到云端失败: ' + (err.message || err));
+    }
+}
+
+/**
+ * 上传到WebDAV服务器
+ * 使用 forwardProxy 通过思源后端代理请求，避免浏览器 CORS 限制
+ */
+async function uploadToWebdav(settings: any, icsContent: string, fileName: string, plugin: any, silent: boolean = false) {
+    try {
+        const url = settings.webdavUrl;
+        const username = settings.webdavUsername || '';
+        const password = settings.webdavPassword || '';
+
+        if (!url) {
+            await pushErrMsg('请先配置 WebDAV 网址');
+            return;
+        }
+
+        console.log('WebDAV 上传:', { url, fileName, username: username ? '已设置' : '未设置' });
+
+        let baseUrl = url;
+        if (!baseUrl.endsWith('/')) {
+            baseUrl += '/';
+        }
+
+        // 在 URL 中嵌入凭证
+        let urlWithAuth: string;
+        try {
+            const urlObj = new URL(baseUrl);
+            urlObj.username = encodeURIComponent(username);
+            urlObj.password = encodeURIComponent(password);
+            urlWithAuth = urlObj.toString();
+        } catch (e) {
+            console.warn('URL 编码失败，使用原始 URL:', e);
+            urlWithAuth = baseUrl;
+        }
+
+        const targetUrl = urlWithAuth + fileName;
+        const dirUrl = urlWithAuth;
+
+        // Basic Auth Header
+        const credentials = typeof window !== 'undefined' && window.btoa
+            ? window.btoa(unescape(encodeURIComponent(`${username}:${password}`)))
+            : Buffer.from(`${username}:${password}`).toString('base64');
+
+        const headers = [
+            { 'Content-Type': 'text/calendar; charset=utf-8' },
+            { 'Authorization': `Basic ${credentials}` }
+        ];
+
+        console.log('发送 PUT 请求到:', targetUrl.replace(/\/\/[^@]+@/, '//***@'));
+        let response = await forwardProxy(
+            targetUrl,
+            'PUT',
+            icsContent,
+            headers,
+            30000,
+            'text/calendar; charset=utf-8'
+        );
+
+        console.log('PUT 响应状态:', response.status);
+
+        if (response.status === 409) {
+            // 尝试创建目录
+            console.log('目录不存在，尝试创建:', dirUrl.replace(/\/\/[^@]+@/, '//***@'));
+            try {
+                const mkdirResponse = await forwardProxy(
+                    dirUrl,
+                    'MKCOL',
+                    '',
+                    [{ 'Authorization': `Basic ${credentials}` }],
+                    30000
+                );
+                console.log('MKCOL 响应状态:', mkdirResponse.status);
+            } catch (e) {
+                console.warn('MKCOL 创建目录失败 (可忽略):', e);
+            }
+
+            // 重试上传
+            console.log('重试 PUT 请求...');
+            response = await forwardProxy(
+                targetUrl,
+                'PUT',
+                icsContent,
+                headers,
+                30000,
+                'text/calendar; charset=utf-8'
+            );
+            console.log('重试 PUT 响应状态:', response.status);
+        }
+
+        if (response.status < 200 || response.status >= 300) {
+            console.error('WebDAV 上传失败，响应:', response);
+            throw { status: response.status, message: `HTTP error! status: ${response.status}` };
+        }
+
+        // 构建带凭据的URL用于显示
+        let displayUrl = url;
+        if (!displayUrl.endsWith('/')) {
+            displayUrl += '/';
+        }
+        displayUrl += fileName;
+
+        try {
+            const urlObj = new URL(displayUrl);
+            if (username) {
+                urlObj.username = encodeURIComponent(username);
+            }
+            if (password) {
+                urlObj.password = encodeURIComponent(password);
+            }
+            displayUrl = urlObj.toString();
+        } catch (e) {
+            console.warn('URL 解析失败，无法在URL中嵌入凭据', e);
+        }
+
+        settings.icsCloudUrl = displayUrl;
+        settings.icsLastSyncAt = new Date().toISOString();
+
+        // 保存设置到文件
+        await plugin.saveSettings(settings);
+
+        try {
+            window.dispatchEvent(new CustomEvent('reminderSettingsUpdated'));
+        } catch (e) {
+            console.warn('触发设置更新事件失败:', e);
+        }
+
+        if (!silent) {
+            await pushMsg(`ICS文件已上传到WebDAV`);
+        }
+        console.log('ICS 文件上传到 WebDAV 成功');
+    } catch (err: any) {
+        console.error('上传到WebDAV失败:', err);
+        // 提取详细的错误信息
+        let errorMsg = err.message || err;
+        if (err?.status) {
+            errorMsg = `HTTP error! status: ${err.status}`;
+            if (err.status === 401) {
+                errorMsg += ' (认证失败: 请检查用户名和密码。坚果云用户注意：用户名是邮箱，密码是第三方应用密码)';
+            } else if (err.status === 403) {
+                errorMsg += ' (禁止访问: 请检查权限设置)';
+            } else if (err.status === 409) {
+                errorMsg += ' (冲突: 请先在 WebDAV 服务器中手动创建对应的文件夹)';
+            }
+        }
+        throw new Error('上传到WebDAV失败: ' + errorMsg);
     }
 }
 
@@ -963,7 +1115,7 @@ async function uploadToS3(settings: any, icsContent: string, fileName: string, p
                 await pushErrMsg('未找到思源的S3配置，请先在思源设置中配置S3同步');
                 return;
             }
-            s3Bucket = siyuanS3.bucket || '';
+            s3Bucket = settings.s3Bucket || siyuanS3.bucket || '';
             s3Endpoint = siyuanS3.endpoint || '';
             s3Region = siyuanS3.region || 'auto';
             s3AccessKeyId = siyuanS3.accessKey || '';
@@ -1085,7 +1237,7 @@ async function uploadToS3(settings: any, icsContent: string, fileName: string, p
         settings.icsLastSyncAt = new Date().toISOString();
 
         // 保存设置到文件
-        await plugin.saveData('reminder-settings.json', settings);
+        await plugin.saveSettings(settings);
 
         // 触发设置更新事件，刷新UI
         try {
@@ -1118,7 +1270,7 @@ async function uploadToSiyuan(settings: any, icsContent: string, plugin: any, si
             icsFileName = `reminder-${genId}`;
             settings.icsFileName = icsFileName;
             try {
-                await plugin.saveData('reminder-settings.json', settings);
+                await plugin.saveSettings(settings);
                 try {
                     window.dispatchEvent(new CustomEvent('reminderSettingsUpdated'));
                 } catch (e) { }
@@ -1152,7 +1304,7 @@ async function uploadToSiyuan(settings: any, icsContent: string, plugin: any, si
             // 记录上次成功同步时间并保存设置
             try {
                 settings.icsLastSyncAt = new Date().toISOString();
-                await plugin.saveData('reminder-settings.json', settings);
+                await plugin.saveSettings(settings);
 
                 try {
                     window.dispatchEvent(new CustomEvent('reminderSettingsUpdated'));

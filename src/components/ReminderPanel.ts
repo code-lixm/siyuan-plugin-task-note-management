@@ -1,7 +1,9 @@
-import { showMessage, confirm, Dialog, Menu, Constants } from "siyuan";
+import { colorWithOpacity } from "../utils/uiUtils";
+import { showMessage, confirm, Dialog, Menu, Constants, getFrontend, getBackend, platformUtils } from "siyuan";
 import { refreshSql, sql, getBlockKramdown, getBlockByID, updateBindBlockAtrrs, openBlock } from "../api";
 import { getLocalDateString, compareDateStrings, getLocalDateTimeString, getLogicalDateString, getRelativeDateString, getLocaleTag } from "../utils/dateUtils";
-import { loadSortConfig, saveSortConfig, getSortMethodName } from "../utils/sortConfig";
+import { loadSortConfig, saveSortConfig, getSortConfigSummary, SortCriterion } from "../utils/sortConfig";
+import { SortMenuDialog } from "./SortMenuDialog";
 import { QuickReminderDialog } from "./QuickReminderDialog";
 import { CategoryManager } from "../utils/categoryManager";
 import { CategoryManageDialog } from "./CategoryManageDialog";
@@ -17,6 +19,7 @@ import { getSolarDateLunarString, getNextLunarMonthlyDate, getNextLunarYearlyDat
 import { getAllReminders, saveReminders } from "../utils/icsSubscription";
 import { isEventPast } from "../utils/icsImport";
 import { PasteTaskDialog } from "./PasteTaskDialog";
+import { createPomodoroStartSubmenu as createSharedPomodoroStartSubmenu } from "@/utils/pomodoroPresets";
 
 export class ReminderPanel {
     private container: HTMLElement;
@@ -30,8 +33,8 @@ export class ReminderPanel {
     private currentCategoryFilter: string = 'all'; // 添加当前分类过滤
     private selectedCategories: string[] = [];
     private currentSearchQuery: string = '';
-    private currentSort: string = 'time';
-    private currentSortOrder: 'asc' | 'desc' = 'asc';
+    // 排序条件数组（支持多选和拖拽排序）
+    private currentSortCriteria: SortCriterion[] = [{ method: 'time', order: 'asc' }];
     private reminderUpdatedHandler: (event?: CustomEvent) => void;
     private sortConfigUpdatedHandler: (event: CustomEvent) => void;
     private settingsUpdatedHandler: () => void;
@@ -57,6 +60,17 @@ export class ReminderPanel {
     private allRemindersMap: Map<string, any> = new Map(); // 存储所有任务的完整信息，用于计算进度
     private isLoading: boolean = false;
     private loadTimeoutId: number | null = null;
+
+    // 侧栏多选模式
+    private isMultiSelectMode: boolean = false;
+    private selectedReminderIds: Set<string> = new Set();
+    private lastClickedReminderId: string | null = null;
+    private _panelKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+
+    // 当前应用的自定义过滤器ID（用于分类筛选同步）
+    private currentCustomFilterId: string | null = null;
+    // 用户手动修改的分类筛选（独立于筛选器设置）
+    private userManualCategories: string[] = ['all'];
 
     // 分页相关状态
     private currentPage: number = 1;
@@ -113,10 +127,9 @@ export class ReminderPanel {
         };
 
         this.sortConfigUpdatedHandler = (event: CustomEvent) => {
-            const { method, order } = event.detail;
-            if (method !== this.currentSort || order !== this.currentSortOrder) {
-                this.currentSort = method;
-                this.currentSortOrder = order;
+            const { criteria } = event.detail;
+            if (JSON.stringify(criteria) !== JSON.stringify(this.currentSortCriteria)) {
+                this.currentSortCriteria = criteria || [{ method: 'time', order: 'asc' }];
                 this.updateSortButtonTitle();
                 this.loadReminders();
             }
@@ -161,6 +174,9 @@ export class ReminderPanel {
                 this.showCompletedSubtasks = !!settings.showCompletedSubtasks;
             }
             this.showAdvancedFeatures = settings?.showAdvancedFeatures === true;
+            if (Array.isArray(settings.reminderPanelSelectedCategories)) {
+                this.selectedCategories = settings.reminderPanelSelectedCategories;
+            }
         } catch (e) {
             // ignore
         }
@@ -169,6 +185,21 @@ export class ReminderPanel {
         await this.loadSortConfig();
         await this.loadCustomFilters(); // 加载自定义过滤器配置
         this.loadReminders();
+
+        // Escape：如果右键菜单已打开则关闭菜单（不退出多选）；否则退出多选模式
+        this._panelKeydownHandler = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            // 检测 SiYuan 菜单是否可见（b3-menu 且非隐藏）
+            const openMenu = document.querySelector<HTMLElement>('.b3-menu');
+            if (openMenu && openMenu.style.display !== 'none' && openMenu.offsetParent !== null) {
+                // 菜单已打开，让菜单自行处理 Escape，不干预多选状态
+                return;
+            }
+            if (this.isMultiSelectMode) {
+                this.exitPanelMultiSelectMode();
+            }
+        };
+        document.addEventListener('keydown', this._panelKeydownHandler);
 
         // 确保对话框样式已加载
         this.addReminderDialogStyles();
@@ -199,6 +230,10 @@ export class ReminderPanel {
         if (this.settingsUpdatedHandler) {
             window.removeEventListener('reminderSettingsUpdated', this.settingsUpdatedHandler);
         }
+        if (this._panelKeydownHandler) {
+            document.removeEventListener('keydown', this._panelKeydownHandler);
+            this._panelKeydownHandler = null;
+        }
 
         // 清理当前番茄钟实例
         this.pomodoroManager.cleanupInactiveTimer();
@@ -209,13 +244,11 @@ export class ReminderPanel {
     private async loadSortConfig() {
         try {
             const config = await loadSortConfig(this.plugin);
-            this.currentSort = config.method;
-            this.currentSortOrder = config.order;
+            this.currentSortCriteria = config.criteria || [{ method: 'time', order: 'asc' }];
             this.updateSortButtonTitle();
         } catch (error) {
             console.error('加载排序配置失败:', error);
-            this.currentSort = 'time';
-            this.currentSortOrder = 'asc';
+            this.currentSortCriteria = [{ method: 'time', order: 'asc' }];
         }
     }
 
@@ -385,7 +418,21 @@ export class ReminderPanel {
             <option value="completed">${i18n("completedReminders")}</option>
         `;
         this.filterSelect.addEventListener('change', () => {
-            this.currentTab = this.filterSelect.value;
+            const newTab = this.filterSelect.value;
+            const isOldTabCustom = this.currentTab.startsWith('custom_');
+            const isNewTabCustom = newTab.startsWith('custom_');
+            this.currentTab = newTab;
+
+            // 如果从自定义过滤器切换到非自定义过滤器，重置当前自定义过滤器ID
+            // 这样下次切换到自定义过滤器时会重新同步分类设置
+            if (isOldTabCustom && !isNewTabCustom) {
+                this.currentCustomFilterId = null;
+                // 切换到内置筛选器时，使用用户手动记忆的分啰
+                this.selectedCategories = [...this.userManualCategories];
+                this.updateCategoryFilterButtonText();
+                this.saveSelectedCategories();
+            }
+
             // 切换筛选时清理防抖，清空当前缓存并强制刷新，避免从 "completed" 切换到 "todayCompleted" 时不更新的问题
             if (this.loadTimeoutId) {
                 clearTimeout(this.loadTimeoutId);
@@ -398,10 +445,6 @@ export class ReminderPanel {
             this.totalItems = 0;
             // 强制刷新，允许在 isLoading 为 true 时也能覆盖加载（例如快速切换时）
             this.loadReminders(true);
-            // 根据当前筛选显示或隐藏“显示已完成子任务”开关
-            if (this.showCompletedContainer) {
-                this.showCompletedContainer.style.display = this.currentTab === 'today' ? '' : 'none';
-            }
         });
         controls.appendChild(this.filterSelect);
 
@@ -464,8 +507,7 @@ export class ReminderPanel {
 
         showCompletedContainer.appendChild(this.showCompletedCheckbox);
         showCompletedContainer.appendChild(showCompletedText);
-        // 默认仅在当前筛选为 today 时显示，且单独一行
-        showCompletedContainer.style.display = (this.filterSelect && this.filterSelect.value === 'today') ? '' : 'none';
+        // 显示已完成子任务开关在所有筛选项下都可见
         showCompletedContainer.style.cssText += '\n            display: flex; width: 100%; margin-top: 8px;';
 
         header.appendChild(controls);
@@ -518,18 +560,16 @@ export class ReminderPanel {
         // 初始化自定义过滤器
         this.updateFilterSelect();
     }
-    // 修改排序方法以支持手动排序
+    // 修改排序方法以支持多条件排序
     private sortReminders(reminders: any[]) {
-        const sortType = this.currentSort;
-        const sortOrder = this.currentSortOrder;
-        // console.log('应用排序方式:', sortType, sortOrder, '提醒数量:', reminders.length);
+        const criteria = this.currentSortCriteria;
+        // console.log('应用排序方式:', criteria, '提醒数量:', reminders.length);
 
         // 特殊处理已完成相关的筛选器（包括昨日已完成）
         const isCompletedFilter = this.currentTab === 'completed' || this.currentTab === 'todayCompleted' || this.currentTab === 'yesterdayCompleted';
         const isPast7Filter = this.currentTab === 'all';
 
-        // 如果当前视图是“今日已完成”或“全部已完成”，始终按完成时间降序显示
-        // 不受用户选择的排序方式（如按优先级）影响，也不受升降序切换影响
+        // 如果当前视图是"今日已完成"或"全部已完成"，始终按完成时间降序显示
         if (isCompletedFilter) {
             reminders.sort((a: any, b: any) => {
                 const today = getLogicalDateString();
@@ -549,95 +589,262 @@ export class ReminderPanel {
             return;
         }
 
-        reminders.sort((a: any, b: any) => {
-            let result = 0;
+        // 特殊处理：今日任务视图下，每日可做任务始终放在最后，不参与其他排序
+        if (this.currentTab === 'today') {
+            const todayStr = getLogicalDateString();
 
-            // 对于"过去七天"筛选器，未完成事项优先显示
-            if (isPast7Filter) {
-                const aCompleted = a.completed || false;
-                const bCompleted = b.completed || false;
+            // 定义分组：0-普通任务, 1-订阅任务, 2-每日可做(Dessert)
+            const getGroupOrder = (item: any) => {
+                const isDessert = item.isAvailableToday && (!item.date && !item.endDate || (item.date || item.endDate) !== todayStr);
+                if (isDessert) return 2;
+                if (item.isSubscribed) return 1;
+                return 0;
+            };
 
-                if (aCompleted !== bCompleted) {
-                    return aCompleted ? 1 : -1; // 未完成的排在前面
+            // 先按分组排序（普通任务在前，每日可做最后）
+            reminders.sort((a: any, b: any) => {
+                const orderA = getGroupOrder(a);
+                const orderB = getGroupOrder(b);
+
+                // 如果分组不同，直接按分组排序
+                if (orderA !== orderB) {
+                    return orderA - orderB;
                 }
-            }
 
-            // 特殊处理：按时间排序时，无日期任务始终排在最后（不受升降序影响）
-            if (sortType === 'time') {
+                // 同组内再按排序条件排序
+                return this.sortByCriteria(a, b, criteria, isPast7Filter);
+            });
+        } else {
+            reminders.sort((a: any, b: any) => {
+                return this.sortByCriteria(a, b, criteria, isPast7Filter);
+            });
+        }
+
+        // console.log('排序完成，排序方式:', criteria);
+    }
+
+    // 根据单个排序条件比较两个任务
+    private compareByCriterion(a: any, b: any, criterion: SortCriterion): number {
+        let result = 0;
+
+        switch (criterion.method) {
+            case 'time':
+                // 特殊处理：按时间排序时，无日期任务始终排在最后
                 const hasDateA = !!(a.date || a.endDate);
                 const hasDateB = !!(b.date || b.endDate);
 
                 if (!hasDateA && !hasDateB) {
-                    // 两个都没有日期，按优先级排序
-                    return this.compareByPriorityValue(a, b);
-                }
-                if (!hasDateA) return 1;  // a 无日期，排在后面
-                if (!hasDateB) return -1; // b 无日期，排在后面
-            }
-
-            // 应用用户选择的排序方式
-            switch (sortType) {
-                case 'time':
-                    // 对于已完成相关的筛选器，如果都是已完成状态，优先按完成时间排序
-                    if ((isCompletedFilter || (isPast7Filter && a.completed && b.completed)) &&
-                        a.completed && b.completed) {
-                        result = this.compareByCompletedTime(a, b);
-                        // 如果完成时间相同，再按设置时间排序
-                        if (result === 0) {
-                            result = this.compareByTime(a, b);
-                        }
-                    } else {
-                        result = this.compareByTime(a, b);
-                    }
-                    break;
-
-                case 'priority':
-                    result = this.compareByPriorityWithManualSort(a, b);
-                    break;
-
-                case 'title':
-                    result = this.compareByTitle(a, b);
-                    break;
-
-                default:
-                    console.warn('未知的排序类型:', sortType, '默认使用时间排序');
+                    // 两者都无日期时视为相同，后续由非优先级模式的 sort 兜底决定顺序
+                    result = 0;
+                } else if (!hasDateA) {
+                    result = 1;  // a 无日期，排在后面
+                } else if (!hasDateB) {
+                    result = -1; // b 无日期，排在后面
+                } else {
                     result = this.compareByTime(a, b);
+                }
+                break;
+
+            case 'priority':
+                result = this.compareByPriorityValue(a, b);
+                // 同优先级内始终按手动 sort 升序，不受优先级升降序影响。
+                if (result === 0) {
+                    const sortA = this.getReminderSortValue(a);
+                    const sortB = this.getReminderSortValue(b);
+                    return sortA - sortB;
+                }
+                return criterion.order === 'desc' ? -result : result;
+
+            case 'title':
+                result = this.compareByTitle(a, b);
+                break;
+
+            case 'created':
+                result = this.compareByCreatedTime(a, b);
+                break;
+
+            case 'category':
+                result = this.compareByCategory(a, b);
+                break;
+
+            default:
+                result = 0;
+        }
+
+        // 应用升降序
+        return criterion.order === 'desc' ? -result : result;
+    }
+
+    // 按排序条件数组比较两个任务
+    private sortByCriteria(a: any, b: any, criteria: SortCriterion[], isPast7Filter: boolean): number {
+        // 对于"过去七天"筛选器，未完成事项优先显示
+        if (isPast7Filter) {
+            const aCompleted = a.completed || false;
+            const bCompleted = b.completed || false;
+
+            if (aCompleted !== bCompleted) {
+                return aCompleted ? 1 : -1; // 未完成的排在前面
             }
+        }
 
-            // 特殊处理：今日可做任务 (Desserts) 排在最后
-            // 只有在 "today" 视图下才生效? 或者是全局策略?
-            // 用户需求: "今日要完成的任务下方会显示这些每日可做任务" -> imply separation.
-            // 无论排序方式如何，Daily Dessert 应该在普通任务之后?
-            // "日历视图那些真正有明确截止日期的事项...重要性...稀释"
-            // Let's force desserts to bottom effectively.
-            if (this.currentTab === 'today') {
-                const todayStr = getLogicalDateString();
-                const aIsDessert = a.isAvailableToday && (!a.date && !a.endDate || (a.date || a.endDate) !== todayStr);
-                const bIsDessert = b.isAvailableToday && (!b.date && !b.endDate || (b.date || b.endDate) !== todayStr);
-
-                if (aIsDessert && !bIsDessert) return 1;
-                if (!aIsDessert && bIsDessert) return -1;
+        // 依次应用每个排序条件
+        for (const criterion of criteria) {
+            const result = this.compareByCriterion(a, b, criterion);
+            if (result !== 0) {
+                // 调试日志：记录哪个排序条件决定了顺序
+                // console.log(`[排序] ${a.title?.substring(0, 20)} vs ${b.title?.substring(0, 20)}: 按 ${criterion.method}(${criterion.order}) = ${result}`);
+                return result;
             }
+        }
 
-            // 在已完成视图中，优先展示子任务（子任务靠前），以满足父未完成时只展示子任务的需求
-            if (isCompletedFilter) {
-                const aIsChild = !!a.parentId;
-                const bIsChild = !!b.parentId;
-                if (aIsChild && !bIsChild) return -1; // 子任务在前
-                if (!aIsChild && bIsChild) return 1;
+        // 非优先级排序模式下，相同值按手动 sort 升序
+        const hasPriorityCriterion = criteria.some(c => c.method === 'priority');
+        if (!hasPriorityCriterion) {
+            const sortDiff = this.getReminderSortValue(a) - this.getReminderSortValue(b);
+            if (sortDiff !== 0) {
+                return sortDiff;
             }
+        }
 
-            // 优先级升降序的结果相反
-            if (sortType === 'priority') {
-                result = -result;
-            }
+        // 所有排序条件都相同时，按创建时间作为兜底排序（确保排序的稳定性）
+        return this.compareByCreatedTime(a, b);
+    }
 
-            // 应用升降序
-            return sortOrder === 'desc' ? -result : result;
+    // 按创建时间比较
+    private compareByCreatedTime(a: any, b: any): number {
+        const timeA = a.createdTime ? new Date(a.createdTime).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.createdTime ? new Date(b.createdTime).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeA - timeB; // 旧到新（升序），降序会在 compareByCriterion 中取反
+    }
+
+    // 按分类比较（按照分类管理器中的排序顺序）
+    private compareByCategory(a: any, b: any): number {
+        const categories = this.categoryManager.getCategories();
+        const categoryOrder = new Map<string, number>();
+
+        // 构建分类ID到排序索引的映射
+        categories.forEach((cat, index) => {
+            categoryOrder.set(cat.id, index);
         });
 
-        // console.log('排序完成，排序方式:', sortType, sortOrder);
+        // 获取任务的排序最靠前的分类ID（支持重复任务实例）
+        const getHighestPriorityCategoryId = (reminder: any): string => {
+            // 对于重复任务实例，优先使用自身的 categoryId，如果没有则从原始任务获取
+            let categoryId = reminder.categoryId;
+
+            // 如果没有 categoryId 且有 originalId，尝试从原始任务获取
+            if (!categoryId && reminder.isRepeatInstance && reminder.originalId && this.originalRemindersCache) {
+                const original = this.originalRemindersCache[reminder.originalId];
+                if (original) {
+                    categoryId = original.categoryId;
+                }
+            }
+
+            if (!categoryId) return 'none';
+            const ids = String(categoryId).split(',').map((id: string) => id.trim()).filter((id: string) => id);
+
+            if (ids.length === 0) return 'none';
+            if (ids.length === 1) return ids[0];
+
+            // 有多个分类时，返回排序最靠前的那个（在 categoryOrder 中索引最小的）
+            let bestId = ids[0];
+            let bestOrder = categoryOrder.get(bestId) ?? Number.MAX_SAFE_INTEGER;
+
+            for (let i = 1; i < ids.length; i++) {
+                const id = ids[i];
+                const order = categoryOrder.get(id) ?? Number.MAX_SAFE_INTEGER;
+                if (order < bestOrder) {
+                    bestOrder = order;
+                    bestId = id;
+                }
+            }
+
+            return bestId;
+        };
+
+        const catA = getHighestPriorityCategoryId(a);
+        const catB = getHighestPriorityCategoryId(b);
+
+        // 调试日志
+        // if (a.categoryId?.includes(',') || b.categoryId?.includes(',')) {
+        //     console.log('[分类排序]', a.title?.substring(0, 20), `(${a.categoryId || 'none'})`, '=>', catA, 'vs', b.title?.substring(0, 20), `(${b.categoryId || 'none'})`, '=>', catB);
+        // }
+
+        // 无分类的任务排在最后
+        if (catA === 'none' && catB === 'none') return 0;
+        if (catA === 'none') return 1;
+        if (catB === 'none') return -1;
+
+        // 按照分类的排序索引比较
+        const orderA = categoryOrder.get(catA) ?? Number.MAX_SAFE_INTEGER;
+        const orderB = categoryOrder.get(catB) ?? Number.MAX_SAFE_INTEGER;
+
+        return orderA - orderB;
     }
+
+    // 当前排序模式下的主分组键（用于限制跨分组拖拽）
+    private getNonPrioritySortGroupKey(reminder: any): string {
+        const primary = this.currentSortCriteria?.[0];
+        if (!primary || primary.method === 'priority') return '__ALLOW_ALL__';
+
+        if (primary.method === 'time') {
+            const baseDate = reminder?.date || reminder?.endDate;
+            if (!baseDate) return '__NO_DATE__';
+            const baseTime = reminder?.time || reminder?.endTime;
+            return this.getReminderLogicalDate(baseDate, baseTime);
+        }
+
+        if (primary.method === 'category') {
+            const categories = this.categoryManager.getCategories();
+            const categoryOrder = new Map<string, number>();
+            categories.forEach((cat, index) => {
+                categoryOrder.set(cat.id, index);
+            });
+
+            let categoryId = reminder?.categoryId;
+            if (!categoryId && reminder?.isRepeatInstance && reminder?.originalId && this.originalRemindersCache) {
+                const original = this.originalRemindersCache[reminder.originalId];
+                if (original) categoryId = original.categoryId;
+            }
+
+            if (!categoryId) return 'none';
+            const ids = String(categoryId).split(',').map((id: string) => id.trim()).filter((id: string) => id);
+            if (ids.length === 0) return 'none';
+            if (ids.length === 1) return ids[0];
+
+            let bestId = ids[0];
+            let bestOrder = categoryOrder.get(bestId) ?? Number.MAX_SAFE_INTEGER;
+            for (let i = 1; i < ids.length; i++) {
+                const id = ids[i];
+                const order = categoryOrder.get(id) ?? Number.MAX_SAFE_INTEGER;
+                if (order < bestOrder) {
+                    bestOrder = order;
+                    bestId = id;
+                }
+            }
+            return bestId;
+        }
+
+        // 其他非优先级排序方式暂不限制跨组
+        return '__ALLOW_ALL__';
+    }
+
+    private isSameNonPrioritySortGroup(a: any, b: any): boolean {
+        const hasPriorityCriterion = this.currentSortCriteria?.some(c => c.method === 'priority');
+        if (hasPriorityCriterion) return true;
+
+        const keyA = this.getNonPrioritySortGroupKey(a);
+        const keyB = this.getNonPrioritySortGroupKey(b);
+        if (keyA === '__ALLOW_ALL__' || keyB === '__ALLOW_ALL__') return true;
+        return keyA === keyB;
+    }
+
+    // 创建时间/标题排序下禁用拖拽重排
+    private isDragDisabledBySortMode(): boolean {
+        const primary = this.currentSortCriteria?.[0]?.method;
+        return primary === 'created' || primary === 'title';
+    }
+
     // 新增：优先级排序与手动排序结合（支持重复实例）
     private compareByPriorityWithManualSort(a: any, b: any): number {
         const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1, 'none': 0 };
@@ -690,6 +897,16 @@ export class ReminderPanel {
         return reminder.sort || 0;
     }
 
+    private async saveSelectedCategories() {
+        try {
+            const settings = await this.plugin.loadSettings();
+            settings.reminderPanelSelectedCategories = this.selectedCategories;
+            await this.plugin.saveSettings(settings);
+        } catch (error) {
+            console.error('保存任务分类筛选设置失败:', error);
+        }
+    }
+
     private updateCategoryFilterButtonText() {
         if (!this.categoryFilterButton) return;
 
@@ -733,11 +950,6 @@ export class ReminderPanel {
                 target: dialog.element.querySelector('#filterManagementContent'),
                 props: {
                     plugin: this.plugin,
-                    onClose: () => {
-                        // 关闭时更新filterSelect
-                        this.updateFilterSelect();
-                        dialog.destroy();
-                    },
                     onFilterApplied: async (filter: any) => {
                         // 应用过滤器逻辑
                         console.log('应用过滤器:', filter);
@@ -763,6 +975,7 @@ export class ReminderPanel {
         const settings = await this.plugin.loadData('settings.json');
         const customFilters = settings?.customFilters || [];
         const filterOrder = settings?.filterOrder || [];
+        const hiddenBuiltInFilters: string[] = settings?.hiddenBuiltInFilters || [];
 
         // 重新加载自定义过滤器缓存
         await this.loadCustomFilters();
@@ -792,7 +1005,7 @@ export class ReminderPanel {
         // 如果 filter.id 已经是 custom_123，那 value 就是 custom_custom_123
         // 我们这里暂且构造一个统一的列表
         let allFilters = [
-            ...builtInFilters.map(f => ({ ...f, isAppended: false })),
+            ...builtInFilters.filter(f => !hiddenBuiltInFilters.includes(f.id)).map(f => ({ ...f, isAppended: false })),
             ...customFilters.map((f: any) => ({
                 id: f.id,
                 value: `custom_${f.id}`,
@@ -854,7 +1067,8 @@ export class ReminderPanel {
     // 更新排序按钮的提示文本
     private updateSortButtonTitle() {
         if (this.sortButton) {
-            this.sortButton.title = `${i18n("sortBy")}: ${getSortMethodName(this.currentSort, this.currentSortOrder)}`;
+            const summary = getSortConfigSummary({ criteria: this.currentSortCriteria });
+            this.sortButton.title = `${i18n("sortBy")}: ${summary}`;
         }
     }
 
@@ -1133,90 +1347,41 @@ export class ReminderPanel {
     }
 
 
-    // 修复排序菜单方法
+    // 显示排序菜单对话框（支持多选和拖拽排序）
     private showSortMenu(event: MouseEvent) {
         try {
-            const menu = new Menu("reminderSortMenu");
-
-            const sortOptions = [
-                { key: 'priority', label: i18n("sortByPriority"), icon: '🎯' },
-                { key: 'time', label: i18n("sortByTime"), icon: '🗓' },
-                { key: 'title', label: i18n("sortByTitle"), icon: '📝' }
-            ];
-
-            sortOptions.forEach(option => {
-                menu.addItem({
-                    iconHTML: option.icon,
-                    label: `${option.label} (${i18n("descendingOrder")})`,
-                    current: this.currentSort === option.key && this.currentSortOrder === 'desc',
-                    click: async () => {
-                        try {
-                            this.currentSort = option.key;
-                            this.currentSortOrder = 'desc';
-                            this.updateSortButtonTitle();
-                            await saveSortConfig(this.plugin, option.key, 'desc');
-                            // 重置分页状态
-                            this.currentPage = 1;
-                            this.totalPages = 1;
-                            this.totalItems = 0;
-                            await this.loadReminders();
-                            // console.log('排序已更新为:', option.key, 'desc');
-                        } catch (error) {
-                            console.error('保存排序配置失败:', error);
-                            await this.loadReminders();
-                        }
+            const dialog = new SortMenuDialog({
+                plugin: this.plugin,
+                currentCriteria: this.currentSortCriteria,
+                onSave: async (criteria) => {
+                    // 点击关闭时也会触发，确保配置已保存
+                    try {
+                        this.currentSortCriteria = criteria;
+                        this.updateSortButtonTitle();
+                        await saveSortConfig(this.plugin, criteria);
+                    } catch (error) {
+                        console.error('保存排序配置失败:', error);
                     }
-                });
-
-                // 为每个排序方式添加升序和降序选项
-                menu.addItem({
-                    iconHTML: option.icon,
-                    label: `${option.label} (${i18n("ascendingOrder")})`,
-                    current: this.currentSort === option.key && this.currentSortOrder === 'asc',
-                    click: async () => {
-                        try {
-                            this.currentSort = option.key;
-                            this.currentSortOrder = 'asc';
-                            this.updateSortButtonTitle();
-                            await saveSortConfig(this.plugin, option.key, 'asc');
-                            // 重置分页状态
-                            this.currentPage = 1;
-                            this.totalPages = 1;
-                            this.totalItems = 0;
-                            await this.loadReminders();
-                            // console.log('排序已更新为:', option.key, 'asc');
-                        } catch (error) {
-                            console.error('保存排序配置失败:', error);
-                            await this.loadReminders();
-                        }
+                },
+                onChange: async (criteria) => {
+                    // 实时更新排序
+                    try {
+                        this.currentSortCriteria = criteria;
+                        this.updateSortButtonTitle();
+                        await saveSortConfig(this.plugin, criteria);
+                        // 重置分页状态
+                        this.currentPage = 1;
+                        this.totalPages = 1;
+                        this.totalItems = 0;
+                        await this.loadReminders();
+                    } catch (error) {
+                        console.error('实时更新排序失败:', error);
                     }
-                });
+                }
             });
-
-            // 使用按钮的位置信息来定位菜单
-            if (this.sortButton) {
-                const rect = this.sortButton.getBoundingClientRect();
-                const menuX = rect.left;
-                const menuY = rect.bottom + 4;
-
-                // 确保菜单在可视区域内
-                const maxX = window.innerWidth - 200;
-                const maxY = window.innerHeight - 200;
-
-                menu.open({
-                    x: Math.min(menuX, maxX),
-                    y: Math.min(menuY, maxY)
-                });
-            } else {
-                menu.open({
-                    x: event.clientX,
-                    y: event.clientY
-                });
-            }
+            dialog.show();
         } catch (error) {
             console.error('显示排序菜单失败:', error);
-            const currentName = getSortMethodName(this.currentSort, this.currentSortOrder);
-            // console.log(`当前排序方式: ${currentName}`);
         }
     }
     /**
@@ -1506,7 +1671,7 @@ export class ReminderPanel {
             // 构造里程碑映射
             await this.buildMilestoneMap();
 
-            const reminderData = await getAllReminders(this.plugin, undefined, force);
+            const reminderData = await getAllReminders(this.plugin, undefined, force, 'sidebar');
             if (!reminderData || typeof reminderData !== 'object') {
                 this.updateReminderCounts(0, 0, 0, 0, 0, 0);
                 this.renderReminders([]);
@@ -1526,6 +1691,28 @@ export class ReminderPanel {
             // 将所有任务保存到 allRemindersMap 中，用于后续计算进度
             this.allRemindersMap = new Map(reminderMap);
 
+            // 0. 如果当前是自定义过滤器，提前同步分类设置
+            if (this.currentTab.startsWith('custom_')) {
+                const filterId = this.currentTab.replace('custom_', '');
+                const filterConfig = this.getCustomFilterConfig(filterId);
+                if (filterConfig && this.currentCustomFilterId !== filterId) {
+                    this.currentCustomFilterId = filterId;
+                    const hasSpecificCategories = filterConfig.categoryFilters &&
+                        filterConfig.categoryFilters.length > 0 &&
+                        !filterConfig.categoryFilters.includes('all');
+
+                    if (hasSpecificCategories) {
+                        // 筛选器有具体分类设置，同步到侧边栏
+                        this.selectedCategories = [...filterConfig.categoryFilters];
+                    } else {
+                        // 筛选器没有设置分类或设置为'all'，使用用户手动记忆的分类筛选
+                        this.selectedCategories = [...this.userManualCategories];
+                    }
+                    this.updateCategoryFilterButtonText();
+                    this.saveSelectedCategories();
+                }
+            }
+
             // 1. 应用分类过滤
             const categoryFilteredReminders = this.applyCategoryFilter(filteredReminders);
 
@@ -1542,8 +1729,8 @@ export class ReminderPanel {
             for (const parent of directlyMatchingReminders) {
                 const descendants = this.getAllDescendantIds(parent.id, reminderMap);
                 descendants.forEach(id => {
-                    // 在"今日任务"视图中，如果父任务未完成且开关关闭，不显示已完成的子任务
-                    if (this.currentTab === 'today' && !parent.completed && !this.showCompletedSubtasks) {
+                    // 如果父任务未完成且开关关闭，不显示已完成的子任务
+                    if (!parent.completed && !this.showCompletedSubtasks) {
                         const descendant = reminderMap.get(id);
                         if (descendant && descendant.completed) {
                             return; // 跳过已完成的子任务
@@ -1819,61 +2006,60 @@ export class ReminderPanel {
 
                 // 只有 top-level 任务需要分隔符。
                 if (level === 0 && (this.currentTab === 'today' || this.currentTab === 'todayCompleted')) {
-                    // 判断是否属于“底部栏目”（每日可做或今日忽略）
-                    let isBottomGroup = false;
-                    if (this.currentTab === 'today') {
-                        // 今日任务 Tab 中：所有显示的每日可做任务（即未完成未忽略的）
-                        isBottomGroup = reminder.isAvailableToday && (!reminder.date || reminder.date !== today);
-                    } else if (this.currentTab === 'todayCompleted') {
-                        // 今日已完成 Tab 中：仅显示被忽略的任务，已完成的每日可做不再进入此组
-                        const dailyIgnored = Array.isArray(reminder.dailyDessertIgnored) ? reminder.dailyDessertIgnored : [];
-                        const dailyCompleted = Array.isArray(reminder.dailyDessertCompleted) ? reminder.dailyDessertCompleted : [];
-                        isBottomGroup = reminder.isAvailableToday && dailyIgnored.includes(today) && !dailyCompleted.includes(today);
-                    }
-
-                    if (isBottomGroup) {
-                        const prevIndex = topLevelReminders.indexOf(reminder) - 1;
-                        let shouldInsert = false;
-
-                        // Case 1: Transition from normal tasks to bottom group tasks
-                        if (prevIndex >= 0) {
-                            const prev = topLevelReminders[prevIndex];
-                            let prevIsBottomGroup = false;
-                            if (this.currentTab === 'today') {
-                                prevIsBottomGroup = prev.isAvailableToday && (!prev.date || prev.date !== today);
-                            } else {
-                                const dailyIgnored = Array.isArray(prev.dailyDessertIgnored) ? prev.dailyDessertIgnored : [];
-                                const dailyCompleted = Array.isArray(prev.dailyDessertCompleted) ? prev.dailyDessertCompleted : [];
-                                prevIsBottomGroup = prev.isAvailableToday && dailyIgnored.includes(today) && !dailyCompleted.includes(today);
-                            }
-
-                            if (!prevIsBottomGroup) {
-                                shouldInsert = true;
-                            }
-                        }
-                        // Case 2: No normal tasks, only desserts (first item is dessert)
-                        else if (prevIndex === -1) {
-                            shouldInsert = true;
+                    // 定义分组类型：0-普通任务, 1-订阅任务, 2-底部任务(每日可做/今日忽略)
+                    const getGroupType = (item: any) => {
+                        let isBottomGroup = false;
+                        if (this.currentTab === 'today') {
+                            isBottomGroup = item.isAvailableToday && (!item.date && !item.endDate || (item.date || item.endDate) !== today);
+                        } else if (this.currentTab === 'todayCompleted') {
+                            const dailyIgnored = Array.isArray(item.dailyDessertIgnored) ? item.dailyDessertIgnored : [];
+                            const dailyCompleted = Array.isArray(item.dailyDessertCompleted) ? item.dailyDessertCompleted : [];
+                            isBottomGroup = item.isAvailableToday && dailyIgnored.includes(today) && !dailyCompleted.includes(today);
                         }
 
-                        if (shouldInsert) {
-                            // Creating separator element.
-                            const separatorId = 'daily-dessert-separator';
-                            if (!fragment.querySelector('#' + separatorId)) {
-                                const separator = document.createElement('div');
-                                separator.id = separatorId;
-                                separator.className = 'reminder-separator daily-dessert-separator';
-                                const separatorText = this.currentTab === 'todayCompleted' ? i18n('todayIgnored') : i18n('dailyAvailable');
-                                separator.innerHTML = `<span style="padding:0 8px;">${separatorText}</span>`;
-                                separator.style.cssText = `
-                                     display: flex; 
-                                     align-items: center; 
-                                     justify-content: center; 
-                                     margin: 16px 0 8px 0; 
-                                     font-size: 12px; 
-                                 `;
-                                fragment.appendChild(separator);
-                            }
+                        if (isBottomGroup) return 2;
+                        if (item.isSubscribed) return 1;
+                        return 0;
+                    };
+
+                    const currentType = getGroupType(reminder);
+                    const prevIndex = topLevelReminders.indexOf(reminder) - 1;
+                    const prevType = prevIndex >= 0 ? getGroupType(topLevelReminders[prevIndex]) : -1;
+
+                    // 当类型发生变化且当前不是普通任务时，插入对应的分隔符
+                    if (currentType > 0 && currentType !== prevType) {
+                        let separatorText = '';
+                        let separatorId = '';
+
+                        if (currentType === 1) { // 订阅日历
+                            separatorText = i18n('subscribedTask');
+                            separatorId = 'subscribed-tasks-separator';
+                        } else if (currentType === 2) { // 每日可做/今日忽略
+                            separatorText = this.currentTab === 'todayCompleted' ? i18n('todayIgnored') : i18n('dailyAvailable');
+                            separatorId = 'daily-dessert-separator';
+                        }
+
+                        if (separatorText && !fragment.querySelector('#' + separatorId)) {
+                            const separator = document.createElement('div');
+                            separator.id = separatorId;
+                            separator.className = `reminder-separator ${separatorId}`;
+                            separator.innerHTML = `<span style="padding:0 8px;">${separatorText}</span>`;
+                            separator.style.cssText = `
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center; 
+                                margin: 16px 0 8px 0; 
+                                font-size: 12px; 
+                                color: var(--b3-theme-on-surface-light);
+                                opacity: 0.8;
+                            `;
+
+                            // 添加左右横线装饰
+                            const lineStyle = 'flex: 1; height: 1px; background: var(--b3-theme-surface-lighter);';
+                            separator.insertAdjacentHTML('afterbegin', `<div style="${lineStyle}"></div>`);
+                            separator.insertAdjacentHTML('beforeend', `<div style="${lineStyle}"></div>`);
+
+                            fragment.appendChild(separator);
                         }
                     }
                 }
@@ -2001,19 +2187,19 @@ export class ReminderPanel {
         let borderColor = '';
         switch (priority) {
             case 'high':
-                backgroundColor = 'rgba(from var(--b3-card-error-background) r g b / .5)';
+                backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
                 borderColor = 'var(--b3-card-error-color)';
                 break;
             case 'medium':
-                backgroundColor = 'rgba(from var(--b3-card-warning-background) r g b / .5)';
+                backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
                 borderColor = 'var(--b3-card-warning-color)';
                 break;
             case 'low':
-                backgroundColor = 'rgba(from var(--b3-card-info-background) r g b / .7)';
+                backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
                 borderColor = 'var(--b3-card-info-color)';
                 break;
             default:
-                backgroundColor = 'background-color: rgba(from var(--b3-theme-background-light) r g b / .1);';
+                backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
                 borderColor = 'var(--b3-theme-surface-lighter)';
         }
         reminderEl.style.backgroundColor = backgroundColor;
@@ -2025,8 +2211,38 @@ export class ReminderPanel {
         // 所有任务均启用拖拽功能（支持排序）
         this.addDragFunctionality(reminderEl, reminder);
 
+        // Ctrl+Click 进入/切换多选模式；Shift+Click 范围选择
+        reminderEl.addEventListener('click', (e: MouseEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!this.isMultiSelectMode) {
+                    this.isMultiSelectMode = true;
+                }
+                this.togglePanelReminderSelection(reminder.id, reminderEl);
+                this.lastClickedReminderId = reminder.id;
+            } else if (e.shiftKey && this.isMultiSelectMode && this.lastClickedReminderId) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.selectRangeInPanel(this.lastClickedReminderId, reminder.id);
+            }
+        }, true);
+
+        // 如果当前已处于选中状态，应用选中样式
+        if (this.selectedReminderIds.has(reminder.id)) {
+            reminderEl.classList.add('reminder-item--selected');
+        }
+
         reminderEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            // 多选模式下显示批量操作菜单
+            if (this.isMultiSelectMode) {
+                if (!this.selectedReminderIds.has(reminder.id)) {
+                    this.togglePanelReminderSelection(reminder.id, reminderEl);
+                }
+                this.showPanelBatchContextMenu(e);
+                return;
+            }
             this.showReminderContextMenu(e, reminder);
         });
 
@@ -2043,7 +2259,9 @@ export class ReminderPanel {
         checkbox.checked = reminder.completed || false;
         checkbox.addEventListener('change', () => {
             if (reminder.isRepeatInstance) {
-                this.toggleReminder(reminder.originalId, checkbox.checked, true, reminder.date);
+                // 使用原始实例日期（从 ID 中提取），而非可能被 instanceModifications 修改后的 date
+                const originalInstanceDate = (reminder.id && reminder.id.includes('_')) ? reminder.id.split('_').pop() : reminder.date;
+                this.toggleReminder(reminder.originalId, checkbox.checked, true, originalInstanceDate);
             } else {
                 this.toggleReminder(reminder.id, checkbox.checked);
             }
@@ -2064,7 +2282,7 @@ export class ReminderPanel {
                 const currentCollapsed = this.isTaskCollapsed(reminder.id, hasChildren);
 
                 // 加载最新数据以便持久化 fold 属性
-                const reminderData = await getAllReminders(this.plugin);
+                const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                 const targetId = reminder.isRepeatInstance ? (reminder.originalId || reminder.id) : reminder.id;
                 const targetReminder = reminderData[targetId];
 
@@ -2391,6 +2609,20 @@ export class ReminderPanel {
                     (quote as HTMLElement).style.paddingLeft = '10px';
                     (quote as HTMLElement).style.borderLeft = '2px solid var(--b3-theme-on-surface-light)';
                     (quote as HTMLElement).style.opacity = '0.8';
+                });
+                // 处理私有图片路径渲染
+                const imgTags = noteEl.querySelectorAll('img');
+                imgTags.forEach(img => {
+                    const src = img.getAttribute('src');
+                    if (src && src.startsWith('/data/storage/petal/siyuan-plugin-task-note-management/assets/')) {
+                        import('../api').then(({ getFileBlob }) => {
+                            getFileBlob(src).then(blob => {
+                                if (blob) {
+                                    img.src = URL.createObjectURL(blob);
+                                }
+                            });
+                        });
+                    }
                 });
             } else {
                 noteEl.textContent = reminder.note;
@@ -2723,7 +2955,7 @@ export class ReminderPanel {
 
     private async completeDailyDessert(reminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const targetId = reminder.isRepeatInstance ? reminder.originalId : reminder.id;
 
             if (reminderData[targetId]) {
@@ -2763,7 +2995,7 @@ export class ReminderPanel {
 
     private async undoDailyDessertCompletion(reminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const targetId = reminder.isRepeatInstance ? reminder.originalId : reminder.id;
 
             if (reminderData[targetId]) {
@@ -2793,7 +3025,7 @@ export class ReminderPanel {
 
     private async ignoreDailyDessertToday(reminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const targetId = reminder.isRepeatInstance ? reminder.originalId : reminder.id;
 
             if (reminderData[targetId]) {
@@ -2823,7 +3055,7 @@ export class ReminderPanel {
 
     private async undoDailyDessertIgnore(reminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const targetId = reminder.isRepeatInstance ? reminder.originalId : reminder.id;
 
             if (reminderData[targetId]) {
@@ -3353,6 +3585,9 @@ export class ReminderPanel {
             return reminders;
         }
 
+        // 注意：分类设置的同步已经在 loadReminders 方法开头处理，避免在此处重复更新
+        // 这样可以确保在应用分类过滤之前，分类设置就已经是最新的了
+
         let filtered = [...reminders];
 
         // 1. 应用日期过滤
@@ -3492,6 +3727,35 @@ export class ReminderPanel {
                         const rangeEnd = this.getReminderLogicalDate(r.endDate || r.date, r.endTime || r.time);
                         return compareDateStrings(rangeStart, df.endDate) <= 0 && compareDateStrings(rangeEnd, df.startDate) >= 0;
                     }
+                    case 'future_x_days': {
+                        const hasDate = r.date || r.endDate;
+                        if (!hasDate) return false;
+                        const days = df.futureDays || 14;
+                        const futureXEnd = getRelativeDateString(days);
+                        const fxStart = this.getReminderLogicalDate(r.date || r.endDate, r.time || r.endTime);
+                        return compareDateStrings(fxStart, today) >= 0 && compareDateStrings(fxStart, futureXEnd) <= 0;
+                    }
+                    case 'yearly_date_range': {
+                        const hasDate = r.date || r.endDate;
+                        if (!hasDate) return false;
+                        const sm = df.yearlyStartMonth || 1;
+                        const sd = df.yearlyStartDay || 1;
+                        const em = df.yearlyEndMonth || 12;
+                        const ed = df.yearlyEndDay || 31;
+                        const rDate = this.getReminderLogicalDate(r.date || r.endDate, r.time || r.endTime);
+                        const rDateObj = new Date(rDate + 'T00:00:00');
+                        const rMonth = rDateObj.getMonth() + 1;
+                        const rDay = rDateObj.getDate();
+                        const rMD = rMonth * 100 + rDay;
+                        const startMD = sm * 100 + sd;
+                        const endMD = em * 100 + ed;
+                        if (startMD <= endMD) {
+                            return rMD >= startMD && rMD <= endMD;
+                        } else {
+                            // 跨年范围，如 11/01 - 02/28
+                            return rMD >= startMD || rMD <= endMD;
+                        }
+                    }
                     default:
                         return false;
                 }
@@ -3530,19 +3794,25 @@ export class ReminderPanel {
 
     /**
      * 应用自定义分类过滤器
+     * 支持多分类：只要任务包含选中的任意一个分类即可显示
      */
     private applyCustomCategoryFilter(reminders: any[], categoryFilters: string[]): any[] {
         return reminders.filter(r => {
             if (categoryFilters.includes('all')) {
                 return true;
             }
-            if (categoryFilters.includes('none')) {
-                if (!r.categoryId) return true;
+
+            const categoryIdStr = r.categoryId || 'none';
+            // 支持多分类：分割逗号分隔的分类ID
+            const taskCategoryIds = categoryIdStr.split(',').filter((id: string) => id);
+
+            if (taskCategoryIds.length === 0) {
+                // 任务没有分类，检查是否选中了"无分类"
+                return categoryFilters.includes('none');
             }
-            if (r.categoryId && categoryFilters.includes(r.categoryId)) {
-                return true;
-            }
-            return false;
+
+            // 只要任务的任意一个分类在过滤器列表中，就显示该任务
+            return taskCategoryIds.some((id: string) => categoryFilters.includes(id));
         });
     }
 
@@ -3841,7 +4111,7 @@ export class ReminderPanel {
         const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1, 'none': 0 };
         const priorityA = priorityOrder[a.priority || 'none'] || 0;
         const priorityB = priorityOrder[b.priority || 'none'] || 0;
-        return priorityB - priorityA; // 高优先级在前
+        return priorityA - priorityB; // 低到高（升序），降序会在 compareByCriterion 中取反
     }
 
     // 按标题比较
@@ -3853,7 +4123,7 @@ export class ReminderPanel {
 
     private async toggleReminder(reminderId: string, completed: boolean, isRepeatInstance?: boolean, instanceDate?: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
             if (isRepeatInstance && instanceDate) {
                 // reminderId 是原始提醒的 id
@@ -4316,7 +4586,7 @@ export class ReminderPanel {
 
     private async deleteRemindersByBlockId(blockId: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             let deletedCount = 0;
             const deletedIds: string[] = [];
 
@@ -4383,8 +4653,12 @@ export class ReminderPanel {
 
     // 新增：添加拖拽功能
     private addDragFunctionality(element: HTMLElement, reminder: any) {
+        const isAndroid = getBackend().endsWith('android');
+
+        if (isAndroid) return; // 华为平板不能添加lement.draggable = true;
+        if (this.isDragDisabledBySortMode()) return;
+
         element.draggable = true;
-        element.style.cursor = 'grab';
 
         element.addEventListener('dragstart', (e) => {
             this.isDragging = true;
@@ -4397,7 +4671,6 @@ export class ReminderPanel {
             }
             // 添加 dragging 类，作为保险（并覆盖任何样式冲突）
             try { element.classList.add('dragging'); } catch (e) { }
-            element.style.cursor = 'grabbing';
 
             if (e.dataTransfer) {
                 e.dataTransfer.effectAllowed = 'move';
@@ -4447,7 +4720,6 @@ export class ReminderPanel {
                 element.style.opacity = '';
             }
             try { element.classList.remove('dragging'); } catch (e) { }
-            element.style.cursor = 'grab';
         });
 
         element.addEventListener('dragover', (e) => {
@@ -4555,7 +4827,7 @@ export class ReminderPanel {
 
                     // 如果有默认属性，则更新任务
                     if (defaultDate || defaultProjectId || defaultPriority || defaultCategoryId) {
-                        const reminderData = await getAllReminders(this.plugin);
+                        const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                         const reminder = reminderData[taskId];
                         if (reminder) {
                             let changed = false;
@@ -4719,7 +4991,7 @@ export class ReminderPanel {
             const block = await getBlockByID(blockId);
             if (!block) return;
 
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const { defaultDate, defaultEndDate, defaultCategoryId, defaultProjectId, defaultPriority } = await this.getFilterAttributes();
 
             // 不需要去重，直接创建新任务
@@ -4870,7 +5142,7 @@ export class ReminderPanel {
     // 新增:移除父子关系
     private async removeParentRelation(childReminder: any, silent: boolean = false) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
             // 获取原始ID（处理重复实例的情况）
             const childId = childReminder.isRepeatInstance ? childReminder.originalId : childReminder.id;
@@ -5076,6 +5348,10 @@ export class ReminderPanel {
 
     // 新增：检查是否可以放置
     private canDropHere(draggedReminder: any, targetReminder: any, isSetParent: boolean = false): boolean {
+        if (this.isDragDisabledBySortMode()) {
+            return false;
+        }
+
         // 检查基本条件：不能拖到自己上
         if (draggedReminder.id === targetReminder.id) {
             return false;
@@ -5108,6 +5384,10 @@ export class ReminderPanel {
             }
         } else {
             // 排序时的检查
+            if (!this.isSameNonPrioritySortGroup(draggedReminder, targetReminder)) {
+                return false;
+            }
+
             // 如果被拖动的任务有父任务，说明是要移除父子关系，此时不检查优先级限制
             const isRemovingParent = draggedReminder.parentId != null;
 
@@ -5322,7 +5602,7 @@ export class ReminderPanel {
     // 新增：设置父子关系
     private async setParentRelation(childReminder: any, parentReminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
             // 获取原始ID（处理重复实例的情况）
             const childId = childReminder.isRepeatInstance ? childReminder.originalId : childReminder.id;
@@ -5403,22 +5683,62 @@ export class ReminderPanel {
     // 新增：重新排序提醒（支持重复实例）
     private async reorderReminders(draggedReminder: any, targetReminder: any, insertBefore: boolean, providedReminderData?: any) {
         try {
-            const reminderData = providedReminderData || await getAllReminders(this.plugin);
+            if (this.isDragDisabledBySortMode()) {
+                return;
+            }
+
+            const reminderData = providedReminderData || await getAllReminders(this.plugin, undefined, false, 'sidebar');
+            const hasPriorityCriterion = this.currentSortCriteria.some(c => c.method === 'priority');
+
+            // 兜底保护：非优先级模式禁止跨分组拖拽
+            if (!hasPriorityCriterion && !this.isSameNonPrioritySortGroup(draggedReminder, targetReminder)) {
+                return;
+            }
+
+            const draggedParsed = this.parseReminderInstanceId(draggedReminder?.id);
+            const targetParsed = this.parseReminderInstanceId(targetReminder?.id);
 
             // 判断是否为重复实例
-            const isDraggedInstance = draggedReminder.isRepeatInstance || draggedReminder.id.includes('_');
-            const isTargetInstance = targetReminder.isRepeatInstance || targetReminder.id.includes('_');
+            // 仅在明确标记为实例，或可从 id 解析出实例日期时，才按实例处理。
+            const isDraggedInstance = draggedReminder?.isRepeatInstance === true || (!!draggedReminder?.originalId && !!draggedParsed);
+            const isTargetInstance = targetReminder?.isRepeatInstance === true || (!!targetReminder?.originalId && !!targetParsed);
 
             // 获取原始ID
-            const draggedOriginalId = isDraggedInstance ? (draggedReminder.originalId || draggedReminder.id.split('_')[0]) : draggedReminder.id;
-            const targetOriginalId = isTargetInstance ? (targetReminder.originalId || targetReminder.id.split('_')[0]) : targetReminder.id;
+            const draggedOriginalId = isDraggedInstance
+                ? (draggedReminder.originalId || draggedParsed?.originalId || draggedReminder.id)
+                : draggedReminder.id;
+            const targetOriginalId = isTargetInstance
+                ? (targetReminder.originalId || targetParsed?.originalId || targetReminder.id)
+                : targetReminder.id;
 
             // 获取原始实例日期（从 ID 中提取，因为 date 可能已被修改）
-            const draggedOriginalInstanceDate = isDraggedInstance ? draggedReminder.id.split('_').pop() : undefined;
-            const targetOriginalInstanceDate = isTargetInstance ? targetReminder.id.split('_').pop() : undefined;
+            const draggedOriginalInstanceDate = isDraggedInstance ? draggedParsed?.instanceDate : undefined;
+            const targetOriginalInstanceDate = isTargetInstance ? targetParsed?.instanceDate : undefined;
 
             const oldPriority = draggedReminder.priority || 'none';
             const newPriority = targetReminder.priority || 'none';
+
+            // 非优先级排序模式：只调整 sort，不变更 priority
+            if (!hasPriorityCriterion) {
+                await this.reorderSortGroup(
+                    reminderData,
+                    draggedOriginalId,
+                    isDraggedInstance,
+                    draggedOriginalInstanceDate,
+                    targetOriginalId,
+                    targetOriginalInstanceDate,
+                    insertBefore,
+                    draggedReminder,
+                    targetReminder
+                );
+
+                await saveReminders(this.plugin, reminderData);
+                window.dispatchEvent(new CustomEvent('reminderUpdated', {
+                    detail: { source: this.panelId }
+                }));
+                await this.loadReminders();
+                return;
+            }
 
             // 检查是否跨优先级拖拽
             if (oldPriority !== newPriority) {
@@ -5468,6 +5788,144 @@ export class ReminderPanel {
             console.error('重新排序提醒失败:', error);
             throw error;
         }
+    }
+
+    /**
+     * 非优先级排序模式下的拖拽重排：仅调整 sort，不修改 priority
+     */
+    private async reorderSortGroup(
+        reminderData: any,
+        draggedOriginalId: string,
+        isDraggedInstance: boolean,
+        draggedInstanceDate?: string,
+        targetOriginalId?: string,
+        targetInstanceDate?: string,
+        insertBefore?: boolean,
+        draggedReminder?: any,
+        targetReminder?: any
+    ) {
+        const items: Array<{
+            id: string;
+            originalId: string;
+            date?: string;
+            sort: number;
+            isInstance: boolean;
+        }> = [];
+
+        // 收集普通任务
+        Object.values(reminderData).forEach((task: any) => {
+            if (!task.repeat?.enabled) {
+                items.push({
+                    id: task.id,
+                    originalId: task.id,
+                    sort: task.sort || 0,
+                    isInstance: false
+                });
+            }
+        });
+
+        // 收集重复实例（从 instanceModifications 中）
+        Object.values(reminderData).forEach((task: any) => {
+            if (task.repeat?.enabled && task.repeat?.instanceModifications) {
+                Object.entries(task.repeat.instanceModifications).forEach(([date, mod]: [string, any]) => {
+                    if (!mod) return;
+                    items.push({
+                        id: `${task.id}_${date}`,
+                        originalId: task.id,
+                        date: date,
+                        sort: mod.sort !== undefined ? mod.sort : (task.sort || 0),
+                        isInstance: true
+                    });
+                });
+            }
+        });
+
+        if (!targetOriginalId) {
+            items.sort((a, b) => a.sort - b.sort);
+            items.forEach((item, index) => {
+                this.updateItemSort(reminderData, item, index * 10);
+            });
+            return;
+        }
+
+        const draggedFullId = isDraggedInstance ? `${draggedOriginalId}_${draggedInstanceDate}` : draggedOriginalId;
+        const draggedExists = items.some(item => item.id === draggedFullId);
+        if (!draggedExists && draggedReminder) {
+            let sort = 0;
+            if (isDraggedInstance) {
+                const originalTask = reminderData[draggedOriginalId];
+                sort = originalTask?.repeat?.instanceModifications?.[draggedInstanceDate!]?.sort ?? originalTask?.sort ?? 0;
+            } else {
+                sort = reminderData[draggedOriginalId]?.sort || 0;
+            }
+            items.push({
+                id: draggedFullId,
+                originalId: draggedOriginalId,
+                date: draggedInstanceDate,
+                sort,
+                isInstance: isDraggedInstance
+            });
+        }
+
+        const targetParsed = this.parseReminderInstanceId(targetReminder?.id);
+        const isTargetInstance = targetReminder?.isRepeatInstance === true || (!!targetReminder?.originalId && !!targetParsed);
+        const targetFullId = isTargetInstance ? `${targetOriginalId}_${targetInstanceDate}` : targetOriginalId;
+        const targetExists = items.some(item => item.id === targetFullId);
+        if (!targetExists && targetReminder) {
+            let sort = 0;
+            if (isTargetInstance) {
+                const originalTask = reminderData[targetOriginalId];
+                sort = originalTask?.repeat?.instanceModifications?.[targetInstanceDate!]?.sort ?? originalTask?.sort ?? 0;
+            } else {
+                sort = reminderData[targetOriginalId]?.sort || 0;
+            }
+            items.push({
+                id: targetFullId,
+                originalId: targetOriginalId,
+                date: targetInstanceDate,
+                sort,
+                isInstance: isTargetInstance
+            });
+        }
+
+        items.sort((a, b) => a.sort - b.sort);
+
+        const targetIndex = items.findIndex(item => item.id === targetFullId);
+        const draggedIndex = items.findIndex(item => item.id === draggedFullId);
+        if (targetIndex === -1 || draggedIndex === -1) {
+            console.error('找不到拖拽或目标任务', { draggedFullId, targetFullId, items: items.map(i => i.id) });
+            return;
+        }
+
+        let insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+
+        const draggedItem = items[draggedIndex];
+        items.splice(draggedIndex, 1);
+        if (draggedIndex < insertIndex) {
+            insertIndex--;
+        }
+
+        const validInsertIndex = Math.max(0, Math.min(insertIndex, items.length));
+        items.splice(validInsertIndex, 0, draggedItem);
+
+        items.forEach((item, index) => {
+            this.updateItemSort(reminderData, item, index * 10);
+        });
+    }
+
+    // 解析重复实例 ID，格式: <originalId>_<YYYY-MM-DD>
+    // 普通任务 ID 可能含有下划线，因此仅从最后一个下划线切分并校验日期段。
+    private parseReminderInstanceId(reminderId?: string): { originalId: string; instanceDate: string } | null {
+        if (!reminderId || typeof reminderId !== 'string') return null;
+
+        const splitIndex = reminderId.lastIndexOf('_');
+        if (splitIndex <= 0 || splitIndex >= reminderId.length - 1) return null;
+
+        const originalId = reminderId.substring(0, splitIndex);
+        const instanceDate = reminderId.substring(splitIndex + 1);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(instanceDate)) return null;
+
+        return { originalId, instanceDate };
     }
 
     /**
@@ -5555,7 +6013,9 @@ export class ReminderPanel {
         }
 
         // 确保目标项在列表中
-        const isTargetInstance = targetReminder?.isRepeatInstance || (targetOriginalId !== targetReminder?.id);
+        // 优先使用 isRepeatInstance 属性，如果未设置则通过 originalId 判断（只有明确有 originalId 才是实例）
+        const targetParsed = this.parseReminderInstanceId(targetReminder?.id);
+        const isTargetInstance = targetReminder?.isRepeatInstance === true || (!!targetReminder?.originalId && !!targetParsed);
         const targetFullId = isTargetInstance ? `${targetOriginalId}_${targetInstanceDate}` : targetOriginalId;
         const targetExists = items.some(item => item.id === targetFullId);
         if (!targetExists && targetReminder) {
@@ -5695,7 +6155,7 @@ export class ReminderPanel {
 
             if (reminder.projectId) {
                 menu.addItem({
-                    icon: "iconGrid",
+                    icon: "iconProject",
                     label: i18n("openProjectKanban") || "打开项目看板",
                     click: () => this.openProjectKanban(reminder.projectId)
                 });
@@ -5707,7 +6167,7 @@ export class ReminderPanel {
             menu.addItem({
                 iconHTML: "🍅",
                 label: i18n("startPomodoro") || "开始番茄钟",
-                click: () => this.startPomodoro(reminder)
+                submenu: this.createPomodoroStartSubmenu(reminder)
             });
             menu.addItem({
                 iconHTML: "⏱️",
@@ -5975,6 +6435,38 @@ export class ReminderPanel {
             items.push({ iconHTML: "📅", label: i18n("moveToDayAfterTomorrow") || "移至后天", click: () => apply(dayAfterStr) });
             items.push({ iconHTML: "📅", label: i18n("moveToNextWeek") || "移至下周", click: () => apply(nextWeekStr) });
             items.push({ iconHTML: "❌", label: i18n("clearDate") || "清除日期", click: () => apply(null) });
+            items.push({
+                iconHTML: "✏️", label: i18n("editDate") || "编辑日期", click: () => {
+                    const isInstanceEdit = targetReminder.isRepeatInstance && onlyThisInstance;
+                    const originalInstanceDate = (targetReminder.isRepeatInstance && targetReminder.id && targetReminder.id.includes('_'))
+                        ? targetReminder.id.split('_').pop()
+                        : targetReminder.date;
+                    const dlg = new QuickReminderDialog(
+                        undefined, undefined, undefined, undefined,
+                        {
+                            mode: 'edit',
+                            reminder: isInstanceEdit ? {
+                                ...targetReminder,
+                                isInstance: true,
+                                originalId: targetReminder.originalId,
+                                instanceDate: originalInstanceDate
+                            } : targetReminder,
+                            isInstanceEdit: isInstanceEdit,
+                            plugin: this.plugin,
+                            dateOnly: true,
+                            onSaved: async (savedReminder) => {
+                                if (savedReminder && savedReminder.id) {
+                                    await this.handleOptimisticSavedReminder(savedReminder);
+                                } else {
+                                    await this.loadReminders();
+                                }
+                                window.dispatchEvent(new CustomEvent('reminderUpdated', { detail: { source: this.panelId } }));
+                            }
+                        }
+                    );
+                    dlg.show();
+                }
+            });
             return items;
         };
 
@@ -5992,7 +6484,23 @@ export class ReminderPanel {
                 menu.addItem({
                     iconHTML: "🔗",
                     label: i18n("bindToBlock"),
-                    click: () => this.showBindToBlockDialog(reminder)
+                    submenu: [
+                        {
+                            iconHTML: "🔗",
+                            label: i18n("bindToBlock"),
+                            click: () => this.showBindToBlockDialog(reminder, 'bind')
+                        },
+                        {
+                            iconHTML: "📑",
+                            label: i18n("newHeading"),
+                            click: () => this.showBindToBlockDialog(reminder, 'heading')
+                        },
+                        {
+                            iconHTML: "📄",
+                            label: i18n("newDocument"),
+                            click: () => this.showBindToBlockDialog(reminder, 'document')
+                        }
+                    ]
                 });
             }
 
@@ -6038,7 +6546,7 @@ export class ReminderPanel {
             menu.addItem({
                 iconHTML: "🍅",
                 label: i18n("startPomodoro"),
-                click: () => this.startPomodoro(reminder)
+                submenu: this.createPomodoroStartSubmenu(reminder)
             });
             menu.addItem({
                 iconHTML: "⏱️",
@@ -6076,7 +6584,23 @@ export class ReminderPanel {
                 menu.addItem({
                     iconHTML: "🔗",
                     label: i18n("bindToBlock"),
-                    click: () => this.showBindToBlockDialog(reminder)
+                    submenu: [
+                        {
+                            iconHTML: "🔗",
+                            label: i18n("bindToBlock"),
+                            click: () => this.showBindToBlockDialog(reminder, 'bind')
+                        },
+                        {
+                            iconHTML: "📑",
+                            label: i18n("newHeading"),
+                            click: () => this.showBindToBlockDialog(reminder, 'heading')
+                        },
+                        {
+                            iconHTML: "📄",
+                            label: i18n("newDocument"),
+                            click: () => this.showBindToBlockDialog(reminder, 'document')
+                        }
+                    ]
                 });
             }
 
@@ -6118,7 +6642,7 @@ export class ReminderPanel {
             menu.addItem({
                 iconHTML: "🍅",
                 label: i18n("startPomodoro"),
-                click: () => this.startPomodoro(reminder)
+                submenu: this.createPomodoroStartSubmenu(reminder)
             });
             menu.addItem({
                 iconHTML: "⏱️",
@@ -6143,12 +6667,20 @@ export class ReminderPanel {
         });
     }
 
+    private createPomodoroStartSubmenu(reminder: any): any[] {
+        return createSharedPomodoroStartSubmenu({
+            source: reminder,
+            plugin: this.plugin,
+            startPomodoro: (workDurationOverride?: number) => this.startPomodoro(reminder, workDurationOverride)
+        });
+    }
+
     /**
      * 将非实例任务或系列原始任务的基准日期设置为 newDate。
      * 保持跨天跨度（若存在 endDate）。
      */
     private async setReminderBaseDate(reminderId: string, newDate: string | null) {
-        const reminderData = await getAllReminders(this.plugin);
+        const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
         const reminder = reminderData[reminderId];
         if (!reminder) {
             showMessage(i18n("reminderNotExist"));
@@ -6193,7 +6725,7 @@ export class ReminderPanel {
      * 同时根据原始事件的跨度设置实例的 endDate 修改。
      */
     private async setInstanceDate(originalId: string, instanceDate: string, newDate: string | null) {
-        const reminderData = await getAllReminders(this.plugin);
+        const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
         const originalReminder = reminderData[originalId];
         if (!originalReminder || !originalReminder.repeat?.enabled) {
             showMessage(i18n("reminderNotExist"));
@@ -6236,7 +6768,7 @@ export class ReminderPanel {
         }
     }
 
-    private startPomodoro(reminder: any) {
+    private startPomodoro(reminder: any, workDurationOverride?: number) {
         if (!this.plugin) {
             showMessage("无法启动番茄钟：插件实例不可用");
             return;
@@ -6271,7 +6803,7 @@ export class ReminderPanel {
                 confirmMessage,
                 () => {
                     // 用户确认替换，传递当前状态
-                    this.performStartPomodoro(reminder, currentState);
+                    this.performStartPomodoro(reminder, currentState, workDurationOverride);
                 },
                 () => {
                     // 用户取消，尝试恢复原番茄钟的运行状态
@@ -6285,7 +6817,7 @@ export class ReminderPanel {
         } else {
             // 没有活动番茄钟或窗口已关闭，清理引用并直接启动
             this.pomodoroManager.cleanupInactiveTimer();
-            this.performStartPomodoro(reminder);
+            this.performStartPomodoro(reminder, undefined, workDurationOverride);
         }
     }
 
@@ -6298,7 +6830,7 @@ export class ReminderPanel {
     private async markSpanningEventTodayCompleted(reminder: any) {
         try {
             const today = getLogicalDateString();
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
 
 
@@ -6354,7 +6886,7 @@ export class ReminderPanel {
     private async unmarkSpanningEventTodayCompleted(reminder: any) {
         try {
             const today = getLogicalDateString();
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
 
 
@@ -6397,8 +6929,11 @@ export class ReminderPanel {
         }
     }
 
-    private async performStartPomodoro(reminder: any, inheritState?: any) {
+    private async performStartPomodoro(reminder: any, inheritState?: any, workDurationOverride?: number) {
         const settings = await this.plugin.getPomodoroSettings();
+        const runtimeSettings = workDurationOverride && workDurationOverride > 0
+            ? { ...settings, workDuration: workDurationOverride }
+            : settings;
 
         // 检查是否已有独立窗口存在
         const hasStandaloneWindow = this.plugin && this.plugin.pomodoroWindowId;
@@ -6407,7 +6942,7 @@ export class ReminderPanel {
             // 如果存在独立窗口，更新独立窗口中的番茄钟
             console.log('检测到独立窗口，更新独立窗口中的番茄钟');
             if (typeof this.plugin.openPomodoroWindow === 'function') {
-                await this.plugin.openPomodoroWindow(reminder, settings, false, inheritState);
+                await this.plugin.openPomodoroWindow(reminder, runtimeSettings, false, inheritState);
 
                 // 如果继承了状态且原来正在运行，显示继承信息
                 if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
@@ -6421,7 +6956,7 @@ export class ReminderPanel {
             // 如果已经有活动的番茄钟，先关闭它
             this.pomodoroManager.closeCurrentTimer();
 
-            const pomodoroTimer = new PomodoroTimer(reminder, settings, false, inheritState, this.plugin);
+            const pomodoroTimer = new PomodoroTimer(reminder, runtimeSettings, false, inheritState, this.plugin);
 
             // 设置当前活动的番茄钟实例
             this.pomodoroManager.setCurrentPomodoroTimer(pomodoroTimer);
@@ -6794,7 +7329,7 @@ export class ReminderPanel {
 
     private async deleteReminder(reminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             let hasDescendants = false;
             if (reminderData) {
                 // 快速判断是否存在子任务（深度优先）
@@ -6838,7 +7373,7 @@ export class ReminderPanel {
 
     private async performDeleteReminder(reminderId: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
             if (!reminderData[reminderId]) {
                 showMessage(i18n("reminderNotExist"));
@@ -7013,7 +7548,7 @@ export class ReminderPanel {
 
     private async setPriority(reminderId: string, priority: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             if (reminderData[reminderId]) {
                 // 检查是否为重复事件（修改全部实例的情况）
                 const isRecurringEvent = reminderData[reminderId].repeat?.enabled;
@@ -7058,19 +7593,19 @@ export class ReminderPanel {
                         let borderColor = '';
                         switch (priority) {
                             case 'high':
-                                backgroundColor = 'rgba(from var(--b3-card-error-background) r g b / .5)';
+                                backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
                                 borderColor = 'var(--b3-card-error-color)';
                                 break;
                             case 'medium':
-                                backgroundColor = 'rgba(from var(--b3-card-warning-background) r g b / .5)';
+                                backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
                                 borderColor = 'var(--b3-card-warning-color)';
                                 break;
                             case 'low':
-                                backgroundColor = 'rgba(from var(--b3-card-info-background) r g b / .7)';
+                                backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
                                 borderColor = 'var(--b3-card-info-color)';
                                 break;
                             default:
-                                backgroundColor = 'background-color: rgba(from var(--b3-theme-background-light) r g b / .1);';
+                                backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
                                 borderColor = 'var(--b3-theme-surface-lighter)';
                         }
                         el.style.backgroundColor = backgroundColor;
@@ -7096,7 +7631,7 @@ export class ReminderPanel {
 
     private async setCategory(reminderId: string, categoryId: string | null) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             if (reminderData[reminderId]) {
                 // 检查是否为重复事件（修改全部实例的情况）
                 const isRecurringEvent = reminderData[reminderId].repeat?.enabled;
@@ -7204,7 +7739,7 @@ export class ReminderPanel {
      */
     private async setInstancePriority(originalId: string, instanceDate: string, priority: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const originalReminder = reminderData[originalId];
 
             if (!originalReminder) {
@@ -7247,7 +7782,7 @@ export class ReminderPanel {
      */
     private async setInstanceCategory(originalId: string, instanceDate: string, categoryId: string | null) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const originalReminder = reminderData[originalId];
 
             if (!originalReminder) {
@@ -7288,7 +7823,7 @@ export class ReminderPanel {
      */
     private async splitRecurringReminder(reminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             // Handle instance ID: if it's an instance, use originalId
             const targetId = (reminder.isRepeatInstance && reminder.originalId) ? reminder.originalId : reminder.id;
             const originalReminder = reminderData[targetId];
@@ -7345,7 +7880,7 @@ export class ReminderPanel {
      */
     private async performSplitOperation(originalReminder: any, modifiedReminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
             // 1. 修改原始事件为单次事件（应用用户的修改）
             const singleReminder = {
@@ -7421,7 +7956,7 @@ export class ReminderPanel {
             const originalId = reminder.originalId;
             const instanceDate = reminder.date;
 
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const originalReminder = reminderData[originalId];
 
             if (!originalReminder) {
@@ -7500,7 +8035,7 @@ export class ReminderPanel {
     // 新增：编辑重复事件实例
     private async editInstanceReminder(reminder: any) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const originalReminder = reminderData[reminder.originalId];
 
             if (!originalReminder) {
@@ -7591,7 +8126,7 @@ export class ReminderPanel {
     // 新增：为原始重复事件添加排除日期
     private async addExcludedDate(originalId: string, excludeDate: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
 
             if (reminderData[originalId]) {
                 if (!reminderData[originalId].repeat) {
@@ -7631,14 +8166,14 @@ export class ReminderPanel {
                     if (this.originalRemindersCache[reminder.originalId]) {
                         reminderToEdit = this.originalRemindersCache[reminder.originalId];
                     } else {
-                        const reminderData = await getAllReminders(this.plugin);
+                        const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                         if (reminderData && reminderData[reminder.originalId]) {
                             reminderToEdit = reminderData[reminder.originalId];
                         }
                     }
                 } else {
                     // 编辑单个实例（Instance modification）
-                    const reminderData = await getAllReminders(this.plugin);
+                    const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                     const originalReminder = reminderData[reminder.originalId];
                     if (!originalReminder) {
                         showMessage("原始周期事件不存在");
@@ -7702,7 +8237,7 @@ export class ReminderPanel {
 
     private async deleteOriginalReminder(originalId: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const originalReminder = reminderData[originalId];
 
             if (originalReminder) {
@@ -7727,7 +8262,7 @@ export class ReminderPanel {
             i18n("confirmSkipFirstOccurrence"),
             async () => {
                 try {
-                    const reminderData = await getAllReminders(this.plugin);
+                    const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                     const originalReminder = reminderData[reminder.id];
 
                     if (!originalReminder || !originalReminder.repeat?.enabled) {
@@ -7807,7 +8342,7 @@ export class ReminderPanel {
             const blockRef = `((${blockId} "${title}"))`;
 
             // 复制到剪贴板
-            await navigator.clipboard.writeText(blockRef);
+            await platformUtils.writeText(blockRef);
 
         } catch (error) {
             console.error('复制块引失败:', error);
@@ -7817,7 +8352,7 @@ export class ReminderPanel {
     // 获取原始事件的blockId
     private async getOriginalBlockId(originalId: string): Promise<string | null> {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const originalReminder = reminderData[originalId];
             return originalReminder?.blockId || originalId;
         } catch (error) {
@@ -7829,7 +8364,7 @@ export class ReminderPanel {
     /**
      * 显示绑定到块的对话框
      */
-    private showBindToBlockDialog(reminder: any) {
+    private showBindToBlockDialog(reminder: any, defaultTab: 'bind' | 'document' | 'heading' = 'heading') {
         const blockBindingDialog = new BlockBindingDialog(this.plugin, async (blockId: string) => {
             try {
                 console.log('选择绑定到块ID:', blockId);
@@ -7842,7 +8377,7 @@ export class ReminderPanel {
                 showMessage(i18n("bindToBlockFailed"));
             }
         }, {
-            defaultTab: 'heading',
+            defaultTab: defaultTab,
             defaultParentId: reminder.parentId,
             defaultProjectId: reminder.projectId,
             defaultCustomGroupId: reminder.customGroupId,
@@ -8094,7 +8629,7 @@ export class ReminderPanel {
                 font-weight: bold;
             }
             .category-selector .category-option[data-category=""] {
-                background-color: var(--b3-theme-surface-lighter);
+                background-color: var(--b3-theme-background-light);
                 color: var(--b3-theme-on-surface);
             }
 
@@ -8208,7 +8743,7 @@ export class ReminderPanel {
      */
     private async bindReminderToBlock(reminder: any, blockId: string) {
         try {
-            const reminderData = await getAllReminders(this.plugin);
+            const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
             const reminderId = reminder.isRepeatInstance ? reminder.originalId : reminder.id;
 
             if (reminderData[reminderId]) {
@@ -8519,6 +9054,23 @@ export class ReminderPanel {
         try {
             const menu = new Menu("reminderMoreMenu");
 
+            // 添加粘贴新建任务
+            menu.addItem({
+                icon: 'iconPaste',
+                label: i18n("pasteCreateTask") || "粘贴新建任务",
+                click: () => {
+                    const dialog = new PasteTaskDialog({
+                        plugin: this.plugin,
+                        defaultSetDate: true,
+                        defaultDateStr: getLogicalDateString(),
+                        onSuccess: () => {
+                            this.loadReminders(true);
+                        }
+                    });
+                    dialog.show();
+                }
+            });
+
             // 添加分类管理
             menu.addItem({
                 icon: 'iconTags',
@@ -8676,7 +9228,7 @@ export class ReminderPanel {
                     // If reminderData not provided, try to load global data
                     let rawData = reminderData;
                     if (!rawData) {
-                        rawData = await getAllReminders(this.plugin);
+                        rawData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                     }
                     const reminderMap = rawData instanceof Map ? rawData : new Map(Object.values(rawData || {}).map((r: any) => [r.id, r]));
                     hasDescendants = this.getAllDescendantIds(reminder.id, reminderMap).length > 0;
@@ -8815,7 +9367,7 @@ export class ReminderPanel {
                 dataMap = new Map(Object.values(raw).map((r: any) => [r.id, r]));
             } else {
                 try {
-                    const rd = await getAllReminders(this.plugin);
+                    const rd = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                     dataMap = new Map(Object.values(rd || {}).map((r: any) => [r.id, r]));
                 } catch (e) {
                     dataMap = null;
@@ -8909,7 +9461,7 @@ export class ReminderPanel {
                 dataMap = new Map(Object.values(raw).map((r: any) => [r.id, r]));
             } else {
                 try {
-                    const rd = await getAllReminders(this.plugin);
+                    const rd = await getAllReminders(this.plugin, undefined, false, 'sidebar');
                     dataMap = new Map(Object.values(rd || {}).map((r: any) => [r.id, r]));
                 } catch (e) {
                     dataMap = null;
@@ -9039,8 +9591,8 @@ export class ReminderPanel {
         const dialog = new Dialog({
             title: i18n("selectCategories"),
             content: this.createCategorySelectContent(categories),
-            width: "400px",
-            height: "250px"
+            width: "500px",
+            height: "300px"
         });
 
         // 绑定事件
@@ -9077,7 +9629,10 @@ export class ReminderPanel {
                 });
             }
             this.selectedCategories = selected;
+            // 保存用户手动修改的分类筛选
+            this.userManualCategories = [...selected];
             this.updateCategoryFilterButtonText();
+            this.saveSelectedCategories();
             this.loadReminders();
             dialog.destroy();
         });
@@ -9125,6 +9680,395 @@ export class ReminderPanel {
 
         return html;
     }
+
+    // ===================== 侧栏多选模式 =====================
+
+    private togglePanelReminderSelection(reminderId: string, el: HTMLElement): void {
+        if (this.selectedReminderIds.has(reminderId)) {
+            this.selectedReminderIds.delete(reminderId);
+            el.classList.remove('reminder-item--selected');
+        } else {
+            this.selectedReminderIds.add(reminderId);
+            el.classList.add('reminder-item--selected');
+        }
+    }
+
+    private exitPanelMultiSelectMode(): void {
+        this.isMultiSelectMode = false;
+        this.selectedReminderIds.clear();
+        this.lastClickedReminderId = null;
+        // 清除所有选中样式
+        this.container.querySelectorAll('.reminder-item--selected').forEach(el => {
+            el.classList.remove('reminder-item--selected');
+        });
+        showMessage(i18n('batchSelectModeOff') || '已退出多选模式');
+    }
+
+    /**
+     * Shift+Click 范围选择：从 lastId 到 currentId 之间的所有可见任务全部选中
+     */
+    private selectRangeInPanel(lastId: string, currentId: string): void {
+        // 从 DOM 按渲染顺序获取所有任务元素
+        const allEls = Array.from(
+            this.container.querySelectorAll<HTMLElement>('.reminder-item[data-reminder-id]')
+        );
+        const ids = allEls.map(el => el.dataset.reminderId!);
+        const lastIdx = ids.indexOf(lastId);
+        const curIdx = ids.indexOf(currentId);
+        if (lastIdx === -1 || curIdx === -1) return;
+        const start = Math.min(lastIdx, curIdx);
+        const end = Math.max(lastIdx, curIdx);
+        for (let i = start; i <= end; i++) {
+            const id = ids[i];
+            const el = allEls[i];
+            if (id && el) {
+                this.selectedReminderIds.add(id);
+                el.classList.add('reminder-item--selected');
+            }
+        }
+        this.lastClickedReminderId = currentId;
+    }
+
+    private showPanelBatchContextMenu(event: MouseEvent): void {
+        const menu = new Menu('panelBatchContextMenu');
+        const selectedCount = this.selectedReminderIds.size;
+
+        // 提示行
+        menu.addItem({
+            iconHTML: '☑️',
+            label: `${selectedCount} ${i18n('tasksSelected') || '个任务已选择'}`,
+            click: () => { }
+        });
+        menu.addSeparator();
+
+        // 设置已完成
+        menu.addItem({
+            iconHTML: '✅',
+            label: i18n('setCompleted') || '设置已完成',
+            click: () => this.panelBatchSetCompleted()
+        });
+
+        // 设置日期子菜单
+        const todayStr = getLogicalDateString();
+        const tomorrowStr = getRelativeDateString(1);
+        const dayAfterStr = getRelativeDateString(2);
+        const nextWeekStr = getRelativeDateString(7);
+        menu.addItem({
+            iconHTML: '🗓',
+            label: i18n('setDate') || '设置日期',
+            submenu: [
+                { iconHTML: '📅', label: i18n('moveToToday') || '移至今天', click: () => this.panelBatchSetDate(todayStr) },
+                { iconHTML: '📅', label: i18n('moveToTomorrow') || '移至明天', click: () => this.panelBatchSetDate(tomorrowStr) },
+                { iconHTML: '📅', label: i18n('moveToDayAfterTomorrow') || '移至后天', click: () => this.panelBatchSetDate(dayAfterStr) },
+                { iconHTML: '📅', label: i18n('moveToNextWeek') || '移至下周', click: () => this.panelBatchSetDate(nextWeekStr) },
+                { iconHTML: '❌', label: i18n('clearDate') || '清除日期', click: () => this.panelBatchSetDate(null) },
+                { iconHTML: '🗓', label: i18n('batchSetDate') || '批量设置日期…', click: () => this.panelBatchSetDateDialog() }
+            ]
+        });
+
+        // 设置优先级子菜单
+        const priorities = [
+            { key: 'high', label: i18n('priorityHigh') || '高', icon: '🔴' },
+            { key: 'medium', label: i18n('priorityMedium') || '中', icon: '🟡' },
+            { key: 'low', label: i18n('priorityLow') || '低', icon: '🔵' },
+            { key: 'none', label: i18n('none') || '无', icon: '⚫' }
+        ];
+        menu.addItem({
+            iconHTML: '🎯',
+            label: i18n('setPriority') || '设置优先级',
+            submenu: priorities.map(p => ({
+                iconHTML: p.icon,
+                label: p.label,
+                click: () => this.panelBatchSetPriority(p.key)
+            }))
+        });
+
+        // 设置分类子菜单
+        const categories = this.categoryManager.getCategories();
+        if (categories.length > 0) {
+            const catItems: any[] = [{
+                iconHTML: '❌',
+                label: i18n('noCategory') || '无分类',
+                click: () => this.panelBatchSetCategory(null)
+            }];
+            categories.forEach((cat: any) => {
+                catItems.push({
+                    iconHTML: cat.icon || '📁',
+                    label: cat.name,
+                    click: () => this.panelBatchSetCategory(cat.id)
+                });
+            });
+            menu.addItem({
+                iconHTML: '📁',
+                label: i18n('setCategory') || '设置分类',
+                submenu: catItems
+            });
+        }
+
+        menu.addSeparator();
+
+
+        // 退出多选
+        menu.addItem({
+            iconHTML: '❌',
+            label: i18n('exitBatchSelect') || '退出多选',
+            click: () => this.exitPanelMultiSelectMode()
+        });
+
+        menu.addSeparator();
+
+        // 删除
+        menu.addItem({
+            iconHTML: '🗑️',
+            label: i18n('delete') || '删除',
+            click: () => this.panelBatchDelete()
+        });
+
+        menu.open({ x: event.clientX, y: event.clientY });
+    }
+
+    private async panelBatchSetCompleted(): Promise<void> {
+        const ids = Array.from(this.selectedReminderIds);
+        if (ids.length === 0) return;
+        try {
+            for (const id of ids) {
+                await this.toggleReminder(id, true);
+            }
+            showMessage(i18n('operationSuccessful') || '操作成功');
+            this.exitPanelMultiSelectMode();
+            this.loadReminders();
+        } catch (e) {
+            showMessage(i18n('operationFailed') || '操作失败');
+        }
+    }
+
+    private async panelBatchSetDate(newDate: string | null): Promise<void> {
+        const ids = Array.from(this.selectedReminderIds);
+        if (ids.length === 0) return;
+        try {
+            for (const id of ids) {
+                await this.setReminderBaseDate(id, newDate);
+            }
+            showMessage(i18n('operationSuccessful') || '操作成功');
+            this.exitPanelMultiSelectMode();
+            this.loadReminders();
+        } catch (e) {
+            showMessage(i18n('operationFailed') || '操作失败');
+        }
+    }
+
+    private async panelBatchSetDateDialog(): Promise<void> {
+        const ids = Array.from(this.selectedReminderIds);
+        if (ids.length === 0) return;
+
+        const langTag = (window as any).siyuan?.config?.lang?.replace('_', '-') || 'en-US';
+        const _now = new Date();
+        const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+
+        const dialog = new Dialog({
+            title: i18n('batchSetDate') || '批量设置日期',
+            content: `
+                <div class="b3-dialog__content" style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <!-- 开始日期/时间行 -->
+                    <div class="b3-form__group" style="margin-bottom: 0;">
+                        <label class="b3-form__label">${i18n('startLabel') || '开始：'}</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex: 1 1 140px; min-width: 120px;">
+                                    <input type="date" id="panelBatchStartDate" class="b3-text-field" max="9999-12-31" style="flex: 1; min-width: 0;" lang="${langTag}">
+                                    <button type="button" id="panelClearStartDateBtn" class="b3-button b3-button--outline" title="${i18n('clearDate') || '清除日期'}" style="padding: 4px 8px; font-size: 12px; flex: 0 0 auto;">
+                                        <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                    </button>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex: 0 0 auto; white-space: nowrap; min-width: 110px; margin-left: auto;">
+                                    <input type="time" id="panelBatchStartTime" class="b3-text-field" style="flex: 0 0 auto; min-width: 100px;" lang="${langTag}">
+                                    <button type="button" id="panelClearStartTimeBtn" class="b3-button b3-button--outline" title="${i18n('clearTime') || '清除时间'}" style="padding: 4px 8px; font-size: 12px;">
+                                        <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 结束日期/时间行 -->
+                    <div class="b3-form__group" style="margin-bottom: 0;">
+                        <label class="b3-form__label">${i18n('endLabel') || '结束：'}</label>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1 1 140px; min-width: 120px;">
+                                <input type="date" id="panelBatchEndDate" class="b3-text-field" placeholder="${i18n('endDateOptional') || '结束日期（可选）'}" max="9999-12-31" style="flex: 1; min-width: 0;" lang="${langTag}">
+                                <button type="button" id="panelClearEndDateBtn" class="b3-button b3-button--outline" title="${i18n('clearDate') || '清除日期'}" style="padding: 4px 8px; font-size: 12px; flex: 0 0 auto;">
+                                    <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 0 0 auto; white-space: nowrap; min-width: 110px; margin-left: auto;">
+                                <input type="time" id="panelBatchEndTime" class="b3-text-field" placeholder="${i18n('endTimeOptional') || '结束时间 (可选)'}" style="flex: 0 0 auto; min-width: 100px;" lang="${langTag}">
+                                <button type="button" id="panelClearEndTimeBtn" class="b3-button b3-button--outline" title="${i18n('clearTime') || '清除时间'}" style="padding: 4px 8px; font-size: 12px;">
+                                    <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 清空所有日期选项 -->
+                    <div class="b3-form__group" style="margin-bottom: 0;">
+                        <label class="b3-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" class="b3-switch" id="panelClearAllDatesCheck">
+                            <span class="b3-checkbox__graphic"></span>
+                            <span class="b3-checkbox__label" style="font-size: 13px;">${i18n('clearDate') || '清空日期'}</span>
+                            <span style="font-size: 12px; color: var(--b3-theme-on-surface-light);">${i18n('clearDateHint') || '勾选后将清空所选任务的日期'}</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="b3-dialog__action">
+                    <button class="b3-button b3-button--cancel" id="panelBatchDateCancel">${i18n('cancel')}</button>
+                    <button class="b3-button b3-button--primary" id="panelBatchDateConfirm">${i18n('confirm')}</button>
+                </div>
+            `,
+            width: '460px'
+        });
+
+        const startDateInput = dialog.element.querySelector('#panelBatchStartDate') as HTMLInputElement;
+        const startTimeInput = dialog.element.querySelector('#panelBatchStartTime') as HTMLInputElement;
+        const endDateInput = dialog.element.querySelector('#panelBatchEndDate') as HTMLInputElement;
+        const endTimeInput = dialog.element.querySelector('#panelBatchEndTime') as HTMLInputElement;
+        const clearAllCheck = dialog.element.querySelector('#panelClearAllDatesCheck') as HTMLInputElement;
+        const cancelBtn = dialog.element.querySelector('#panelBatchDateCancel') as HTMLButtonElement;
+        const confirmBtn = dialog.element.querySelector('#panelBatchDateConfirm') as HTMLButtonElement;
+
+        startDateInput.value = today;
+
+        dialog.element.querySelector('#panelClearStartDateBtn')?.addEventListener('click', () => { startDateInput.value = ''; });
+        dialog.element.querySelector('#panelClearStartTimeBtn')?.addEventListener('click', () => { startTimeInput.value = ''; });
+        dialog.element.querySelector('#panelClearEndDateBtn')?.addEventListener('click', () => { endDateInput.value = ''; });
+        dialog.element.querySelector('#panelClearEndTimeBtn')?.addEventListener('click', () => { endTimeInput.value = ''; });
+
+        endDateInput.addEventListener('change', () => {
+            if (startDateInput.value && endDateInput.value && endDateInput.value < startDateInput.value) {
+                showMessage(i18n('endDateAdjusted') || '结束日期已自动调整为开始日期');
+                endDateInput.value = startDateInput.value;
+            }
+        });
+
+        clearAllCheck.addEventListener('change', () => {
+            const disabled = clearAllCheck.checked;
+            [startDateInput, startTimeInput, endDateInput, endTimeInput].forEach(el => {
+                el.disabled = disabled;
+                el.style.opacity = disabled ? '0.4' : '1';
+            });
+            ['#panelClearStartDateBtn', '#panelClearStartTimeBtn', '#panelClearEndDateBtn', '#panelClearEndTimeBtn'].forEach(sel => {
+                const btn = dialog.element.querySelector(sel) as HTMLButtonElement;
+                if (btn) { btn.disabled = disabled; btn.style.opacity = disabled ? '0.4' : '1'; }
+            });
+        });
+
+        cancelBtn.addEventListener('click', () => dialog.destroy());
+
+        confirmBtn.addEventListener('click', async () => {
+            const clearAll = clearAllCheck.checked;
+            const startDate = startDateInput.value;
+            const startTime = startTimeInput.value;
+            const endDate = endDateInput.value;
+            const endTime = endTimeInput.value;
+
+            if (!clearAll && startDate && endDate && endDate < startDate) {
+                showMessage(i18n('endDateCannotBeEarlier') || '结束日期不能早于开始日期');
+                return;
+            }
+
+            dialog.destroy();
+
+            try {
+                const reminderData = await getAllReminders(this.plugin, undefined, false, 'sidebar');
+                for (const id of ids) {
+                    const reminder = reminderData[id];
+                    if (!reminder) continue;
+                    if (clearAll) {
+                        delete reminder.date;
+                        delete reminder.time;
+                        delete reminder.endDate;
+                        delete reminder.endTime;
+                    } else {
+                        if (startDate) reminder.date = startDate;
+                        if (startTime) reminder.time = startTime; else delete reminder.time;
+                        if (endDate) reminder.endDate = endDate; else delete reminder.endDate;
+                        if (endTime) reminder.endTime = endTime; else delete reminder.endTime;
+                    }
+                    if (reminder.blockId) {
+                        try { await updateBindBlockAtrrs(reminder.blockId, this.plugin); } catch (e) { /* ignore */ }
+                    }
+                }
+                await saveReminders(this.plugin, reminderData);
+                showMessage(i18n('batchUpdateSuccess', { count: String(ids.length) }) || `成功更新 ${ids.length} 个任务`);
+                window.dispatchEvent(new CustomEvent('reminderUpdated', { detail: { source: this.panelId } }));
+                this.exitPanelMultiSelectMode();
+                this.loadReminders();
+            } catch (e) {
+                console.error('批量设置日期失败:', e);
+                showMessage(i18n('operationFailed') || '操作失败');
+            }
+        });
+    }
+
+    private async panelBatchSetPriority(priority: string): Promise<void> {
+        const ids = Array.from(this.selectedReminderIds);
+        if (ids.length === 0) return;
+        try {
+            for (const id of ids) {
+                await this.setPriority(id, priority);
+            }
+            showMessage(i18n('operationSuccessful') || '操作成功');
+            this.exitPanelMultiSelectMode();
+            this.loadReminders();
+        } catch (e) {
+            showMessage(i18n('operationFailed') || '操作失败');
+        }
+    }
+
+    private async panelBatchSetCategory(categoryId: string | null): Promise<void> {
+        const ids = Array.from(this.selectedReminderIds);
+        if (ids.length === 0) return;
+        try {
+            for (const id of ids) {
+                await this.setCategory(id, categoryId);
+            }
+            showMessage(i18n('operationSuccessful') || '操作成功');
+            this.exitPanelMultiSelectMode();
+            this.loadReminders();
+        } catch (e) {
+            showMessage(i18n('operationFailed') || '操作失败');
+        }
+    }
+
+    private panelSelectAll(): void {
+        this.currentRemindersCache.forEach(r => {
+            if (!r.isSubscribed) {
+                this.selectedReminderIds.add(r.id);
+                const el = this.container.querySelector(`[data-reminder-id="${r.id}"]`) as HTMLElement;
+                if (el) el.classList.add('reminder-item--selected');
+            }
+        });
+    }
+
+    private panelBatchDelete(): void {
+        const ids = Array.from(this.selectedReminderIds);
+        if (ids.length === 0) return;
+        confirm(
+            i18n('confirmBatchDelete') || '确认批量删除',
+            i18n('confirmBatchDeleteMessage', { count: String(ids.length) }) || `确定要删除选中的 ${ids.length} 个任务吗？此操作不可恢复。`,
+            async () => {
+                try {
+                    for (const id of ids) {
+                        await this.performDeleteReminder(id);
+                    }
+                    showMessage(i18n('batchDeleteSuccess', { count: String(ids.length) }) || `成功删除 ${ids.length} 个任务`);
+                    this.exitPanelMultiSelectMode();
+                    this.loadReminders();
+                } catch (e) {
+                    showMessage(i18n('batchDeleteFailed') || '批量删除失败');
+                }
+            }
+        );
+    }
+
+    // ===================== 侧栏多选模式结束 =====================
 
     /**
      * 显示任务的番茄钟会话记录

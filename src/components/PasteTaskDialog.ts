@@ -4,7 +4,7 @@ import { autoDetectDateTimeFromTitle, getLocalDateTimeString } from "../utils/da
 import { getBlockByID, updateBindBlockAtrrs, addBlockProjectId } from "../api";
 import { getAllReminders, saveReminders } from "../utils/icsSubscription";
 import LoadingDialog from './LoadingDialog.svelte';
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from "@milkdown/kit/core";
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { history } from "@milkdown/kit/plugin/history";
@@ -52,6 +52,10 @@ export interface PasteTaskDialogConfig {
     isTempMode?: boolean;
     // 临时模式回调，参数为创建的任务数组
     onTasksCreated?: (tasks: any[]) => void;
+    // 默认统一设置日期（默认不勾选，除非提供为true）
+    defaultSetDate?: boolean;
+    // 统一设置日期的默认值（例如当前筛选的日期）
+    defaultDateStr?: string;
 }
 
 export class PasteTaskDialog {
@@ -141,11 +145,11 @@ export class PasteTaskDialog {
                 <div class="b3-dialog__content" style="padding: 16px;">
                     <div style="margin-bottom: 12px;">
                         <label style="display: block; margin-bottom: 4px; font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8;">${i18n('linkUrl') || '链接地址'}:</label>
-                        <textarea id="linkUrl" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="https://...">${mark.attrs.href}</textarea>
+                        <textarea id="linkUrl" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="https://..." spellcheck="false">${mark.attrs.href}</textarea>
                     </div>
                     <div style="margin-bottom: 12px;">
                         <label style="display: block; margin-bottom: 4px; font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8;">${i18n('linkTitle') || '显示文本'}:</label>
-                        <textarea id="linkTitle" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="${i18n('linkTitlePlaceholder') || '输入链接文本'}">${currentText}</textarea>
+                        <textarea id="linkTitle" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="${i18n('linkTitlePlaceholder') || '输入链接文本'}" spellcheck="false">${currentText}</textarea>
                     </div>
                 </div>
                 <div class="b3-dialog__action">
@@ -210,27 +214,38 @@ export class PasteTaskDialog {
                 <div class="b3-dialog__content">
                     <p>${i18n("pasteInstructions") || "粘贴Markdown列表或多行文本，每行将创建一个任务。支持多层级列表自动创建父子任务。"}</p>
                     <p style="font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8; margin-bottom: 4px; word-break: break-all;">
-                        ${i18n("supportPrioritySyntax") || "支持语法："}<code>@priority=high&startDate=2025-08-12&endDate=2025-08-30&reminderTimes=[{"time":"2026-02-24T12:33","note":"备注1"}]</code>
+                        ${i18n("supportPrioritySyntaxDemo") || "支持语法：<code>@priority=high&startDate=2025-08-12&endDate=2025-08-30&reminderTimes=[{\"time\":\"2026-02-24T12:33\",\"note\":\"备注1\"}]</code>"}
                     </p>
                     <p style="font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8; margin-bottom: 4px;">
-                        ${i18n("supportBlockLink") || "支持绑定块："}<code>[任务标题](siyuan://blocks/块ID)</code> 或 <code>((块ID '任务标题'))</code>
+                        ${i18n("supportBlockLinkDemo") || "支持绑定块：<code>[任务标题](siyuan://blocks/块ID)</code> 或 <code>((块ID '任务标题'))</code>"}
                     </p>
                     <p style="font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8; margin-bottom: 8px;">
                         ${i18n("supportHierarchy") || "支持多层级：使用缩进或多个<code>-</code>符号创建父子任务关系"}
                     </p>
                     ${selectorsHtml}
-                    <div id="taskList" style="height: 300px; border: 1px solid var(--b3-theme-surface-lighter); border-radius: 4px; overflow-y: auto;"></div>
+                    <div id="taskList" style="height: 300px; border: 1px solid var(--b3-theme-surface-lighter); border-radius: 4px;"></div>
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
                         <label class="b3-checkbox" style="display: flex; align-items: center;">
                             <input id="autoDetectDate" type="checkbox" class="b3-switch">
                             <span class="b3-checkbox__graphic"></span>
                             <span class="b3-checkbox__label">${i18n("autoDetectDateTime")}</span>
                         </label>
-                        <label id="removeDateLabel" class="b3-checkbox" style="display: flex; align-items: center; margin-left: 24px;">
-                            <input id="removeDate" type="checkbox" class="b3-switch">
-                            <span class="b3-checkbox__graphic"></span>
-                            <span class="b3-checkbox__label">${i18n("removeDateAfterDetection")}</span>
-                        </label>
+                        <div id="removeDateContainer" style="display: flex; align-items: center; gap: 8px; margin-left: 24px;">
+                            <span style="font-size: 14px; color: var(--b3-theme-on-surface); cursor: default;">${i18n("removeDateAfterDetection")}</span>
+                            <select id="removeDateMode" class="b3-select" style="padding: 2px 8px; height: 28px;">
+                                <option value="none">${i18n('removeNone') || '不去除'}</option>
+                                <option value="date">${i18n('removeDateOnly') || '仅去除日期'}</option>
+                                <option value="all" selected>${i18n('removeDateAndTime') || '去除日期和时间'}</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label class="b3-checkbox" style="display: flex; align-items: center;">
+                                <input id="unifiedDateCheckbox" type="checkbox" class="b3-switch" ${this.config.defaultSetDate ? 'checked' : ''}>
+                                <span class="b3-checkbox__graphic"></span>
+                                <span class="b3-checkbox__label">${i18n("unifiedSetDate") || "统一设置日期"}</span>
+                            </label>
+                            <input id="unifiedDateInput" type="date" class="b3-text-field" value="${this.config.defaultDateStr || ''}" style="${this.config.defaultSetDate ? '' : 'display: none;'} margin-left: 8px;">
+                        </div>
                     </div>
                 </div>
                 <div class="b3-dialog__action">
@@ -250,11 +265,19 @@ export class PasteTaskDialog {
         const cancelBtn = dialog.element.querySelector('#cancelBtn') as HTMLButtonElement;
         const createBtn = dialog.element.querySelector('#createBtn') as HTMLButtonElement;
         const autoDetectCheckbox = dialog.element.querySelector('#autoDetectDate') as HTMLInputElement;
-        const removeDateCheckbox = dialog.element.querySelector('#removeDate') as HTMLInputElement;
-        const removeDateLabel = dialog.element.querySelector('#removeDateLabel') as HTMLElement;
+        const removeDateModeSelect = dialog.element.querySelector('#removeDateMode') as HTMLSelectElement;
+        const removeDateContainer = dialog.element.querySelector('#removeDateContainer') as HTMLElement;
         const groupSelect = dialog.element.querySelector('#pasteTaskGroup') as HTMLSelectElement;
         const milestoneSelect = dialog.element.querySelector('#pasteTaskMilestone') as HTMLSelectElement;
         const milestoneContainer = dialog.element.querySelector('#pasteTaskMilestoneContainer') as HTMLElement;
+        const unifiedDateCheckbox = dialog.element.querySelector('#unifiedDateCheckbox') as HTMLInputElement;
+        const unifiedDateInput = dialog.element.querySelector('#unifiedDateInput') as HTMLInputElement;
+
+        if (unifiedDateCheckbox && unifiedDateInput) {
+            unifiedDateCheckbox.addEventListener('change', () => {
+                unifiedDateInput.style.display = unifiedDateCheckbox.checked ? '' : 'none';
+            });
+        }
 
         // 监听分组变更，更新里程碑选项
         if (groupSelect && milestoneSelect) {
@@ -284,19 +307,19 @@ export class PasteTaskDialog {
             autoDetectCheckbox.checked = enabled;
             updateRemoveDateVisibility();
         });
-        this.config.plugin.getRemoveDateAfterDetectionEnabled().then((enabled: boolean) => {
-            removeDateCheckbox.checked = enabled;
+        this.config.plugin.getRemoveDateAfterDetectionMode().then((mode: 'none' | 'date' | 'all') => {
+            removeDateModeSelect.value = mode;
         });
 
         function updateRemoveDateVisibility() {
             if (autoDetectCheckbox.checked) {
-                removeDateLabel.style.opacity = "1";
-                removeDateLabel.style.pointerEvents = "auto";
-                removeDateCheckbox.disabled = false;
+                removeDateContainer.style.opacity = "1";
+                removeDateContainer.style.pointerEvents = "auto";
+                removeDateModeSelect.disabled = false;
             } else {
-                removeDateLabel.style.opacity = "0.5";
-                removeDateLabel.style.pointerEvents = "none";
-                removeDateCheckbox.disabled = true;
+                removeDateContainer.style.opacity = "0.5";
+                removeDateContainer.style.pointerEvents = "none";
+                removeDateModeSelect.disabled = true;
             }
         }
 
@@ -312,6 +335,13 @@ export class PasteTaskDialog {
                 .config((ctx) => {
                     ctx.set(rootCtx, taskListContainer);
                     ctx.set(defaultValueCtx, "");
+                    ctx.update(editorViewOptionsCtx, (prev) => ({
+                        ...prev,
+                        attributes: {
+                            ...prev.attributes,
+                            spellcheck: "false",
+                        },
+                    }));
                     ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
                         this.taskListContent = markdown;
                     });
@@ -324,28 +354,42 @@ export class PasteTaskDialog {
                                 handlePaste: (view, event) => {
                                     let text = event.clipboardData?.getData('text/plain');
                                     if (text) {
-                                        // 移除首尾多余的换行符（兼容 Windows/Unix），保留空格以维持缩进层级
-                                        text = text.replace(/^[\r\n]+|[\r\n]+$/g, '');
+                                        // 统一换行符并将\r替换为\n，同时移除首尾多余的空行
+                                        text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                                        text = text.replace(/^\n+|\n+$/g, '');
                                         if (!text) return false;
+
+                                        // 关键修复：确保单换行符被视为分段（即每个任务一行）
+                                        // 在 Markdown 中，单个换行符会被解析为软换行，合并到同一段落
+                                        // 我们将其转换为双换行符以强制分段，从而使 parseHierarchicalTaskList 能够正确按行切分
+                                        if (text.includes('\n')) {
+                                            text = text.replace(/(?<!\n)\n(?!\n)/g, '\n\n');
+                                        }
+
+                                        const { tr, doc } = view.state;
+                                        const isEmpty = doc.childCount === 1 &&
+                                            doc.firstChild?.type.name === 'paragraph' &&
+                                            doc.firstChild.content.size === 0;
 
                                         const parser = ctx.get(parserCtx);
                                         const node = parser(text);
-                                        if (node) {
-                                            const { tr, doc } = view.state;
-                                            // 如果文档当前几乎为空（只有一个空的段落），则替换整个文档内容
-                                            const isEmpty = doc.childCount === 1 &&
-                                                doc.firstChild?.type.name === 'paragraph' &&
-                                                doc.firstChild.content.size === 0;
+                                        if (!node) return false;
 
-                                            // 获取节点内容 fragment
+                                        if (isEmpty) {
                                             const content = node.type.name === 'doc' ? node.content : node;
-
-                                            if (isEmpty) {
-                                                // 彻底替换初始的空段落
-                                                view.dispatch(tr.replaceWith(0, doc.content.size, content).scrollIntoView());
-                                            } else {
-                                                view.dispatch(tr.replaceSelectionWith(node).scrollIntoView());
+                                            // 彻底替换初始的空段落
+                                            view.dispatch(tr.replaceWith(0, doc.content.size, content).scrollIntoView());
+                                            return true;
+                                        } else {
+                                            // 非空文档下，如果不含换行符，证明是行内粘贴，直接 insertText 以避免被切分为新段落
+                                            if (!text.includes('\n')) {
+                                                view.dispatch(tr.insertText(text).scrollIntoView());
+                                                return true;
                                             }
+                                            // 如果有多行，我们也手动处理以确保刚才的换行符转换生效
+                                            // 使用 Node.slice(0) 将文档内容转为 Slice 以便 replaceSelection
+                                            const slice = (node as any).slice(0);
+                                            view.dispatch(tr.replaceSelection(slice).scrollIntoView());
                                             return true;
                                         }
                                     }
@@ -475,6 +519,14 @@ export class PasteTaskDialog {
 
         cancelBtn.addEventListener('click', () => dialog.destroy());
 
+        dialog.element.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                e.stopPropagation();
+                createBtn.click();
+            }
+        });
+
         createBtn.addEventListener('click', async () => {
             // 防止重复点击
             if ((createBtn as HTMLButtonElement).disabled) return;
@@ -491,11 +543,26 @@ export class PasteTaskDialog {
             createBtn.innerHTML = i18n('creating') || '创建中...';
 
             // 显示加载对话框
-            this.showLoadingDialog("创建任务中...");
+            this.showLoadingDialog(i18n('creatingTask') || "创建任务中...");
 
             const autoDetect = autoDetectCheckbox.checked;
-            const removeDate = removeDateCheckbox.checked;
-            const hierarchicalTasks = this.parseHierarchicalTaskList(text, autoDetect, removeDate);
+            const removeMode = removeDateModeSelect.value as 'none' | 'date' | 'all';
+            const hierarchicalTasks = this.parseHierarchicalTaskList(text, autoDetect, removeMode);
+
+            const useUnifiedDate = unifiedDateCheckbox?.checked;
+            const unifiedDateVal = unifiedDateInput?.value;
+
+            const applyUnifiedDate = (tasks: HierarchicalTask[]) => {
+                for (const task of tasks) {
+                    if (useUnifiedDate && unifiedDateVal) {
+                        if (!task.startDate && !task.endDate) {
+                            task.startDate = unifiedDateVal;
+                        }
+                    }
+                    if (task.children) applyUnifiedDate(task.children);
+                }
+            };
+            applyUnifiedDate(hierarchicalTasks);
 
             // 获取用户选择的状态和分组
             let selectedStatus = this.config.defaultStatus;
@@ -573,7 +640,7 @@ export class PasteTaskDialog {
             this.loadingDialog.destroy();
         }
         this.loadingDialog = new Dialog({
-            title: "Processing",
+            title: i18n("processing") || "Processing",
             content: `<div id="loadingDialogContent"></div>`,
             width: "350px",
             height: "230px",
@@ -596,7 +663,7 @@ export class PasteTaskDialog {
         }
     }
 
-    private parseHierarchicalTaskList(text: string, autoDetect: boolean = false, removeDate: boolean = true): HierarchicalTask[] {
+    private parseHierarchicalTaskList(text: string, autoDetect: boolean = false, removeMode: 'none' | 'date' | 'all' = 'all'): HierarchicalTask[] {
         const lines = text.split('\n');
         const tasks: HierarchicalTask[] = [];
         const stack: Array<{ task: HierarchicalTask; level: number }> = [];
@@ -609,8 +676,8 @@ export class PasteTaskDialog {
 
             const isListItem = /^([-*+]|\d+\.|\[[ xX]\])/.test(cleanLine);
             if (!cleanLine || (!isListItem && level === 0)) {
-                if (cleanLine && level === 0) {
-                    const taskData = this.parseTaskLine(cleanLine, autoDetect, removeDate);
+                if (cleanLine && level === 0 && !this.isEmptyContent(cleanLine)) {
+                    const taskData = this.parseTaskLine(cleanLine, autoDetect, removeMode);
                     const task: HierarchicalTask = {
                         ...taskData,
                         level: 0,
@@ -631,9 +698,9 @@ export class PasteTaskDialog {
 
             const combinedLevel = level + levelFromDashes;
             const taskContent = cleanLine.replace(/^([-*+]|\d+\.)\s*/, '').replace(/^(-{2,})\s*/, '');
-            if (!taskContent) continue;
+            if (!taskContent || this.isEmptyContent(taskContent)) continue;
 
-            const taskData = this.parseTaskLine(taskContent, autoDetect, removeDate);
+            const taskData = this.parseTaskLine(taskContent, autoDetect, removeMode);
             const task: HierarchicalTask = {
                 ...taskData,
                 level: combinedLevel,
@@ -657,6 +724,12 @@ export class PasteTaskDialog {
         return tasks;
     }
 
+    private isEmptyContent(content: string): boolean {
+        // 去除所有 <br /> / <br/> / <br> 后若为空则认为是空行
+        const cleaned = content.trim().replace(/<br\s*\/?>/gi, '').trim();
+        return cleaned === '';
+    }
+
     private calculateIndentLevel(line: string): number {
         const match = line.match(/^(\s*)/);
         if (!match) return 0;
@@ -665,12 +738,13 @@ export class PasteTaskDialog {
         return Math.floor(spaces / 2);
     }
 
-    private parseTaskLine(line: string, autoDetect: boolean = false, removeDate: boolean = true): Omit<HierarchicalTask, 'level' | 'children'> {
+    private parseTaskLine(line: string, autoDetect: boolean = false, removeMode: 'none' | 'date' | 'all' = 'all'): Omit<HierarchicalTask, 'level' | 'children'> {
         const paramMatch = line.match(/@(.*)$/);
         let title = line.trim();
 
         // 移除常见的 Markdown 列表标记
         title = title.replace(/^([-*+]\s+)|(\d+\.\s+)/, '');
+
         let priority: string | undefined;
         let startDate: string | undefined;
         let time: string | undefined;
@@ -702,12 +776,16 @@ export class PasteTaskDialog {
             title = leadingCheckboxMatch[2];
         }
 
+        // 清理 HTML 换行标签（编辑器可能插入 <br /> 作为空行占位）
+        title = title.replace(/<br\s*\/?>/gi, '').trim();
+
+        // 处理 Markdown 转义字符（因内容来自编辑器 Markdown，~, *, _ 等符号会被转义为 \~, \*, \_）
+        title = title.replace(/\\([\\*_{}[\]()#+\-.!~])/g, '$1');
+
         if (autoDetect) {
-            const detected = autoDetectDateTimeFromTitle(title);
+            const detected = autoDetectDateTimeFromTitle(title, removeMode);
             if (detected.date || detected.endDate) {
-                if (removeDate) {
-                    title = detected.cleanTitle || title;
-                }
+                title = detected.cleanTitle || title;
                 startDate = detected.date;
                 time = detected.time;
                 endDate = detected.endDate;
@@ -759,7 +837,7 @@ export class PasteTaskDialog {
         }
 
         let result = { title: title.trim() || i18n('noContentHint') || '未命名任务', priority, startDate, time, endDate, endTime, reminderTimes, blockId, completed };
-        console.log('Parsed task line:', { line, result });
+        // console.log('Parsed task line:', { line, result });
         return result
     }
 
@@ -958,10 +1036,10 @@ export class PasteTaskDialog {
 
         // 状态名称映射
         const statusNameMap: { [key: string]: string } = {
-            'doing': '进行中',
-            'long_term': '长期',
-            'short_term': '短期',
-            'completed': '已完成'
+            'doing': i18n('doingTasks') || '进行中',
+            'long_term': i18n('longTerm') || '长期',
+            'short_term': i18n('shortTerm') || '短期',
+            'completed': i18n('completed') || '已完成'
         };
 
         // 构建状态选项（排除已完成状态）
@@ -977,9 +1055,9 @@ export class PasteTaskDialog {
         // 如果没有配置状态，使用默认选项
         if (kanbanStatuses.length === 0) {
             statusOptionsHtml = `
-                <option value="short_term" ${defaultStatus === 'short_term' ? 'selected' : ''}>短期</option>
-                <option value="long_term" ${defaultStatus === 'long_term' ? 'selected' : ''}>长期</option>
-                <option value="doing" ${defaultStatus === 'doing' ? 'selected' : ''}>进行中</option>
+                <option value="short_term" ${defaultStatus === 'short_term' ? 'selected' : ''}>${i18n('shortTerm') || '短期'}</option>
+                <option value="long_term" ${defaultStatus === 'long_term' ? 'selected' : ''}>${i18n('longTerm') || '长期'}</option>
+                <option value="doing" ${defaultStatus === 'doing' ? 'selected' : ''}>${i18n('doingTasks') || '进行中'}</option>
             `;
         }
 

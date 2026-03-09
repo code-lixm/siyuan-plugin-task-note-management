@@ -1,3 +1,282 @@
+## v6.2.7 / 20260309
+- 🎨 番茄钟：全局番茄钟mini模式支持调整大小
+- 🎨 任务侧栏：排序优化
+  1. 非优先级排序模式，拖拽任务不调整优先级，只改变sort值
+  2. 非优先级排序模式，相同值情况下按照sort值排序
+- 🎨 适配思源v3.5.10系统通知
+- 🐛 任务侧栏：自定义筛选器设置分类筛选时的数据加载刷新问题
+
+---
+
+- 🎨 Pomodoro Timer: Global Pomodoro Timer mini mode now supports resizing
+- 🎨 Task Sidebar: Sorting optimization
+  1. In non-priority sorting mode, dragging tasks does not adjust priority, only changes the sort value
+  2. In non-priority sorting mode, items with the same value are sorted according to their sort value
+- 🎨 Adapted to SiYuan v3.5.10 system notifications
+- 🐛 Task Sidebar: Fixed data loading and refresh issues when setting category filters in custom filters
+
+## v6.2.6 / 20260308
+- 🎨 番茄钟支持预设
+- 🎨 番茄钟：优化点击开始时进度条跳跃问题
+- 🎨 番茄钟：优化电脑端全局番茄钟声音播放问题
+- 🎨 番茄钟：声音删除取消声音选中和停止试听播放
+- 🎨 任务侧栏：支持多选排序
+- 🎨 任务编辑：开头四个空格不解析为代码块
+- 🎨 任务编辑：优化番茄钟预计时长交互
+- 🎨 任务管理：删除任务显示删除的任务名称
+- 🎨 过滤器筛选优化一个任务多个分类的情况
+- 🎨 webdav 浏览器上传适配
+- 🎨 日期识别优化：使用逗号和句号来分割时间识别上下文
+- 🎨 跨平台复制文本优化
+- 🐛 项目看板：编辑有绑定块的任务，编辑内容之后，任务会及时更新，然后又会恢复为原来样式，然后又恢复成新的内容，而没有绑定块的内容就不会这样
+
+---
+
+- 🎨 Pomodoro timer supports presets
+- 🎨 Pomodoro timer: Optimized the issue of progress bar jumping when starting
+- 🎨 Pomodoro timer: Optimized global Pomodoro timer sound playback on desktop
+- 🎨 Pomodoro timer: Sound deletion cancels sound selection and stops preview playback
+- 🎨 Task sidebar: Supports multi-select sorting
+- 🎨 Task editing: Leading four spaces are not parsed as code blocks
+- 🎨 Task editing: Optimized Pomodoro estimated duration interaction
+- 🎨 Task management: Deleted tasks display the deleted task name
+- 🎨 Filter optimization for tasks with multiple categories
+- 🎨 WebDAV browser upload adaptation
+- 🎨 Date recognition optimization: Uses commas and periods to separate time recognition context
+- 🎨 Cross-platform text copy optimization
+- 🐛 Project Kanban: Editing a task with bound blocks causes the task to update immediately after editing, then revert to the original style, and then revert to the new content, while tasks without bound blocks do not exhibit this behavior
+
+## v6.2.5 / 20260307
+- 🎨 更新插件图标，感谢Forrest为插件设计的图标
+- 🎨 日历视图支持显示在侧栏
+- 🎨 项目看板：支持隐藏已完成的子任务
+- 🎨 任务管理侧栏：过滤器支持设置未来x天和每年指定日期
+- 🎨 任务管理侧栏：支持删除内置过滤器
+- 🎨 任务编辑/查看：优化新建子任务和查看子任务体验，新建/查看子任务放在左下角，方便无需滚动就能看到有几个子任务
+- 🎨 新建任务：自动填充选择的项目分类
+- 🎨 任务备注：粘贴图片单独存放为文件，避免增加任务数据文件大小
+- 🎨 日期智能识别完善
+- 🎨 已订阅会员在新设备上可以联网获取已有激活码
+- 🎨 任务编辑：绑定到块改为子菜单形式，方便选择绑定已有块、新建标题、新建文档
+- 🐛 任务管理侧栏：无法完成修改日期的重复实例
+- 🐛 番茄钟：电脑端使用全局番茄钟，思源新建窗口会错误启动一个新番茄钟实例
+- 🐛 番茄钟：BrowserWindow随机微休息有时候不会自动关闭，并且需要手动关闭才会弹出系统通知
+
+---
+
+- 🎨 Updated plugin icon, thanks to Forrest for designing the icon for the plugin
+- 🎨 Calendar view now supports display in the sidebar
+- 🎨 Project Kanban: Supports hiding completed subtasks
+- 🎨 Task management sidebar: Filters support setting future x days and specific annual dates
+- 🎨 Task management sidebar: Supports deleting built-in filters
+- 🎨 Task editing/viewing: Optimized the experience for creating and viewing subtasks; creating/viewing subtasks is placed in the lower-left corner for easy visibility of the number of subtasks without scrolling
+- 🎨 Creating tasks: Automatically fills in the selected project category
+- 🎨 Task notes: Pasted images are stored separately as files to avoid increasing the size of the task data file
+- 🎨 Improved date intelligent recognition
+- 🎨 Subscribed members can retrieve existing activation codes online on new devices
+- 🎨 Task editing: Binding to blocks changed to a submenu format for easier selection of binding existing blocks, creating new headings, or creating new documents
+- 🐛 Task management sidebar: Unable to complete recurring instances with modified dates
+- 🐛 Pomodoro Timer: Using the global Pomodoro Timer on the desktop, creating a new window in SiYuan incorrectly starts a new Pomodoro instance
+- 🐛 Pomodoro Timer: BrowserWindow random micro-breaks sometimes do not close automatically and require manual closure to trigger system notifications
+
+## v6.2.4 / 20260305
+- 🎨 适配思源v3.5.10 emoji弹窗
+- 🎨 适配思源安卓/鸿蒙v3.5.10手机端提醒
+- 🐛 日历视图：周看板和多日看板暂时不显示任务完成时间，目前有卡死问题，暂时找不到原因
+
+---
+
+- 🎨 Adapted to SiYuan v3.5.10 emoji pop-up window
+- 🎨 Adapted to SiYuan Android/HarmonyOS v3.5.10 mobile reminders
+- 🐛 Calendar view: Weekly board and multi-day board temporarily do not display task completion time; currently, there is a freezing issue, and the cause cannot be found for now
+
+
+## v6.2.3 / 20260305
+- 🎨 日期智能识别：单个块右键设置任务识别结束时间
+
+---
+
+- 🎨 Smart Date Recognition: Right-click on a single block to set task recognition end time
+
+## v6.2.2 / 20260304
+- 🎨 日期智能识别优化：
+  - 输入下午11点半到1点，1点应该识别为13点
+  - 农历识别优化：输入正月初一，可以识别识别为农历日期，不需要再添加农历前缀
+- 🎨 日历上传：如果任务设置了不在日历显示"hideInCalendar": true,，导出ics也不显示
+- 🎨 日历上传：导出自定义提醒时间也会在日历软件提醒
+- 🎨 日历视图：+x弹窗位置调整，不超出日历视图外
+- 🎨 番茄钟：各个声音支持设置音量
+- 🐛 平板端不支持 rgb(from rgb(255, 0, 0) r g b / 0.15);这种语法来设置背景色透明度，需要兼容任务上色样式
+- 🐛 平板端无法长按触发右键菜单
+- 🐛 如果设置一天开始时间为03：00，凌晨不显示事项通知
+
+---
+
+- 🎨 Optimized Date Intelligent Recognition:
+  - Input "11:30 PM to 1:00" should recognize 1:00 as 13:00
+  - Optimized Lunar Calendar Recognition: Input "the first day of the first lunar month" can be recognized as a lunar date without needing to add the "lunar" prefix
+- 🎨 Calendar Upload: If a task is set to not display in the calendar with "hideInCalendar": true, it will also not show when exporting to ics
+- 🎨 Calendar Upload: Exported custom reminder times will also trigger reminders in calendar software
+- 🎨 Calendar View: Adjusted the position of the +x popup to not extend beyond the calendar view
+- 🎨 Pomodoro Timer: Each sound effect now supports volume settings
+- 🐛 Tablet devices do not support the syntax `rgb(from rgb(255, 0, 0) r g b / 0.15)` for setting background color transparency; compatibility with task coloring styles is required
+- 🐛 Tablet devices cannot trigger right-click menus via long press
+- 🐛 If the day start time is set to 03:00, task notifications are not displayed in the early morning hours
+
+## v6.2.1 / 20260301
+- 🎨 任务侧栏支持多选：Ctrl+Click触发多选模式，Shift+Click可区域选择
+- 🎨 任务管理页面的「显示以完成子任务」需要在所有筛选项都显示和作用
+- 🎨 日历订阅：新建订阅弹窗优化，适配小屏幕
+- 🎨 日历订阅：订阅的日程支持时间提醒
+- 🎨 粘贴新建任务如果标题只为`<br />`，认为是空行需要跳过，而不创建任务
+- 🎨 粘贴新建子任务：支持Ctrl+Enter快速新建子任务
+- 🐛 日历摘要：当周跨月时，本周日期计算错误
+- 🐛 如果思源开了多个新窗口，任务提醒会错误提醒多次
+
+---
+
+- 🎨 Task sidebar supports multi-selection: Ctrl+Click triggers multi-select mode, Shift+Click enables area selection
+- 🎨 The "Show completed subtasks" option on the task management page should be displayed and functional across all filter conditions
+- 🎨 Calendar subscription: Optimized the new subscription pop-up window for better adaptation to small screens
+- 🎨 Calendar subscription: Subscribed events now support time reminders
+- 🎨 When pasting to create a new task, if the title is only `<br />`, it is considered an empty line and will be skipped without creating a task
+- 🎨 Pasting to create a new subtask: Supports Ctrl+Enter for quick creation of subtasks
+- 🐛 Calendar summary: Incorrect date calculation for the current week when it spans across months
+- 🐛 If multiple new windows of Siyuan are opened, task reminders may be triggered incorrectly multiple times
+
+## v6.2.0 / 20260301
+- ✨ 日历上传：支持webdav服务器上传
+- 🐛 任务编辑：持续多少天丢失
+
+---
+
+- ✨ Calendar upload: Supports WebDAV server upload
+- 🐛 Task editing: Duration in days lost
+
+## v6.1.7 / 20260301
+- ✨ 任务提醒和番茄钟结束提醒支持安卓端系统通知，需要思源笔记v3.5.9及以上版本
+- 🎨 日期智能识别：优化时间段日期识别和识别后的时间去除效果
+- 🎨 日期智能识别：识别日期后标题移除日期，支持设置移除日期和时间，还是只移除日期
+- 🎨 日历订阅和日历上传：支持设置每天固定时间同步
+- 🎨 绑定块新建标题、新建文档优化，如果任务有备注，新建标题和新建文档要自动填充备注内容
+- 🎨 查看块绑定任务：显示结束时间
+- 🐛 备注、粘贴新建任务粘贴多行会合并为一行
+
+---
+
+- ✨ Task reminders and Pomodoro timer end notifications now support Android system notifications, requires SiYuan Note v3.5.9 or higher.
+- 🎨 Smart date recognition: Optimized date range recognition and the effect of removing recognized time.
+- 🎨 Smart date recognition: After recognizing a date, remove the date from the title; supports setting whether to remove both date and time, or only the date.
+- 🎨 Calendar subscription and calendar upload: Supports setting a fixed daily sync time.
+- 🎨 Optimized creating titles and documents for bound blocks: If a task has notes, the new title or document should automatically fill in the note content.
+- 🎨 View tasks bound to blocks: Display the end time.
+- 🐛 Notes, pasting to create new tasks: Pasting multiple lines will merge into a single line.
+
+
+## v6.1.6 / 20260228
+- 🎨 帮助文档：将帮助文档链接改为知乎专栏
+
+---
+
+- 🎨 Help Documentation: Changed help documentation link to Zhihu Column
+
+## v6.1.5 / 20260228
+- 🐛 vip：丢失 VIP 弹窗的文本内容
+
+---
+
+- 🐛 vip：Missing text content of the VIP pop-up
+
+## v6.1.4 / 20260228
+- 🎨 日历视图：优化农历节日显示，单行显示，太长自动缩略
+- 🎨 项目看板：子任务排序更新不改变任务状态
+- 📝 日历上传：S3同步推荐阿里云，不推荐七牛云
+
+---
+
+- 🎨 Calendar View: Optimized display of lunar holidays, showing them in a single line and automatically truncating if too long
+- 🎨 Project Kanban: Updating subtask sorting does not change the task status
+- 📝 Calendar Upload: Recommending Alibaba Cloud for S3 synchronization, not recommending Qiniu Cloud
+
+## v6.1.3 / 20260228
+- 🎨 日历视图：看板样式也支持显示任务完成时间
+- 🎨 日历视图：默认不显示分类图标和项目信息
+- 🎨 日历视图：优化节假日显示，样式改为圆形徽章
+- 🎨 日历视图：订阅日历的emoji添加背景色和圆角
+- 🎨 日历视图：重复日程在日历显示优化，把🔄移动在任务标题前
+- 🎨 日历视图：多天视图点击today，依然要保持today是第二天，第一天是昨天
+- 🎨 任务编辑：编辑子任务，所属父任务置顶
+- 🎨 日历视图：最多显示2个重叠事件
+- 🎨 插件设置：添加帮助文档
+- 🎨 禁用插件时监听事件需要全部清理
+
+---
+
+- 🎨 Calendar View: Kanban style now supports displaying task completion time
+- 🎨 Calendar View: Category icons and project information are hidden by default
+- 🎨 Calendar View: Optimized holiday display, style changed to circular badges
+- 🎨 Calendar View: Added background color and rounded corners to emojis in subscribed calendars
+- 🎨 Calendar View: Optimized display of recurring events in the calendar, moved 🔄 to the front of the task title
+- 🎨 Calendar View: In multi-day view, clicking "today" still keeps "today" as the second day, with the first day being yesterday
+- 🎨 Task Editing: When editing subtasks, the parent task is pinned to the top
+- 🎨 Calendar View: Display a maximum of 2 overlapping events
+- 🎨 Plugin Settings: Added help documentation
+- 🎨 When disabling the plugin, all monitored events need to be cleared
+
+## v6.1.2 / 20260228
+- 🎨 vip：终身会员的激活时间显示为终身会员key生成时间，不考虑其他key的累加时间
+- 📝 vip：vip设置添加答疑交流方法
+- 🎨 订阅日历：完善设置，添加帮助文档
+- 🐛 日历上传：使用思源S3设置，同时自定义bucket，没有使用自定义的bucket
+- 🐛 日历上传：不开启定时同步无法显示S3设置
+- 🐛 日历上传：手动上传 ICS 到云端，没有自动更新ICS 云端链接
+
+---
+
+- 🎨 vip: The activation time for lifetime members is displayed as the generation time of the lifetime membership key, without considering the cumulative time of other keys.
+- 📝 vip: Add Q&A communication methods in vip settings.
+- 🎨 Subscription Calendar: Improve settings and add help documentation.
+- 🐛 Calendar Upload: When using Siyuan S3 settings and customizing a bucket, the custom bucket is not utilized.
+- 🐛 Calendar Upload: S3 settings cannot be displayed without enabling scheduled synchronization.
+- 🐛 Calendar Upload: Manually uploading ICS to the cloud does not automatically update the ICS cloud link.
+
+## v6.1.1 / 20260227
+- 🎨 块菜单：列表块右键菜单支持批量将列表项转为任务
+- 🎨 订阅日历：在日历视图的排序按照订阅排序置顶展示
+- 🎨 订阅日历：支持设置是否在四象限和任务侧栏显示
+- 🎨 日历视图：按项目、分类上色，border需要改为优先级颜色，如果无优先级，则按项目、分类颜色上色
+- 🎨 新建绑定块：新建文档默认路径修改
+- 🐛 订阅日历：定时更新订阅日历报错
+- 🐛 任务侧栏：修复侧栏任务拖拽排序无法保存
+- 📝 vip：学生优惠需要用教育邮箱发送学信网证明邮件
+
+---
+
+- 🎨 Block Menu: Right-click menu for list blocks now supports batch conversion of list items into tasks
+- 🎨 Subscribed Calendars: In calendar view, sorting now prioritizes subscribed calendars and displays them at the top
+- 🎨 Subscribed Calendars: Added option to control display in the four quadrants and task sidebar
+- 🎨 Calendar View: Color coding by project and category; border color now reflects priority color. If no priority is set, color is based on project or category
+- 🎨 New Bound Block: Modified default path for new document creation
+- 🐛 Subscribed Calendars: Fixed error in scheduled updates for subscribed calendars
+- 🐛 Task Sidebar: Fixed issue where drag-and-drop sorting in the sidebar tasks could not be saved
+- 📝 VIP: Student discounts require sending an email with a verification from the China Higher Education Student Information (CHSI) using an educational email address
+
+## v6.1.0 / 20260227
+- 🌐 完善i18n
+- 🎨 番茄钟：吸附到屏幕边缘emoji🧲改为⬅️ ➡️ ⬆️ ⬇️
+- 🎨 日历视图：支持单独显示任务完成时间
+- 🎨 日历视图：多天视图支持配置天数
+- 🎨 项目看板：筛选日期优化，筛选今日和明日，应该是根据任务起始日期是否属于任务范围进行筛选，而不是仅靠起始日期
+-  🐛 milkdown 粘贴内容，会错误添加换行
+
+---
+
+- 🌐 Improve i18n
+- 🎨 Pomodoro: Change the "snap to screen edge" emoji 🧲 to ⬅️ ➡️ ⬆️ ⬇️
+- 🎨 Calendar view: Support displaying task completion time separately
+- 🎨 Calendar view: Multi-day view supports configurable number of days
+- 🎨 Project board: Optimize date filtering; filtering for today and tomorrow should be based on whether the task's start date falls within the task range, not solely on the start date
+- 🐛 milkdown: Pasting content incorrectly adds line breaks
 
 ## v6.0.4 / 20260225
 - 🎨 项目看板：任务状态看板和任务列表分组看板支持隐藏没有进行中、没有今日任务的分组

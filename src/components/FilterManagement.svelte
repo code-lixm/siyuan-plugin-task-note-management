@@ -6,7 +6,6 @@
     import { showMessage, confirm } from 'siyuan';
 
     export let plugin: any;
-    export let onClose: () => void;
     export let onFilterApplied: (filter: FilterConfig) => void;
 
     type DateFilterType =
@@ -19,12 +18,19 @@
         | 'next_7_days'
         | 'future'
         | 'past_7_days'
-        | 'custom_range';
+        | 'custom_range'
+        | 'future_x_days'
+        | 'yearly_date_range';
 
     interface DateFilter {
         type: DateFilterType;
         startDate?: string;
         endDate?: string;
+        futureDays?: number;
+        yearlyStartMonth?: number;
+        yearlyStartDay?: number;
+        yearlyEndMonth?: number;
+        yearlyEndDay?: number;
     }
 
     interface FilterConfig {
@@ -41,6 +47,7 @@
     let filters: FilterConfig[] = [];
     let selectedFilter: FilterConfig | null = null;
     let isEditing = false;
+    let hiddenBuiltInFilters: string[] = [];
 
     // Drag and drop state
     let draggedFilterId: string | null = null;
@@ -51,10 +58,28 @@
     let categories: any[] = [];
     let projects: any[] = [];
 
+    function maxDayOfMonth(month: number): number {
+        const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        if (month < 1 || month > 12) return 31;
+        return daysInMonth[month - 1];
+    }
+
+    function clampYearlyDays() {
+        yearlyStartMonth = Math.max(1, Math.min(12, yearlyStartMonth));
+        yearlyEndMonth = Math.max(1, Math.min(12, yearlyEndMonth));
+        yearlyStartDay = Math.max(1, Math.min(maxDayOfMonth(yearlyStartMonth), yearlyStartDay));
+        yearlyEndDay = Math.max(1, Math.min(maxDayOfMonth(yearlyEndMonth), yearlyEndDay));
+    }
+
     let filterName = '';
     let selectedDateFilters: DateFilterType[] = [];
     let customRangeStart = '';
     let customRangeEnd = '';
+    let futureDays: number = 14;
+    let yearlyStartMonth: number = 1;
+    let yearlyStartDay: number = 1;
+    let yearlyEndMonth: number = 12;
+    let yearlyEndDay: number = 31;
     let statusFilter: 'all' | 'completed' | 'uncompleted' = 'all';
     let selectedProjects: string[] = [];
     let selectedCategories: string[] = [];
@@ -113,6 +138,7 @@
         const settings = await plugin.loadData('settings.json');
         const customFilters = settings?.customFilters || [];
         const filterOrder = settings?.filterOrder || [];
+        hiddenBuiltInFilters = settings?.hiddenBuiltInFilters || [];
 
         const builtInFilters: FilterConfig[] = [
             {
@@ -237,7 +263,10 @@
             },
         ];
 
-        let allFilters = [...builtInFilters, ...customFilters];
+        let allFilters = [
+            ...builtInFilters.filter(f => !hiddenBuiltInFilters.includes(f.id)),
+            ...customFilters,
+        ];
 
         if (filterOrder && filterOrder.length > 0) {
             const filterMap = new Map(allFilters.map(f => [f.id, f]));
@@ -267,6 +296,7 @@
         const customFilters = filters.filter(f => !f.isBuiltIn);
         settings.customFilters = customFilters;
         settings.filterOrder = filters.map(f => f.id);
+        settings.hiddenBuiltInFilters = hiddenBuiltInFilters;
         await plugin.saveData('settings.json', settings);
         // 通知父组件更新filterSelect
         onFilterApplied(null);
@@ -290,6 +320,26 @@
         } else {
             customRangeStart = '';
             customRangeEnd = '';
+        }
+
+        const futureXDays = filter.dateFilters.find(df => df.type === 'future_x_days');
+        if (futureXDays) {
+            futureDays = futureXDays.futureDays || 14;
+        } else {
+            futureDays = 14;
+        }
+
+        const yearlyRange = filter.dateFilters.find(df => df.type === 'yearly_date_range');
+        if (yearlyRange) {
+            yearlyStartMonth = yearlyRange.yearlyStartMonth || 1;
+            yearlyStartDay = yearlyRange.yearlyStartDay || 1;
+            yearlyEndMonth = yearlyRange.yearlyEndMonth || 12;
+            yearlyEndDay = yearlyRange.yearlyEndDay || 31;
+        } else {
+            yearlyStartMonth = 1;
+            yearlyStartDay = 1;
+            yearlyEndMonth = 12;
+            yearlyEndDay = 31;
         }
     }
 
@@ -316,6 +366,12 @@
         const dateFilters: DateFilter[] = selectedDateFilters.map(type => {
             if (type === 'custom_range') {
                 return { type, startDate: customRangeStart, endDate: customRangeEnd };
+            }
+            if (type === 'future_x_days') {
+                return { type, futureDays };
+            }
+            if (type === 'yearly_date_range') {
+                return { type, yearlyStartMonth, yearlyStartDay, yearlyEndMonth, yearlyEndDay };
             }
             return { type };
         });
@@ -352,7 +408,9 @@
             i18n('confirmDeleteFilter')?.replace('${name}', filter.name) ||
                 `确定要删除过滤器"${filter.name}"吗？`,
             async () => {
-                // 用户确认删除
+                if (filter.isBuiltIn) {
+                    hiddenBuiltInFilters = [...hiddenBuiltInFilters, filter.id];
+                }
                 filters = filters.filter(f => f.id !== filter.id);
                 await saveFilters();
                 showMessage(i18n('filterDeleted'));
@@ -535,19 +593,17 @@
                             {/if}
                         </div>
                     </div>
-                    {#if !filter.isBuiltIn}
-                        <div class="filter-item-actions">
-                            <button
-                                class="b3-button b3-button--outline"
-                                on:click|stopPropagation={() => deleteFilter(filter)}
-                                title={i18n('deleteFilter')}
-                            >
-                                <svg class="b3-button__icon">
-                                    <use xlink:href="#iconTrashcan"></use>
-                                </svg>
-                            </button>
-                        </div>
-                    {/if}
+                    <div class="filter-item-actions">
+                        <button
+                            class="b3-button b3-button--outline"
+                            on:click|stopPropagation={() => deleteFilter(filter)}
+                            title={i18n('deleteFilter')}
+                        >
+                            <svg class="b3-button__icon">
+                                <use xlink:href="#iconTrashcan"></use>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             {/each}
         </div>
@@ -557,8 +613,11 @@
         {#if isEditing}
             <div class="filter-editor-header-input">
                 <div class="b3-form__group" style="margin-bottom: 0;">
-                    <label class="b3-form__label">{i18n('filterName')}</label>
+                    <label class="b3-form__label" for="filter-name-input">
+                        {i18n('filterName')}
+                    </label>
                     <input
+                        id="filter-name-input"
                         type="text"
                         class="b3-text-field"
                         bind:value={filterName}
@@ -569,7 +628,7 @@
 
             <div class="filter-editor-content">
                 <div class="b3-form__group">
-                    <label class="b3-form__label">{i18n('dateFilters')}</label>
+                    <span class="b3-form__label">{i18n('dateFilters')}</span>
                     <div class="filter-options">
                         <div
                             class="filter-option"
@@ -636,6 +695,20 @@
                         </div>
                         <div
                             class="filter-option"
+                            class:selected={selectedDateFilters.includes('future_x_days')}
+                            on:click={() => toggleDateFilter('future_x_days')}
+                        >
+                            {i18n('futureXDays')}
+                        </div>
+                        <div
+                            class="filter-option"
+                            class:selected={selectedDateFilters.includes('yearly_date_range')}
+                            on:click={() => toggleDateFilter('yearly_date_range')}
+                        >
+                            {i18n('yearlyDateRange')}
+                        </div>
+                        <div
+                            class="filter-option"
                             class:selected={selectedDateFilters.includes('custom_range')}
                             on:click={() => toggleDateFilter('custom_range')}
                         >
@@ -646,9 +719,12 @@
 
                 {#if selectedDateFilters.includes('custom_range')}
                     <div class="b3-form__group">
-                        <label class="b3-form__label">{i18n('dateRange')}</label>
+                        <label class="b3-form__label" for="custom-range-start">
+                            {i18n('dateRange')}
+                        </label>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input
+                                id="custom-range-start"
                                 type="date"
                                 class="b3-text-field"
                                 bind:value={customRangeStart}
@@ -667,8 +743,83 @@
                     </div>
                 {/if}
 
+                {#if selectedDateFilters.includes('future_x_days')}
+                    <div class="b3-form__group">
+                        <label class="b3-form__label" for="future-days-input">
+                            {i18n('futureXDaysConfig')}
+                        </label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input
+                                id="future-days-input"
+                                type="number"
+                                class="b3-text-field"
+                                bind:value={futureDays}
+                                min="1"
+                                max="365"
+                                style="width: 80px;"
+                            />
+                            <span>{i18n('days')}</span>
+                        </div>
+                    </div>
+                {/if}
+
+                {#if selectedDateFilters.includes('yearly_date_range')}
+                    <div class="b3-form__group">
+                        <label class="b3-form__label">
+                            {i18n('yearlyDateRangeConfig')}
+                        </label>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <input
+                                    type="number"
+                                    class="b3-text-field"
+                                    bind:value={yearlyStartMonth}
+                                    min="1"
+                                    max="12"
+                                    on:change={clampYearlyDays}
+                                    style="width: 60px;"
+                                />
+                                <span>{i18n('month')}</span>
+                                <input
+                                    type="number"
+                                    class="b3-text-field"
+                                    bind:value={yearlyStartDay}
+                                    min="1"
+                                    max={maxDayOfMonth(yearlyStartMonth)}
+                                    on:change={clampYearlyDays}
+                                    style="width: 60px;"
+                                />
+                                <span>{i18n('day')}</span>
+                            </div>
+                            <span>-</span>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <input
+                                    type="number"
+                                    class="b3-text-field"
+                                    bind:value={yearlyEndMonth}
+                                    min="1"
+                                    max="12"
+                                    on:change={clampYearlyDays}
+                                    style="width: 60px;"
+                                />
+                                <span>{i18n('month')}</span>
+                                <input
+                                    type="number"
+                                    class="b3-text-field"
+                                    bind:value={yearlyEndDay}
+                                    min="1"
+                                    max={maxDayOfMonth(yearlyEndMonth)}
+                                    on:change={clampYearlyDays}
+                                    style="width: 60px;"
+                                />
+                                <span>{i18n('day')}</span>
+                            </div>
+                        </div>
+                    </div>
+                {/if}
+
                 <div class="b3-form__group">
-                    <label class="b3-form__label">{i18n('statusFilters')}</label>
+                    <span class="b3-form__label">{i18n('statusFilters')}</span>
                     <div class="filter-options">
                         <div
                             class="filter-option"
@@ -695,7 +846,7 @@
                 </div>
 
                 <div class="b3-form__group">
-                    <label class="b3-form__label">{i18n('projectFilters')}</label>
+                    <span class="b3-form__label">{i18n('projectFilters')}</span>
                     <div class="filter-options">
                         <div
                             class="filter-option"
@@ -725,7 +876,7 @@
                 </div>
 
                 <div class="b3-form__group">
-                    <label class="b3-form__label">{i18n('categoryFilters')}</label>
+                    <span class="b3-form__label">{i18n('categoryFilters')}</span>
                     <div class="filter-options">
                         <div
                             class="filter-option"
@@ -759,7 +910,7 @@
                 </div>
 
                 <div class="b3-form__group">
-                    <label class="b3-form__label">{i18n('priorityFilters')}</label>
+                    <span class="b3-form__label">{i18n('priorityFilters')}</span>
                     <div class="filter-options">
                         <div
                             class="filter-option"

@@ -18,10 +18,10 @@ if git rev-parse "$version" >/dev/null 2>&1 || gh release view "$version" >/dev/
 fi
 echo "Preparing release for version: $version"
 
-# Commit changes in private-branch
-echo "Committing changes in private-branch..."
+# Commit changes
+echo "Committing changes..."
 git add .
-git commit -m "🔖 $version" || echo "No changes to commit in private-branch"
+git commit -m "🔖 $version" || echo "No changes to commit"
 git push origin main
 
 echo "Creating release for version: $version"

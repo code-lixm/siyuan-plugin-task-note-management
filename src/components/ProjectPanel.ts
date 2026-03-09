@@ -1,4 +1,4 @@
-import { showMessage, confirm, Menu, Dialog, getAllModels } from "siyuan";
+import { showMessage, confirm, Menu, Dialog, getAllModels, platformUtils } from "siyuan";
 import { PomodoroStatsView, getLastStatsMode } from "./PomodoroStatsView";
 import { TaskStatsView } from "./TaskStatsView";
 
@@ -115,6 +115,7 @@ export class ProjectPanel {
 
         await this.categoryManager.initialize();
         await this.statusManager.initialize();
+        await this.restorePanelSettings();
         this.initUI();
         this.loadProjects();
 
@@ -287,7 +288,7 @@ export class ProjectPanel {
         this.categoryFilterButton.className = 'b3-button b3-button--outline';
         this.categoryFilterButton.style.cssText = `
             display: inline-block;
-            max-width: 200px;
+            max-width: 30%;
             box-sizing: border-box;
             padding: 0 8px;
             overflow: hidden;
@@ -318,6 +319,7 @@ export class ProjectPanel {
         this.showOnlyWithDoingCheckbox.checked = this.showOnlyWithDoingTasks;
         this.showOnlyWithDoingCheckbox.addEventListener('change', () => {
             this.showOnlyWithDoingTasks = this.showOnlyWithDoingCheckbox.checked;
+            this.savePanelSettings();
             this.loadProjects();
         });
 
@@ -444,6 +446,7 @@ export class ProjectPanel {
                         this.currentSort = option.key;
                         this.currentSortOrder = 'asc';
                         this.updateSortButtonTitle();
+                        this.savePanelSettings();
                         this.loadProjects();
                     }
                 });
@@ -457,6 +460,7 @@ export class ProjectPanel {
                         this.currentSort = option.key;
                         this.currentSortOrder = 'desc';
                         this.updateSortButtonTitle();
+                        this.savePanelSettings();
                         this.loadProjects();
                     }
                 });
@@ -537,7 +541,7 @@ export class ProjectPanel {
 
             // 预先读取提醒数据缓存，用于计算每个项目的任务计数
             try {
-                this.reminderDataCache = await getAllReminders(this.plugin);
+                this.reminderDataCache = await getAllReminders(this.plugin, undefined, false);
             } catch (err) {
                 console.warn('读取提醒数据失败，计数将异步回退：', err);
                 this.reminderDataCache = null;
@@ -1486,7 +1490,23 @@ export class ProjectPanel {
             // 绑定到块
             menu.addItem({
                 label: i18n("bindToBlock") || "绑定到块",
-                click: () => this.showBindToBlockDialog(project)
+                submenu: [
+                    {
+                        iconHTML: "🔗",
+                        label: i18n("bindToBlock") || "绑定到块",
+                        click: () => this.showBindToBlockDialog(project, 'bind')
+                    },
+                    {
+                        iconHTML: "📑",
+                        label: i18n("newHeading") || "新建标题",
+                        click: () => this.showBindToBlockDialog(project, 'heading')
+                    },
+                    {
+                        iconHTML: "📄",
+                        label: i18n("newDocument") || "新建文档",
+                        click: () => this.showBindToBlockDialog(project, 'document')
+                    }
+                ]
             });
             menu.addSeparator();
             // 打开项目看板
@@ -1605,7 +1625,7 @@ export class ProjectPanel {
             const blockId = project.blockId || project.id;
             const title = project.title || i18n("unnamedNote") || '未命名项目';
             const blockRef = `((${blockId} "${title}"))`;
-            await navigator.clipboard.writeText(blockRef);
+            await platformUtils.writeText(blockRef);
             showMessage(i18n("copyBlockRef") + i18n("success") || "块引用已复制到剪贴板");
         } catch (error) {
             console.error('复制块引失败:', error);
@@ -2105,7 +2125,7 @@ export class ProjectPanel {
         dialog.show();
     }
 
-    private showBindToBlockDialog(project: any) {
+    private showBindToBlockDialog(project: any, mode: string = 'bind') {
         const blockBindingDialog = new BlockBindingDialog(this.plugin, async (blockId: string) => {
             try {
                 await this.bindProjectToBlock(project, blockId);
@@ -2115,7 +2135,7 @@ export class ProjectPanel {
                 console.error(error);
             }
         }, {
-            defaultTab: 'bind'
+            defaultTab: mode
         });
         blockBindingDialog.show();
     }
@@ -2376,11 +2396,37 @@ export class ProjectPanel {
             }
             this.selectedCategories = selected;
             this.updateCategoryFilterButtonText();
+            this.savePanelSettings();
             this.loadProjects();
             dialog.destroy();
         });
 
         cancelBtn.addEventListener('click', () => dialog.destroy());
+    }
+
+    private async restorePanelSettings() {
+        try {
+            const settings = await this.plugin.loadSettings();
+            this.currentSort = settings.projectPanelSort || 'priority';
+            this.currentSortOrder = settings.projectPanelSortOrder || 'desc';
+            this.showOnlyWithDoingTasks = settings.projectPanelShowOnlyDoing || false;
+            this.selectedCategories = settings.projectPanelSelectedCategories || [];
+        } catch (error) {
+            console.error('恢复项目面板设置失败:', error);
+        }
+    }
+
+    private async savePanelSettings() {
+        try {
+            const settings = await this.plugin.loadSettings();
+            settings.projectPanelSort = this.currentSort;
+            settings.projectPanelSortOrder = this.currentSortOrder;
+            settings.projectPanelShowOnlyDoing = this.showOnlyWithDoingTasks;
+            settings.projectPanelSelectedCategories = this.selectedCategories;
+            await this.plugin.saveSettings(settings);
+        } catch (error) {
+            console.error('保存项目面板设置失败:', error);
+        }
     }
 
     private createCategorySelectContent(categories: any[]): string {

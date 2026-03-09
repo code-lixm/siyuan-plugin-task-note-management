@@ -8,6 +8,7 @@ import { HabitEditDialog } from "./HabitEditDialog";
 import { HabitStatsDialog } from "./HabitStatsDialog";
 import { HabitGroupManageDialog } from "./HabitGroupManageDialog";
 import { HabitCheckInEmojiDialog } from "./HabitCheckInEmojiDialog";
+import { getBackend } from "siyuan";
 
 export interface HabitCheckInEmoji {
     emoji: string;
@@ -95,6 +96,7 @@ export class HabitPanel {
     private async initializeAsync() {
         await this.groupManager.initialize();
         await this.loadCollapseStates();
+        await this.restorePanelSettings();
 
         this.initUI();
         this.updateSortButtonTitle();
@@ -107,6 +109,31 @@ export class HabitPanel {
         this.saveCollapseStates();
         if (this.habitUpdatedHandler) {
             window.removeEventListener('habitUpdated', this.habitUpdatedHandler);
+        }
+    }
+
+    private async restorePanelSettings() {
+        try {
+            const settings = await this.plugin.loadSettings();
+            this.sortKey = settings.habitPanelSortKey || 'priority';
+            this.sortOrder = settings.habitPanelSortOrder || 'desc';
+            if (Array.isArray(settings.habitPanelSelectedGroups)) {
+                this.selectedGroups = settings.habitPanelSelectedGroups;
+            }
+        } catch (error) {
+            console.error('恢复习惯面板设置失败:', error);
+        }
+    }
+
+    private async savePanelSettings() {
+        try {
+            const settings = await this.plugin.loadSettings();
+            settings.habitPanelSortKey = this.sortKey;
+            settings.habitPanelSortOrder = this.sortOrder;
+            settings.habitPanelSelectedGroups = this.selectedGroups;
+            await this.plugin.saveSettings(settings);
+        } catch (error) {
+            console.error('保存习惯面板设置失败:', error);
         }
     }
 
@@ -143,7 +170,7 @@ export class HabitPanel {
         titleContainer.className = 'habit-title';
 
         const titleSpan = document.createElement('span');
-        titleSpan.textContent = "习惯打卡";
+        titleSpan.textContent = i18n("habitPanelTitle");
 
         titleContainer.appendChild(titleSpan);
 
@@ -156,7 +183,7 @@ export class HabitPanel {
         const newHabitBtn = document.createElement('button');
         newHabitBtn.className = 'b3-button b3-button--outline';
         newHabitBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>';
-        newHabitBtn.title = "新建习惯";
+        newHabitBtn.title = i18n("newHabit");
         newHabitBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -168,7 +195,7 @@ export class HabitPanel {
         const calendarBtn = document.createElement('button');
         calendarBtn.className = 'b3-button b3-button--outline';
         calendarBtn.innerHTML = '📊';
-        calendarBtn.title = "打卡日历";
+        calendarBtn.title = i18n("checkInCalendar");
         calendarBtn.addEventListener('click', () => {
             this.showCalendarView();
         });
@@ -178,7 +205,7 @@ export class HabitPanel {
         this.sortButton = document.createElement('button');
         this.sortButton.className = 'b3-button b3-button--outline';
         this.sortButton.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconSort"></use></svg>';
-        this.sortButton.title = "排序";
+        this.sortButton.title = i18n("sortBy");
         this.sortButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -190,7 +217,7 @@ export class HabitPanel {
         const groupManageBtn = document.createElement('button');
         groupManageBtn.className = 'b3-button b3-button--outline';
         groupManageBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconTags"></use></svg>';
-        groupManageBtn.title = "分组管理";
+        groupManageBtn.title = i18n("groupManageBtn");
         groupManageBtn.addEventListener('click', () => {
             this.showGroupManageDialog();
         });
@@ -200,7 +227,7 @@ export class HabitPanel {
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'b3-button b3-button--outline';
         refreshBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconRefresh"></use></svg>';
-        refreshBtn.title = "刷新";
+        refreshBtn.title = i18n("refresh");
         refreshBtn.addEventListener('click', () => {
             this.loadHabits();
         });
@@ -210,7 +237,7 @@ export class HabitPanel {
         const moreBtn = document.createElement('button');
         moreBtn.className = 'b3-button b3-button--outline';
         moreBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconMore"></use></svg>';
-        moreBtn.title = i18n("more") || "更多";
+        moreBtn.title = i18n("more");
         moreBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -231,11 +258,11 @@ export class HabitPanel {
         this.filterSelect.className = 'b3-select';
         this.filterSelect.style.cssText = 'flex: 1; min-width: 0;';
         this.filterSelect.innerHTML = `
-            <option value="today" selected>今日待打卡</option>
-            <option value="tomorrow">明日习惯</option>
-            <option value="all">所有习惯</option>
-            <option value="todayCompleted">今日已打卡</option>
-            <option value="yesterdayCompleted">昨日已打卡</option>
+            <option value="today" selected>${i18n("filterTodayPending")}</option>
+            <option value="tomorrow">${i18n("filterTomorrow")}</option>
+            <option value="all">${i18n("filterAll")}</option>
+            <option value="todayCompleted">${i18n("filterTodayCompleted")}</option>
+            <option value="yesterdayCompleted">${i18n("filterYesterdayCompleted")}</option>
         `;
         this.filterSelect.addEventListener('change', () => {
             this.currentTab = this.filterSelect.value;
@@ -257,7 +284,7 @@ export class HabitPanel {
             vertical-align: middle;
             text-align: left;
         `;
-        this.groupFilterButton.textContent = "分组筛选";
+        this.groupFilterButton.textContent = i18n("groupFilter");
         this.groupFilterButton.addEventListener('click', () => this.showGroupSelectDialog());
         controls.appendChild(this.groupFilterButton);
 
@@ -281,10 +308,10 @@ export class HabitPanel {
         if (!this.groupFilterButton) return;
 
         if (this.selectedGroups.length === 0 || this.selectedGroups.includes('all')) {
-            this.groupFilterButton.textContent = "分组筛选";
+            this.groupFilterButton.textContent = i18n("groupFilter");
         } else {
             const names = this.selectedGroups.map(id => {
-                if (id === 'none') return "无分组";
+                if (id === 'none') return i18n("noneGroupName");
                 const group = this.groupManager.getGroupById(id);
                 return group ? group.name : id;
             });
@@ -297,14 +324,14 @@ export class HabitPanel {
             const menu = new Menu("habitSortMenu");
 
             const sortOptions = [
-                { key: 'priority', label: i18n('sortByPriority') || '按优先级排序', icon: '🎯' },
-                { key: 'title', label: i18n('sortByTitle') || '按标题排序', icon: '📝' }
+                { key: 'priority', label: i18n('sortByPriority'), icon: '🎯' },
+                { key: 'title', label: i18n('sortByTitle'), icon: '📝' }
             ];
 
             sortOptions.forEach(option => {
                 menu.addItem({
                     iconHTML: option.icon,
-                    label: `${option.label} (${i18n('ascending') || '升序'})`,
+                    label: `${option.label} (${i18n('ascending')})`,
                     current: this.sortKey === option.key && this.sortOrder === 'asc',
                     click: () => {
                         this.setSort(option.key as any, 'asc');
@@ -313,7 +340,7 @@ export class HabitPanel {
 
                 menu.addItem({
                     iconHTML: option.icon,
-                    label: `${option.label} (${i18n('descending') || '降序'})`,
+                    label: `${option.label} (${i18n('descending')})`,
                     current: this.sortKey === option.key && this.sortOrder === 'desc',
                     click: () => {
                         this.setSort(option.key as any, 'desc');
@@ -352,7 +379,7 @@ export class HabitPanel {
             // 插件设置
             menu.addItem({
                 icon: 'iconSettings',
-                label: i18n("pluginSettings") || "插件设置",
+                label: i18n("pluginSettings"),
                 click: () => {
                     try {
                         if (this.plugin && typeof this.plugin.openSetting === 'function') {
@@ -382,18 +409,19 @@ export class HabitPanel {
         this.sortKey = key;
         this.sortOrder = order;
         this.updateSortButtonTitle();
+        this.savePanelSettings();
         this.loadHabits();
     }
 
     private updateSortButtonTitle() {
         const sortLabels = {
-            'priority_desc': '最高优先',
-            'priority_asc': '最低优先',
-            'title_asc': '标题 A-Z',
-            'title_desc': '标题 Z-A'
+            'priority_desc': i18n("sortHighPriority"),
+            'priority_asc': i18n("sortLowPriority"),
+            'title_asc': i18n("sortTitleAZ"),
+            'title_desc': i18n("sortTitleZA")
         };
         const key = `${this.sortKey}_${this.sortOrder}`;
-        this.sortButton.title = `排序: ${sortLabels[key] || '默认'}`;
+        this.sortButton.title = `${i18n("sortPrefix")}${sortLabels[key] || i18n("sortDefault")}`;
     }
 
     private async loadHabits() {
@@ -418,8 +446,8 @@ export class HabitPanel {
                 });
             }
         } catch (error) {
-            console.error('加载习惯失败:', error);
-            this.habitsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--b3-theme-error);">加载习惯失败</div>';
+            console.error('loadHabits failed:', error);
+            this.habitsContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--b3-theme-error);">${i18n("loadHabitFailed")}</div>`;
         }
     }
 
@@ -557,7 +585,7 @@ export class HabitPanel {
         // 如果没有习惯，根据当前 tab 决定是否继续渲染已打卡区
         if (habits.length === 0) {
             if (this.currentTab !== 'today') {
-                this.habitsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--b3-theme-on-surface-light);">暂无习惯</div>';
+                this.habitsContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--b3-theme-on-surface-light);">${i18n("noHabits")}</div>`;
                 return;
             }
             // 否则（today 且主区无待打卡习惯）继续渲染已打卡区
@@ -628,7 +656,7 @@ export class HabitPanel {
         `;
 
         const group = groupId === 'none' ? null : this.groupManager.getGroupById(groupId);
-        const groupName = group ? group.name : '无分组';
+        const groupName = group ? group.name : i18n("noneGroupName");
         const isCollapsed = this.collapsedGroups.has(groupId);
 
         const collapseIcon = document.createElement('span');
@@ -662,60 +690,62 @@ export class HabitPanel {
             const sortedHabits = this.sortHabitsInGroup(habits);
             sortedHabits.forEach(habit => {
                 const habitCard = this.createHabitCard(habit);
-
-                // 启用拖拽：仅在同一分组内按优先级排序时可拖拽调整
-                habitCard.draggable = true;
-                habitCard.dataset.habitId = habit.id;
-                habitCard.style.cursor = 'grab';
-
-                habitCard.addEventListener('dragstart', (e) => {
-                    this.draggingHabitId = habit.id;
-                    habitCard.style.opacity = '0.5';
-                    habitCard.style.cursor = 'grabbing';
-                    if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', habit.id);
-                    }
-                });
-
-                habitCard.addEventListener('dragend', () => {
-                    this.draggingHabitId = null;
-                    habitCard.style.opacity = '';
+                const isAndroid = getBackend().endsWith('android');
+                if (!isAndroid) {                // 启用拖拽：仅在同一分组内按优先级排序时可拖拽调整
+                    habitCard.draggable = true;
+                    habitCard.dataset.habitId = habit.id;
                     habitCard.style.cursor = 'grab';
-                    this.clearDragOver();
-                });
 
-                habitCard.addEventListener('dragover', (e) => {
-                    if (this.draggingHabitId && this.draggingHabitId !== habit.id) {
+                    habitCard.addEventListener('dragstart', (e) => {
+                        this.draggingHabitId = habit.id;
+                        habitCard.style.opacity = '0.5';
+                        habitCard.style.cursor = 'grabbing';
+                        if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', habit.id);
+                        }
+                    });
+
+                    habitCard.addEventListener('dragend', () => {
+                        this.draggingHabitId = null;
+                        habitCard.style.opacity = '';
+                        habitCard.style.cursor = 'grab';
+                        this.clearDragOver();
+                    });
+
+                    habitCard.addEventListener('dragover', (e) => {
+                        if (this.draggingHabitId && this.draggingHabitId !== habit.id) {
+                            e.preventDefault();
+                            const rect = habitCard.getBoundingClientRect();
+                            const pos = (e.clientY - rect.top) < (rect.height / 2) ? 'before' : 'after';
+                            this.setDragOverIndicator(habitCard, pos as 'before' | 'after');
+                        }
+                    });
+
+                    habitCard.addEventListener('dragleave', () => {
+                        this.clearDragOverOn(habitCard);
+                    });
+
+                    habitCard.addEventListener('drop', async (e) => {
                         e.preventDefault();
-                        const rect = habitCard.getBoundingClientRect();
-                        const pos = (e.clientY - rect.top) < (rect.height / 2) ? 'before' : 'after';
-                        this.setDragOverIndicator(habitCard, pos as 'before' | 'after');
-                    }
-                });
+                        if (!this.draggingHabitId || this.draggingHabitId === habit.id) return;
+                        const draggedId = this.draggingHabitId;
+                        const targetId = habit.id;
 
-                habitCard.addEventListener('dragleave', () => {
-                    this.clearDragOverOn(habitCard);
-                });
+                        try {
+                            // 支持跨优先级排序，自动更新优先级
+                            await this.reorderHabits(groupId, habit.priority, draggedId, targetId, this.dragOverPosition || 'after');
+                            await this.loadHabits();
+                            showMessage(i18n("sortUpdated"));
+                        } catch (err) {
+                            console.error('reorder failed:', err);
+                            showMessage(i18n("reorderFailed"), 3000, 'error');
+                        }
+                        this.draggingHabitId = null;
+                        this.clearDragOver();
+                    });
+                };
 
-                habitCard.addEventListener('drop', async (e) => {
-                    e.preventDefault();
-                    if (!this.draggingHabitId || this.draggingHabitId === habit.id) return;
-                    const draggedId = this.draggingHabitId;
-                    const targetId = habit.id;
-
-                    try {
-                        // 支持跨优先级排序，自动更新优先级
-                        await this.reorderHabits(groupId, habit.priority, draggedId, targetId, this.dragOverPosition || 'after');
-                        await this.loadHabits();
-                        showMessage("排序已更新");
-                    } catch (err) {
-                        console.error('调整顺序失败:', err);
-                        showMessage('调整顺序失败', 3000, 'error');
-                    }
-                    this.draggingHabitId = null;
-                    this.clearDragOver();
-                });
 
                 groupContent.appendChild(habitCard);
             });
@@ -799,8 +829,8 @@ export class HabitPanel {
                 try {
                     openBlock(habit.blockId!);
                 } catch (err) {
-                    console.error('打开块失败:', err);
-                    showMessage('打开块失败', 3000, 'error');
+                    console.error('openBlock failed:', err);
+                    showMessage(i18n("openBlockFailed"), 3000, 'error');
                 }
             });
         }
@@ -822,7 +852,7 @@ export class HabitPanel {
         if (targetCount > 1) {
             // 显示进度条
             const progressText = document.createElement('div');
-            progressText.textContent = `今日进度: ${currentCount}/${targetCount}`;
+            progressText.textContent = `${i18n("todayProgressLabel")}${currentCount}/${targetCount}`;
             progressText.style.cssText = 'font-size: 12px; margin-bottom: 4px; color: var(--b3-theme-on-surface-light);';
             progressRow.appendChild(progressText);
 
@@ -847,7 +877,7 @@ export class HabitPanel {
             progressRow.appendChild(progressBar);
         } else {
             const progressText = document.createElement('div');
-            progressText.textContent = `今日: ${currentCount >= targetCount ? '已完成' : '未完成'}`;
+            progressText.textContent = `${i18n("todayStatusLabel")}${currentCount >= targetCount ? i18n("completed") : i18n("unfinished")}`;
             progressText.style.cssText = 'font-size: 12px; color: var(--b3-theme-on-surface-light);';
             progressRow.appendChild(progressText);
         }
@@ -857,13 +887,13 @@ export class HabitPanel {
         // 频率信息
         const frequencyText = this.getFrequencyText(habit.frequency);
         const frequency = document.createElement('div');
-        frequency.textContent = `频率: ${frequencyText}`;
+        frequency.textContent = `${i18n("frequencyLabel")}${frequencyText}`;
         frequency.style.cssText = 'font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;';
         card.appendChild(frequency);
 
         // 时间范围
         const timeRange = document.createElement('div');
-        timeRange.textContent = `时间: ${habit.startDate}${habit.endDate ? ' ~ ' + habit.endDate : ' 起'}`;
+        timeRange.textContent = `${i18n("timeLabel")}${habit.startDate}${habit.endDate ? ' ~ ' + habit.endDate : i18n("timeStart")}`;
         timeRange.style.cssText = 'font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;';
         card.appendChild(timeRange);
 
@@ -873,7 +903,7 @@ export class HabitPanel {
             const reminder = document.createElement('div');
             // 提取时间字符串，如果是对象则取 time 属性
             const displayTimes = timesList.map(t => typeof t === 'string' ? t : t.time);
-            reminder.textContent = `提醒: ${displayTimes.join(', ')}`;
+            reminder.textContent = `${i18n("reminderLabel")}${displayTimes.join(', ')}`;
             reminder.style.cssText = 'font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;';
             card.appendChild(reminder);
         }
@@ -881,7 +911,7 @@ export class HabitPanel {
         // 坚持打卡天数（显示打卡天数，替换累计打卡次数）
         const checkInDaysCount = Object.keys(habit.checkIns || {}).length;
         const checkInDaysEl = document.createElement('div');
-        checkInDaysEl.textContent = `坚持打卡: ${checkInDaysCount} 天`;
+        checkInDaysEl.textContent = i18n("persistDays", { count: checkInDaysCount.toString() });
         checkInDaysEl.style.cssText = 'font-size: 12px; color: var(--b3-theme-primary); font-weight: bold;';
 
         // 今日打卡 emoji（只显示当天的）
@@ -891,7 +921,7 @@ export class HabitPanel {
 
 
             const emojiLabel = document.createElement('span');
-            emojiLabel.textContent = '今日打卡:';
+            emojiLabel.textContent = i18n("todayCheckInEmoji");
             emojiLabel.style.cssText = 'font-size:12px; color: var(--b3-theme-on-surface-light); margin-right:6px;';
             emojiRow.appendChild(emojiLabel);
 
@@ -931,7 +961,7 @@ export class HabitPanel {
 
             const checkInBtn = document.createElement('button');
             checkInBtn.className = 'b3-button b3-button--outline b3-button--small';
-            checkInBtn.innerHTML = '打卡';
+            checkInBtn.innerHTML = i18n("checkInBtn");
 
             checkInBtn.addEventListener('click', (ev) => {
                 ev.preventDefault();
@@ -958,8 +988,8 @@ export class HabitPanel {
 
                     menu.open({ x: Math.min(menuX, maxX), y: Math.max(0, Math.min(menuY, maxY)) });
                 } catch (err) {
-                    console.error('打开卡片打卡菜单失败', err);
-                    showMessage('打开打卡菜单失败', 2000, 'error');
+                    console.error('openCheckInMenu failed', err);
+                    showMessage(i18n("openCheckInMenuFailed"), 2000, 'error');
                 }
             });
 
@@ -995,29 +1025,30 @@ export class HabitPanel {
 
         switch (type) {
             case 'daily':
-                return interval ? `每${interval}天` : '每天';
+                return interval ? i18n("freqEveryNDays", { n: String(interval) }) : i18n("freqEveryDay");
             case 'weekly':
                 if (weekdays && weekdays.length > 0) {
-                    const days = weekdays.map(d => ['日', '一', '二', '三', '四', '五', '六'][d]).join(',');
-                    return `每周${days}`;
+                    const weekdayNamesArr = i18n("weekdayNames").split(',');
+                    const days = weekdays.map(d => weekdayNamesArr[d] || String(d)).join(',');
+                    return i18n("freqWeekdays", { days });
                 }
-                return interval ? `每${interval}周` : '每周';
+                return interval ? i18n("freqEveryNWeeks", { n: String(interval) }) : i18n("freqEveryWeek");
             case 'monthly':
                 if (monthDays && monthDays.length > 0) {
-                    return `每月${monthDays.join(',')}日`;
+                    return i18n("freqMonthDays", { days: monthDays.join(',') });
                 }
-                return interval ? `每${interval}月` : '每月';
+                return interval ? i18n("freqEveryNMonths", { n: String(interval) }) : i18n("freqEveryMonth");
             case 'yearly':
                 if (months && months.length > 0) {
                     const monthStr = months.join(',');
                     if (monthDays && monthDays.length > 0) {
-                        return `每年${monthStr}月的${monthDays.join(',')}日`;
+                        return i18n("freqYearMonthDays", { months: monthStr, days: monthDays.join(',') });
                     }
-                    return `每年${monthStr}月`;
+                    return i18n("freqYearMonths", { months: monthStr });
                 }
-                return interval ? `每${interval}年` : '每年';
+                return interval ? i18n("freqEveryNYears", { n: String(interval) }) : i18n("freqEveryYear");
             default:
-                return '每天';
+                return i18n("freqEveryDay");
         }
     }
 
@@ -1057,7 +1088,7 @@ export class HabitPanel {
         `;
 
         const completedTitle = document.createElement('div');
-        completedTitle.textContent = `今日已打卡 (${completedHabits.length})`;
+        completedTitle.textContent = `${i18n("todayCheckedSection")} (${completedHabits.length})`;
         completedTitle.style.cssText = `
             font-weight: bold;
             margin-bottom: 12px;
@@ -1185,7 +1216,7 @@ export class HabitPanel {
 
         // 打卡选项
         menu.addItem({
-            label: "打卡",
+            label: i18n("checkInMenuItem"),
             icon: "iconCheck",
             submenu: this.createCheckInSubmenu(habit)
         });
@@ -1194,7 +1225,7 @@ export class HabitPanel {
 
         // 查看统计
         menu.addItem({
-            label: "查看统计",
+            label: i18n("viewStatsMenuItem"),
             icon: "iconSparkles",
             click: () => {
                 this.showHabitStats(habit);
@@ -1204,7 +1235,7 @@ export class HabitPanel {
 
         // 编辑习惯
         menu.addItem({
-            label: "编辑习惯",
+            label: i18n("editHabitMenuItem"),
             icon: "iconEdit",
             click: () => {
                 this.showEditHabitDialog(habit);
@@ -1214,14 +1245,14 @@ export class HabitPanel {
         // 打开绑定块（如果存在）
         if (habit.blockId) {
             menu.addItem({
-                label: "打开绑定块",
+                label: i18n("openBoundBlock"),
                 icon: "iconOpen",
                 click: () => {
                     try {
                         openBlock(habit.blockId!);
                     } catch (err) {
-                        console.error('打开块失败', err);
-                        showMessage('打开块失败', 3000, 'error');
+                        console.error('openBlock failed', err);
+                        showMessage(i18n("openBlockFailed"), 3000, 'error');
                     }
                 }
             });
@@ -1229,12 +1260,12 @@ export class HabitPanel {
 
         // 删除习惯
         menu.addItem({
-            label: "删除习惯",
+            label: i18n("deleteHabitMenuItem"),
             icon: "iconTrashcan",
             click: () => {
                 confirm(
-                    "确认删除",
-                    `确定要删除习惯"${habit.title}"吗？`,
+                    i18n("confirmDeleteHabitTitle"),
+                    i18n("confirmDeleteHabit", { title: habit.title }),
                     () => {
                         this.deleteHabit(habit.id);
                     }
@@ -1282,7 +1313,7 @@ export class HabitPanel {
         });
 
         submenu.push({
-            label: "编辑打卡选项",
+            label: i18n("editCheckInOptions"),
             icon: "iconEdit",
             click: () => {
                 this.showEditCheckInEmojis(habit);
@@ -1329,17 +1360,17 @@ export class HabitPanel {
                     String(nowDate.getMinutes()).padStart(2, '0');
 
                 const inputDialog = new Dialog({
-                    title: '打卡信息',
+                    title: i18n("checkInInfo"),
                     content: `<div class="b3-dialog__content"><div class="ft__breakword" style="padding:12px">
                         <div style="margin-bottom:12px;">
-                            <label style="display:block;margin-bottom:4px;font-weight:bold;">打卡时间:</label>
+                            <label style="display:block;margin-bottom:4px;font-weight:bold;">${i18n("checkInTimeLabel")}</label>
                             <input type="datetime-local" id="__habits_time_input" value="${datetimeLocalValue}" style="width:100%;padding:8px;box-sizing:border-box;border:1px solid var(--b3-theme-surface-lighter);border-radius:4px;background:var(--b3-theme-background);" />
                         </div>
                         <div>
-                            <label style="display:block;margin-bottom:4px;font-weight:bold;">备注:</label>
-                            <textarea id="__habits_note_input" placeholder="可选,输入备注信息..." style="width:100%;height:100px;box-sizing:border-box;resize:vertical;padding:8px;border:1px solid var(--b3-theme-surface-lighter);border-radius:4px;background:var(--b3-theme-background);"></textarea>
+                            <label style="display:block;margin-bottom:4px;font-weight:bold;">${i18n("checkInNoteLabel")}</label>
+                            <textarea id="__habits_note_input" placeholder="${i18n("checkInNotePlaceholder")}" style="width:100%;height:100px;box-sizing:border-box;resize:vertical;padding:8px;border:1px solid var(--b3-theme-surface-lighter);border-radius:4px;background:var(--b3-theme-background);"></textarea>
                         </div>
-                    </div></div><div class="b3-dialog__action"><button class="b3-button b3-button--cancel">取消</button><div class="fn__space"></div><button class="b3-button b3-button--text" id="__habits_note_confirm">保存</button></div>`,
+                    </div></div><div class="b3-dialog__action"><button class="b3-button b3-button--cancel">${i18n("cancel")}</button><div class="fn__space"></div><button class="b3-button b3-button--text" id="__habits_note_confirm">${i18n("save")}</button></div>`,
                     width: '520px',
                     height: '360px',
                     destroyCallback: () => {
@@ -1400,11 +1431,11 @@ export class HabitPanel {
             habit.updatedAt = now;
 
             await this.saveHabit(habit);
-            showMessage(`打卡成功！${emojiConfig.emoji}` + (note ? ` - ${note}` : ''));
+            showMessage(`${i18n("checkInSuccess")}${emojiConfig.emoji}` + (note ? ` - ${note}` : ''));
             this.loadHabits();
         } catch (error) {
-            console.error('打卡失败:', error);
-            showMessage('打卡失败', 3000, 'error');
+            console.error('checkIn failed:', error);
+            showMessage(i18n("checkInFailed"), 3000, 'error');
         }
     }
 
@@ -1420,12 +1451,12 @@ export class HabitPanel {
             const habitData = await this.plugin.loadHabitData();
             delete habitData[habitId];
             await this.plugin.saveHabitData(habitData);
-            showMessage('删除成功');
+            showMessage(i18n("deleteSuccess"));
             this.loadHabits();
             window.dispatchEvent(new CustomEvent('habitUpdated'));
         } catch (error) {
-            console.error('删除习惯失败:', error);
-            showMessage('删除失败', 3000, 'error');
+            console.error('deleteHabit failed:', error);
+            showMessage(i18n("deleteFailed"), 3000, 'error');
         }
     }
 
@@ -1470,7 +1501,7 @@ export class HabitPanel {
 
     private showGroupSelectDialog() {
         const dialog = new Dialog({
-            title: "选择分组",
+            title: i18n("selectGroup"),
             content: '<div id="groupSelectContainer"></div>',
             width: "400px",
             height: "500px"
@@ -1482,11 +1513,11 @@ export class HabitPanel {
         container.style.cssText = 'padding: 16px;';
 
         // 全部分组选项
-        const allOption = this.createGroupCheckbox('all', '全部分组', this.selectedGroups.includes('all'));
+        const allOption = this.createGroupCheckbox('all', i18n("allGroups"), this.selectedGroups.includes('all'));
         container.appendChild(allOption);
 
         // 无分组选项
-        const noneOption = this.createGroupCheckbox('none', '无分组', this.selectedGroups.includes('none'));
+        const noneOption = this.createGroupCheckbox('none', i18n("noneGroupName"), this.selectedGroups.includes('none'));
         container.appendChild(noneOption);
 
         // 其他分组
@@ -1499,10 +1530,11 @@ export class HabitPanel {
         // 确认按钮
         const confirmBtn = document.createElement('button');
         confirmBtn.className = 'b3-button b3-button--primary';
-        confirmBtn.textContent = '确定';
+        confirmBtn.textContent = i18n("save");
         confirmBtn.style.cssText = 'margin-top: 16px; width: 100%;';
         confirmBtn.addEventListener('click', () => {
             this.updateGroupFilterButtonText();
+            this.savePanelSettings();
             this.loadHabits();
             dialog.destroy();
         });

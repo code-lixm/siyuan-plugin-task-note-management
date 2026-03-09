@@ -11,7 +11,7 @@ import { BlockBindingDialog } from "./BlockBindingDialog";
 import { SubtasksDialog } from "./SubtasksDialog";
 import { PomodoroRecordManager } from "../utils/pomodoroRecord";
 import { PomodoroSessionsDialog } from "./PomodoroSessionsDialog";
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx, prosePluginsCtx, parserCtx } from "@milkdown/kit/core";
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, prosePluginsCtx, parserCtx } from "@milkdown/kit/core";
 import { Plugin } from "@milkdown/prose/state";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
@@ -20,7 +20,7 @@ import { cursor } from "@milkdown/kit/plugin/cursor";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { replaceAll, $view } from "@milkdown/utils";
-import { listItemSchema } from "@milkdown/kit/preset/commonmark";
+import { listItemSchema, imageSchema } from "@milkdown/kit/preset/commonmark";
 
 export class QuickReminderDialog {
     private dialog: Dialog;
@@ -109,11 +109,11 @@ export class QuickReminderDialog {
                 <div class="b3-dialog__content" style="padding: 16px;">
                     <div style="margin-bottom: 12px;">
                         <label style="display: block; margin-bottom: 4px; font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8;">${i18n('linkUrl') || '链接地址'}:</label>
-                        <textarea id="linkUrl" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="https://...">${mark.attrs.href}</textarea>
+                        <textarea id="linkUrl" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="https://..." spellcheck="false">${mark.attrs.href}</textarea>
                     </div>
                     <div style="margin-bottom: 12px;">
                         <label style="display: block; margin-bottom: 4px; font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8;">${i18n('linkTitle')}:</label>
-                        <textarea id="linkTitle" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="${i18n('linkTitlePlaceholder')}">${currentText}</textarea>
+                        <textarea id="linkTitle" class="b3-text-field" style="width: 100%; resize: vertical;" rows="2" placeholder="${i18n('linkTitlePlaceholder')}" spellcheck="false">${currentText}</textarea>
                     </div>
                 </div>
                 <div class="b3-dialog__action">
@@ -147,6 +147,39 @@ export class QuickReminderDialog {
             }
             dialog.destroy();
         };
+    }
+
+    private async handleImagePaste(view: any, file: File) {
+        try {
+            const ext = file.name.split('.').pop() || 'png';
+            const baseName = file.name.replace(/\.[^/.]+$/, "") || 'image';
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            const secs = String(now.getSeconds()).padStart(2, '0');
+            const dateStr = `${year}${month}${day}${hours}${mins}${secs}`;
+
+            const randomStr = Math.random().toString(36).substring(2, 9);
+            const fileName = `${baseName}-${dateStr}-${randomStr}.${ext}`;
+            const targetPath = `/data/storage/petal/siyuan-plugin-task-note-management/assets/${fileName}`;
+
+            const { putFile } = await import('../api');
+            await putFile(targetPath, false, file);
+
+            const { state } = view;
+            const { tr, schema } = state;
+            const imageNode = schema.nodes.image.create({
+                src: targetPath,
+                alt: fileName
+            });
+            view.dispatch(tr.replaceSelectionWith(imageNode).scrollIntoView());
+        } catch (e) {
+            console.error("Paste image error", e);
+        }
     }
     private blockContent: string = '';
     private reminderUpdatedHandler: () => void;
@@ -188,6 +221,7 @@ export class QuickReminderDialog {
     private durationManuallyChanged: boolean = false; // 标记用户是否手动修改了持续天数
     private tempSubtasks: any[] = []; // 新建模式下的临时子任务列表
     private skipSave: boolean = false; // 是否跳过保存到数据库（用于临时子任务创建）
+    private dateOnly: boolean = false; // 是否只显示日期相关设置（用于快速编辑日期）
 
 
     constructor(
@@ -220,6 +254,7 @@ export class QuickReminderDialog {
             instanceDate?: string;
             defaultSort?: number;
             skipSave?: boolean; // 是否跳过保存到数据库
+            dateOnly?: boolean; // 是否只显示日期相关设置
         }
     ) {
         this.initialDate = date;
@@ -255,6 +290,7 @@ export class QuickReminderDialog {
             this.instanceDate = options.instanceDate;
             this.defaultSort = options.defaultSort;
             this.skipSave = options.skipSave || false;
+            this.dateOnly = options.dateOnly || false;
         }
 
         // 新建任务默认使用简化模式，编辑/批量编辑默认显示完整表单
@@ -563,6 +599,112 @@ export class QuickReminderDialog {
         return diffDays + 1;
     }
 
+    private parseEstimatedPomodoroDurationToMinutes(value: any): number {
+        if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+            return Math.round(value);
+        }
+
+        if (typeof value !== 'string') {
+            return 0;
+        }
+
+        const normalized = value.trim().toLowerCase().replace(/\s+/g, '');
+        if (!normalized) {
+            return 0;
+        }
+
+        if (/^\d+(?:\.\d+)?$/.test(normalized)) {
+            const minutes = Number(normalized);
+            return minutes > 0 ? Math.round(minutes) : 0;
+        }
+
+        let totalMinutes = 0;
+        let matched = false;
+        const durationRegex = /(\d+(?:\.\d+)?)(h(?:ours?)?|hr|hrs|小时|时|m(?:in(?:ute)?s?)?|分钟|分)/g;
+        let match: RegExpExecArray | null;
+
+        while ((match = durationRegex.exec(normalized)) !== null) {
+            const amount = Number(match[1]);
+            if (!Number.isFinite(amount) || amount <= 0) {
+                continue;
+            }
+
+            matched = true;
+            const unit = match[2];
+            if (/^(h|hr|hrs|hour|hours|小时|时)/.test(unit)) {
+                totalMinutes += amount * 60;
+            } else {
+                totalMinutes += amount;
+            }
+        }
+
+        return matched && totalMinutes > 0 ? Math.round(totalMinutes) : 0;
+    }
+
+    private splitEstimatedPomodoroDuration(value: any): { hours: number; minutes: number } {
+        const totalMinutes = this.parseEstimatedPomodoroDurationToMinutes(value);
+        return {
+            hours: Math.floor(totalMinutes / 60),
+            minutes: totalMinutes % 60,
+        };
+    }
+
+    private formatEstimatedPomodoroDuration(hours: number, minutes: number): string | undefined {
+        const normalizedHours = Math.max(0, Math.floor(hours || 0));
+        const normalizedMinutes = Math.max(0, Math.floor(minutes || 0));
+        const totalMinutes = normalizedHours * 60 + normalizedMinutes;
+
+        if (totalMinutes <= 0) {
+            return undefined;
+        }
+
+        const finalHours = Math.floor(totalMinutes / 60);
+        const finalMinutes = totalMinutes % 60;
+        let result = '';
+
+        if (finalHours > 0) {
+            result += `${finalHours}h`;
+        }
+        if (finalMinutes > 0) {
+            result += `${finalMinutes}m`;
+        }
+
+        return result || undefined;
+    }
+
+    private normalizeEstimatedPomodoroDurationInputs() {
+        const hoursInput = this.dialog.element.querySelector('#quickEstimatedPomodoroHours') as HTMLInputElement;
+        const minutesInput = this.dialog.element.querySelector('#quickEstimatedPomodoroMinutes') as HTMLInputElement;
+
+        if (!hoursInput || !minutesInput) return;
+
+        const rawHours = Number(hoursInput.value || 0);
+        const rawMinutes = Number(minutesInput.value || 0);
+        const hours = Number.isFinite(rawHours) ? Math.max(0, Math.floor(rawHours)) : 0;
+        const minutes = Number.isFinite(rawMinutes) ? Math.max(0, Math.floor(rawMinutes)) : 0;
+        const totalMinutes = hours * 60 + minutes;
+        const normalizedHours = Math.floor(totalMinutes / 60);
+        const normalizedMinutes = totalMinutes % 60;
+
+        hoursInput.value = normalizedHours > 0 ? String(normalizedHours) : '';
+        minutesInput.value = normalizedMinutes > 0 ? String(normalizedMinutes) : '';
+    }
+
+    private getEstimatedPomodoroDurationValue(): string | undefined {
+        const hoursInput = this.dialog.element.querySelector('#quickEstimatedPomodoroHours') as HTMLInputElement;
+        const minutesInput = this.dialog.element.querySelector('#quickEstimatedPomodoroMinutes') as HTMLInputElement;
+
+        if (!hoursInput || !minutesInput) {
+            return undefined;
+        }
+
+        this.normalizeEstimatedPomodoroDurationInputs();
+
+        const hours = Number(hoursInput.value || 0);
+        const minutes = Number(minutesInput.value || 0);
+        return this.formatEstimatedPomodoroDuration(hours, minutes);
+    }
+
     // 填充编辑表单数据
     private async populateEditForm() {
         if (!this.reminder) return;
@@ -656,9 +798,16 @@ export class QuickReminderDialog {
         }
 
         // 填充预计番茄时长
-        const estimatedPomodoroDurationInput = this.dialog.element.querySelector('#quickEstimatedPomodoroDuration') as HTMLInputElement;
-        if (estimatedPomodoroDurationInput && this.reminder.estimatedPomodoroDuration) {
-            estimatedPomodoroDurationInput.value = this.reminder.estimatedPomodoroDuration;
+        const estimatedPomodoroHoursInput = this.dialog.element.querySelector('#quickEstimatedPomodoroHours') as HTMLInputElement;
+        const estimatedPomodoroMinutesInput = this.dialog.element.querySelector('#quickEstimatedPomodoroMinutes') as HTMLInputElement;
+        if ((estimatedPomodoroHoursInput || estimatedPomodoroMinutesInput) && this.reminder.estimatedPomodoroDuration) {
+            const { hours, minutes } = this.splitEstimatedPomodoroDuration(this.reminder.estimatedPomodoroDuration);
+            if (estimatedPomodoroHoursInput) {
+                estimatedPomodoroHoursInput.value = hours > 0 ? String(hours) : '';
+            }
+            if (estimatedPomodoroMinutesInput) {
+                estimatedPomodoroMinutesInput.value = minutes > 0 ? String(minutes) : '';
+            }
         }
 
         // 填充日期和时间（使用独立的日期和时间输入框）
@@ -902,11 +1051,106 @@ export class QuickReminderDialog {
             this.updateBlockPreview(this.reminder.blockId);
         }
 
-        // 如果是编辑模式，更新子任务入口显示
-        if (this.mode === 'edit' && this.reminder) {
+        // 如果是编辑模式，更新子任务入口显示（dateOnly 模式下跳过，避免异步覆盖隐藏状态）
+        if (this.mode === 'edit' && this.reminder && !this.dateOnly) {
             this.updateSubtasksDisplay();
             this.updatePomodorosDisplay();
             this.updateEditAllInstancesDisplay();
+        }
+    }
+
+    /**
+     * 仅显示日期相关设置，隐藏所有非日期表单组
+     * 用于"编辑日期"快捷入口
+     */
+    private applyDateOnlyMode() {
+        const dialog = this.dialog.element;
+
+        // 辅助：通过子元素选择器隐藏最近的 .b3-form__group 父级
+        const hideGroupOf = (selector: string) => {
+            const el = dialog.querySelector(selector);
+            if (el) {
+                const group = el.closest('.b3-form__group') as HTMLElement;
+                if (group) group.style.display = 'none';
+            }
+        };
+
+        // 隐藏父任务组
+        const parentGroup = dialog.querySelector('#quickParentTaskGroup') as HTMLElement;
+        if (parentGroup) parentGroup.style.display = 'none';
+
+        // 隐藏标题输入组
+        hideGroupOf('#quickReminderTitle');
+
+        // 隐藏自动识别/同步块标题复选框组
+        hideGroupOf('#quickPasteAutoDetect');
+
+        // 隐藏完成时间组
+        const completedGroup = dialog.querySelector('#quickCompletedTimeGroup') as HTMLElement;
+        if (completedGroup) completedGroup.style.display = 'none';
+
+        // 隐藏块绑定输入组
+        hideGroupOf('#quickBlockInput');
+
+        // 隐藏块预览
+        const blockPreview = dialog.querySelector('#quickBlockPreview') as HTMLElement;
+        if (blockPreview) blockPreview.style.display = 'none';
+
+        // 隐藏 URL 输入组
+        hideGroupOf('#quickUrlInput');
+
+        // 隐藏备注输入组
+        hideGroupOf('#quickReminderNote');
+
+        // 隐藏编辑所有实例组
+        const editAllGroup = dialog.querySelector('#quickEditAllInstancesGroup') as HTMLElement;
+        if (editAllGroup) editAllGroup.style.display = 'none';
+
+        // 隐藏子任务组
+        const subtasksGroup = dialog.querySelector('#quickSubtasksGroup') as HTMLElement;
+        if (subtasksGroup) subtasksGroup.style.display = 'none';
+
+        // 隐藏预计番茄时长组
+        hideGroupOf('#quickEstimatedPomodoroHours');
+
+        // 隐藏番茄钟查看组
+        const pomodorosGroup = dialog.querySelector('#quickPomodorosGroup') as HTMLElement;
+        if (pomodorosGroup) pomodorosGroup.style.display = 'none';
+
+        // 隐藏分类选择器组
+        hideGroupOf('#quickManageCategoriesBtn');
+
+        // 隐藏项目选择器组
+        const projectGroup = dialog.querySelector('#quickProjectGroup') as HTMLElement;
+        if (projectGroup) projectGroup.style.display = 'none';
+
+        // 隐藏自定义分组
+        const customGroup = dialog.querySelector('#quickCustomGroup') as HTMLElement;
+        if (customGroup) customGroup.style.display = 'none';
+
+        // 隐藏里程碑
+        const milestoneGroup = dialog.querySelector('#quickMilestoneGroup') as HTMLElement;
+        if (milestoneGroup) milestoneGroup.style.display = 'none';
+
+        // 隐藏任务状态选择器组
+        hideGroupOf('#quickStatusSelector');
+
+        // 隐藏标签组
+        const tagsGroup = dialog.querySelector('#quickTagsGroup') as HTMLElement;
+        if (tagsGroup) tagsGroup.style.display = 'none';
+
+        // 隐藏优先级选择器组
+        hideGroupOf('#quickPrioritySelector');
+
+        // 隐藏展示设置组
+        hideGroupOf('#quickIsAvailableToday');
+
+        // dateOnly 模式对话框使用 auto 高度，但需要限制最大高度以便小屏上可滚动
+        const contentEl = dialog.querySelector('.b3-dialog__content') as HTMLElement;
+        if (contentEl) {
+            // 减去标题栏（约48px）和操作按钮栏（约56px）的高度
+            contentEl.style.maxHeight = 'calc(90vh - 110px)';
+            contentEl.style.overflowY = 'auto';
         }
     }
 
@@ -1172,13 +1416,20 @@ export class QuickReminderDialog {
         endDate?: string;
         endTime?: string;
         hasEndTime?: boolean;
+        cleanTitle?: string;
     }) {
         if (!result.date && !result.endDate) return;
 
+        const titleInput = this.dialog.element.querySelector('#quickReminderTitle') as HTMLTextAreaElement;
         const dateInput = this.dialog.element.querySelector('#quickReminderDate') as HTMLInputElement;
         const endDateInput = this.dialog.element.querySelector('#quickReminderEndDate') as HTMLInputElement;
         const timeInput = this.dialog.element.querySelector('#quickReminderTime') as HTMLInputElement;
         const endTimeInput = this.dialog.element.querySelector('#quickReminderEndTime') as HTMLInputElement;
+
+        // 更新标题（如果识别并清理了）
+        if (result.cleanTitle !== undefined && titleInput) {
+            titleInput.value = result.cleanTitle;
+        }
 
         // 设置日期
         if (result.date) {
@@ -1213,8 +1464,8 @@ export class QuickReminderDialog {
     }
 
     public async show() {
-        // 初始化分类管理器
         await this.categoryManager.initialize();
+        await this.projectManager.initialize();
 
         // 自动识别在快速创建中内置开启
         this.autoDetectDateTime = true;
@@ -1267,7 +1518,7 @@ export class QuickReminderDialog {
         const langTag = (window as any).siyuan?.config?.lang?.replace('_', '-') || 'en-US';
 
         this.dialog = new Dialog({
-            title: this.mode === 'edit' ? i18n("editReminder") : (this.mode === 'note' ? i18n("editNote") : i18n("createQuickReminder")),
+            title: this.dateOnly ? i18n("editDate") : (this.mode === 'edit' ? i18n("editReminder") : (this.mode === 'note' ? i18n("editNote") : i18n("createQuickReminder"))),
             content: this.mode === 'note' ? `
                 <div class="quick-reminder-dialog">
                     <div class="b3-dialog__content">
@@ -1284,6 +1535,18 @@ export class QuickReminderDialog {
             ` : `
                 <div class="quick-reminder-dialog">
                     <div class="b3-dialog__content">
+                        <div class="b3-form__group" id="quickParentTaskGroup" style="display: none;">
+                            <label class="b3-form__label">${i18n("parentTask")}</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="quickParentTaskDisplay" class="b3-text-field" readonly style="flex: 1; background: var(--b3-theme-background-light); cursor: default;" placeholder="${i18n("noParentTask")}">
+                                <button type="button" id="quickViewParentBtn" class="b3-button b3-button--outline" title="${i18n("viewParentTask")}" style="display: none;">
+                                    <svg class="b3-button__icon"><use xlink:href="#iconEye"></use></svg>
+                                </button>
+                            </div>
+                            <div class="b3-form__desc" style="font-size: 11px; color: var(--b3-theme-on-surface-light);">
+                                ${i18n("parentTaskIdLabel")}<span id="quickParentTaskId" style="font-family: monospace;">-</span>
+                            </div>
+                        </div>
                         <div class="b3-form__group">
                             <div class="title-input-container" style="display: flex; gap: 8px; align-items: flex-start;">
                                 <textarea id="quickReminderTitle" class="b3-text-field" rows="1" placeholder="${i18n("enterReminderTitleAutoDetect")}" spellcheck="false" style="flex: 1; max-height: 200px; resize: vertical; overflow-y: auto; padding: 4px 8px; line-height: 1.5;" required autofocus></textarea>
@@ -1369,7 +1632,7 @@ export class QuickReminderDialog {
                             <div id="quickCustomTimeInputArea" style="display: none; padding: 12px; background: var(--b3-theme-background-light); border-radius: 6px; border: 1px solid var(--b3-theme-surface-lighter);">
                                 <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                                     <input type="datetime-local" id="quickCustomReminderTime" class="b3-text-field" style="flex: 1;" lang="${langTag}">
-                                    <input type="text" id="quickCustomReminderNote" class="b3-text-field" placeholder="${i18n("note")}" style="width: 120px;">
+                                    <input type="text" id="quickCustomReminderNote" class="b3-text-field" placeholder="${i18n("note")}" style="width: 120px;" spellcheck="false">
                                     <button type="button" id="quickConfirmCustomTimeBtn" class="b3-button b3-button--primary" title="${i18n("confirm")}">
                                         <svg class="b3-button__icon"><use xlink:href="#iconCheck"></use></svg>
                                     </button>
@@ -1407,7 +1670,7 @@ export class QuickReminderDialog {
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("bindToBlock") || '块或文档 ID'}</label>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; ">
-                                <input type="text" id="quickBlockInput" class="b3-text-field" value="${this.defaultBlockId || ''}" placeholder="${i18n("enterBlockId")}" style="flex: 1;">
+                                <input type="text" id="quickBlockInput" class="b3-text-field" value="${this.defaultBlockId || ''}" placeholder="${i18n("enterBlockId")}" style="flex: 1;" spellcheck="false">
                                 <button type="button" id="quickPasteBlockRefBtn" class="b3-button b3-button--outline" title="${i18n("pasteBlockRef")}">
                                     <svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg>
                                 </button>
@@ -1430,7 +1693,7 @@ export class QuickReminderDialog {
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("bindUrl")}</label>
                             <div style="display: flex; gap: 8px;">
-                                <input type="url" id="quickUrlInput" class="b3-text-field" placeholder="${i18n("enterUrl")}" style="flex: 1;">
+                                <input type="url" id="quickUrlInput" class="b3-text-field" placeholder="${i18n("enterUrl")}" style="flex: 1;" spellcheck="false">
                                 <button type="button" id="quickOpenUrlBtn" class="b3-button b3-button--outline" title="${i18n("openUrl") || '在浏览器中打开'}">
                                     <svg class="b3-button__icon"><use xlink:href="#iconLink"></use></svg>
                                 </button>
@@ -1441,19 +1704,6 @@ export class QuickReminderDialog {
                             <label class="b3-form__label">${i18n("reminderNoteOptional")}</label>
                             <div id="quickReminderNote" style="width: 100%; min-height: 50px; border: 1px solid var(--b3-theme-surface-lighter); border-radius: 4px; position: relative;"></div>
                         </div>
-
-                        <div class="b3-form__group" id="quickParentTaskGroup" style="display: none;">
-                            <label class="b3-form__label">${i18n("parentTask")}</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="text" id="quickParentTaskDisplay" class="b3-text-field" readonly style="flex: 1; background: var(--b3-theme-background-light); cursor: default;" placeholder="${i18n("noParentTask")}">
-                                <button type="button" id="quickViewParentBtn" class="b3-button b3-button--outline" title="${i18n("viewParentTask")}" style="display: none;">
-                                    <svg class="b3-button__icon"><use xlink:href="#iconEye"></use></svg>
-                                </button>
-                            </div>
-                            <div class="b3-form__desc" style="font-size: 11px; color: var(--b3-theme-on-surface-light);">
-                                ${i18n("parentTaskIdLabel")}<span id="quickParentTaskId" style="font-family: monospace;">-</span>
-                            </div>
-                        </div>
                         <div class="b3-form__group" id="quickEditAllInstancesGroup" style="display: none;">
                             <label class="b3-form__label">${i18n("recurringTask")}</label>
                             <div style="display: flex; gap: 8px; align-items: center;">
@@ -1463,18 +1713,19 @@ export class QuickReminderDialog {
                                 </button>
                             </div>
                         </div>
-                        <div class="b3-form__group" id="quickSubtasksGroup" style="display: none; margin-top: 8px;">
-                            <label class="b3-form__label">${i18n("subtasks")}</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <button type="button" id="quickViewSubtasksBtn" class="b3-button b3-button--outline" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                                    <svg class="b3-button__icon"><use xlink:href="#iconBulletedList"></use></svg>
-                                    <span id="quickSubtasksCountText">${i18n("viewSubtasks")}</span>
-                                </button>
-                            </div>
-                        </div>
+
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n("estimatedPomodoroDuration")}</label>
-                            <input type="text" id="quickEstimatedPomodoroDuration" class="b3-text-field" placeholder="${i18n("estimatedPomodoroDurationPlaceholder")}" style="width: 100%;">
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 6px; flex: 1 1 150px; min-width: 140px;">
+                                    <input type="number" id="quickEstimatedPomodoroHours" class="b3-text-field" min="0" step="1" placeholder="0" style="width: 100%;">
+                                    <span style="white-space: nowrap; color: var(--b3-theme-on-surface-light);">h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; flex: 1 1 150px; min-width: 140px;">
+                                    <input type="number" id="quickEstimatedPomodoroMinutes" class="b3-text-field" min="0" step="1" placeholder="0" style="width: 100%;">
+                                    <span style="white-space: nowrap; color: var(--b3-theme-on-surface-light);">m</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="b3-form__group" id="quickPomodorosGroup" style="display: none;">
                             <label class="b3-form__label">${i18n("pomodoros")}</label>
@@ -1501,7 +1752,7 @@ export class QuickReminderDialog {
                             <label class="b3-form__label">${i18n("setProject")}</label>
                             <div class="custom-select" id="quickProjectSelectCustom" style="position: relative;">
                                 <div style="position: relative;">
-                                    <input type="text" id="quickProjectSearchInput" class="b3-text-field" placeholder="${i18n("searchProject")}" autocomplete="off" style="width: 100%; padding-right: 30px;  background: var(--b3-select-background);">
+                                    <input type="text" id="quickProjectSearchInput" class="b3-text-field" placeholder="${i18n("searchProject")}" autocomplete="off" style="width: 100%; padding-right: 30px;  background: var(--b3-select-background);" spellcheck="false">
                                     <input type="hidden" id="quickProjectSelector">
                                 </div>
                                 <div id="quickProjectDropdown" class="b3-menu" style="display: none; position: absolute; width: 100%; max-height: 200px; overflow-y: auto; z-index: 10; margin-top: 4px; box-shadow: var(--b3-menu-shadow); background: var(--b3-menu-background); border: 1px solid var(--b3-border-color); border-radius: var(--b3-border-radius);">
@@ -1513,7 +1764,7 @@ export class QuickReminderDialog {
                             <label class="b3-form__label">${i18n("setTaskGroup")}</label>
                             <div class="custom-select" id="quickCustomGroupSelectCustom" style="position: relative;">
                                 <div style="position: relative;">
-                                    <input type="text" id="quickCustomGroupSearchInput" class="b3-text-field" placeholder="${i18n("searchGroup")}" autocomplete="off" style="width: 100%; padding-right: 30px; background: var(--b3-select-background);">
+                                    <input type="text" id="quickCustomGroupSearchInput" class="b3-text-field" placeholder="${i18n("searchGroup")}" autocomplete="off" style="width: 100%; padding-right: 30px; background: var(--b3-select-background);" spellcheck="false">
                                     <input type="hidden" id="quickCustomGroupSelector">
                                 </div>
                                 <div id="quickCustomGroupDropdown" class="b3-menu" style="display: none; position: absolute; width: 100%; max-height: 200px; overflow-y: auto; z-index: 10; margin-top: 4px; box-shadow: var(--b3-menu-shadow); background: var(--b3-menu-background); border: 1px solid var(--b3-border-color); border-radius: var(--b3-border-radius);">
@@ -1525,7 +1776,7 @@ export class QuickReminderDialog {
                             <label class="b3-form__label">${i18n("milestone")}</label>
                             <div class="custom-select" id="quickMilestoneSelectCustom" style="position: relative;">
                                 <div style="position: relative;">
-                                    <input type="text" id="quickMilestoneSearchInput" class="b3-text-field" placeholder="${i18n("searchMilestone")}" autocomplete="off" style="width: 100%; padding-right: 30px; background: var(--b3-select-background);">
+                                    <input type="text" id="quickMilestoneSearchInput" class="b3-text-field" placeholder="${i18n("searchMilestone")}" autocomplete="off" style="width: 100%; padding-right: 30px; background: var(--b3-select-background);" spellcheck="false">
                                     <input type="hidden" id="quickMilestoneSelector">
                                 </div>
                                 <div id="quickMilestoneDropdown" class="b3-menu" style="display: none; position: absolute; width: 100%; max-height: 200px; overflow-y: auto; z-index: 10; margin-top: 4px; box-shadow: var(--b3-menu-shadow); background: var(--b3-menu-background); border: 1px solid var(--b3-border-color); border-radius: var(--b3-border-radius);">
@@ -1587,9 +1838,17 @@ export class QuickReminderDialog {
 
                         
                     </div>
-                    <div class="b3-dialog__action">
-                        <button class="b3-button b3-button--cancel" id="quickCancelBtn">${i18n("cancel")}</button>
-                        <button class="b3-button b3-button--primary" id="quickConfirmBtn">${this.mode === 'edit' ? i18n("save") : i18n("save")}</button>
+                    <div class="b3-dialog__action" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div id="quickSubtasksGroup" style="display: none;">
+                            <button type="button" id="quickViewSubtasksBtn" class="b3-button b3-button--text" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px;">
+                                <svg class="b3-button__icon"><use xlink:href="#iconEye"></use></svg>
+                                <span id="quickSubtasksCountText">${i18n("viewSubtasks")}</span>
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-left: auto;">
+                            <button class="b3-button b3-button--cancel" id="quickCancelBtn">${i18n("cancel")}</button>
+                            <button class="b3-button b3-button--primary" id="quickConfirmBtn">${this.mode === 'edit' ? i18n("save") : i18n("save")}</button>
+                        </div>
                     </div>
                 </div>
             `,
@@ -1623,6 +1882,13 @@ export class QuickReminderDialog {
                 .config((ctx) => {
                     ctx.set(rootCtx, noteContainer);
                     ctx.set(defaultValueCtx, initialNote);
+                    ctx.update(editorViewOptionsCtx, (prev) => ({
+                        ...prev,
+                        attributes: {
+                            ...prev.attributes,
+                            spellcheck: "false",
+                        },
+                    }));
                     ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
                         this.currentNote = markdown;
                     });
@@ -1633,30 +1899,56 @@ export class QuickReminderDialog {
                         new Plugin({
                             props: {
                                 handlePaste: (view, event) => {
+                                    if (event.clipboardData && event.clipboardData.files && event.clipboardData.files.length > 0) {
+                                        const file = event.clipboardData.files[0];
+                                        if (file.type.startsWith('image/')) {
+                                            event.preventDefault();
+                                            this.handleImagePaste(view, file);
+                                            return true;
+                                        }
+                                    }
+
                                     let text = event.clipboardData?.getData('text/plain');
                                     if (text) {
-                                        // 移除首尾多余的换行符（兼容 Windows/Unix），保留空格以维持缩进层级
-                                        text = text.replace(/^[\r\n]+|[\r\n]+$/g, '');
+                                        // 统一换行符并将\r替换为\n，同时移除首尾多余的空行
+                                        text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                                        text = text.replace(/^\n+|\n+$/g, '');
                                         if (!text) return false;
+
+                                        // 关键修复：确保单换行符被视为分段
+                                        // 在 Markdown 中，单个换行符会被解析为软换行，合并到同一段落
+                                        // 我们将其转换为双换行符以强制分段
+                                        if (text.includes('\n')) {
+                                            text = text.replace(/(?<!\n)\n(?!\n)/g, '\n\n');
+                                        }
+
+                                        // 禁用代码块解析：将行首的4个空格替换为2个全角空格
+                                        // 这样可以避免被 Markdown 解析为代码块
+                                        text = text.replace(/^( {4})/gm, '\u3000\u3000');
+
+                                        const { tr, doc } = view.state;
+                                        const isEmpty = doc.childCount === 1 &&
+                                            doc.firstChild?.type.name === 'paragraph' &&
+                                            doc.firstChild.content.size === 0;
 
                                         const parser = ctx.get(parserCtx);
                                         const node = parser(text);
-                                        if (node) {
-                                            const { tr, doc } = view.state;
-                                            // 如果文档当前几乎为空（只有一个空的段落），则替换整个文档内容
-                                            const isEmpty = doc.childCount === 1 &&
-                                                doc.firstChild?.type.name === 'paragraph' &&
-                                                doc.firstChild.content.size === 0;
+                                        if (!node) return false;
 
-                                            // 获取节点内容 fragment
+                                        if (isEmpty) {
                                             const content = node.type.name === 'doc' ? node.content : node;
-
-                                            if (isEmpty) {
-                                                // 彻底替换初始的空段落
-                                                view.dispatch(tr.replaceWith(0, doc.content.size, content).scrollIntoView());
-                                            } else {
-                                                view.dispatch(tr.replaceSelectionWith(node).scrollIntoView());
+                                            // 彻底替换初始的空段落
+                                            view.dispatch(tr.replaceWith(0, doc.content.size, content).scrollIntoView());
+                                            return true;
+                                        } else {
+                                            // 非空文档下，如果不含换行符，证明是行内粘贴，直接 insertText 以避免被切分为新段落
+                                            if (!text.includes('\n')) {
+                                                view.dispatch(tr.insertText(text).scrollIntoView());
+                                                return true;
                                             }
+                                            // 如果有多行，我们也手动处理以确保刚才的换行符转换生效
+                                            const slice = (node as any).slice(0);
+                                            view.dispatch(tr.replaceSelection(slice).scrollIntoView());
                                             return true;
                                         }
                                     }
@@ -1705,6 +1997,52 @@ export class QuickReminderDialog {
                 .use(clipboard)
                 .use(cursor)
                 .use(listener)
+                .use($view(imageSchema.node, () => (node, view, getPos) => {
+                    const dom = document.createElement("img");
+                    if (node.attrs.alt) dom.alt = node.attrs.alt;
+                    if (node.attrs.title) dom.title = node.attrs.title;
+                    dom.style.maxWidth = "100%";
+
+                    const src = node.attrs.src;
+                    if (src && src.startsWith("/data/storage/petal/siyuan-plugin-task-note-management/assets/")) {
+                        import('../api').then(({ getFileBlob }) => {
+                            getFileBlob(src).then(blob => {
+                                if (blob) {
+                                    dom.src = URL.createObjectURL(blob);
+                                } else {
+                                    dom.src = src;
+                                }
+                            });
+                        });
+                    } else {
+                        dom.src = src;
+                    }
+
+                    return {
+                        dom,
+                        update: (updatedNode) => {
+                            if (updatedNode.type.name !== 'image') return false;
+                            const newSrc = updatedNode.attrs.src;
+                            if (newSrc && newSrc.startsWith("/data/storage/petal/siyuan-plugin-task-note-management/assets/")) {
+                                if (updatedNode.attrs.src !== node.attrs.src) {
+                                    import('../api').then(({ getFileBlob }) => {
+                                        getFileBlob(newSrc).then(blob => {
+                                            if (blob) {
+                                                dom.src = URL.createObjectURL(blob);
+                                            }
+                                        });
+                                    });
+                                }
+                            } else {
+                                dom.src = newSrc;
+                            }
+                            if (updatedNode.attrs.alt) dom.alt = updatedNode.attrs.alt;
+                            if (updatedNode.attrs.title) dom.title = updatedNode.attrs.title;
+                            else dom.removeAttribute('title');
+                            return true;
+                        }
+                    };
+                }))
                 .use($view(listItemSchema.node, () => (node, view, getPos) => {
                     const dom = document.createElement("li");
                     const contentDOM = document.createElement("div");
@@ -1859,28 +2197,20 @@ export class QuickReminderDialog {
                 if (this.autoDetectDateTime) {
                     try {
                         const detected = autoDetectDateTimeFromTitle(this.blockContent);
-                        if (detected && detected.date) {
-                            const dateInput = this.dialog.element.querySelector('#quickReminderDate') as HTMLInputElement;
-                            const timeInput = this.dialog.element.querySelector('#quickReminderTime') as HTMLInputElement;
-
-                            // 设置日期
-                            if (dateInput) {
-                                dateInput.value = detected.date;
-                            }
-
-                            // 设置时间（如果有）
-                            if (detected.hasTime && detected.time && timeInput) {
-                                timeInput.value = detected.time;
-                            }
+                        if (detected && (detected.date || detected.endDate)) {
+                            this.applyNaturalLanguageResult(detected);
 
                             // 如果启用了识别后移除日期设置，更新标题
-                            this.plugin.getRemoveDateAfterDetectionEnabled().then((removeEnabled: boolean) => {
-                                if (removeEnabled && detected.cleanTitle !== undefined) {
-                                    titleInput.value = detected.cleanTitle || titleInput.value;
-                                    // 将光标移到开头，显示开头的字
-                                    titleInput.setSelectionRange(0, 0);
-                                    // 自动调整高度
-                                    this.autoResizeTextarea(titleInput);
+                            this.plugin.getRemoveDateAfterDetectionMode().then((mode: 'none' | 'date' | 'all') => {
+                                if (mode !== 'none') {
+                                    const detectedWithMode = autoDetectDateTimeFromTitle(this.blockContent, mode);
+                                    if (detectedWithMode.cleanTitle !== undefined) {
+                                        titleInput.value = detectedWithMode.cleanTitle || titleInput.value;
+                                        // 将光标移到开头，显示开头的字
+                                        titleInput.setSelectionRange(0, 0);
+                                        // 自动调整高度
+                                        this.autoResizeTextarea(titleInput);
+                                    }
                                 }
                             });
                         }
@@ -1905,10 +2235,16 @@ export class QuickReminderDialog {
             // 如果是编辑模式或批量编辑模式，填充现有提醒数据
             if ((this.mode === 'edit' || this.mode === 'batch_edit') && this.reminder) {
                 await this.populateEditForm();
+                // 若为仅日期模式，隐藏所有非日期组件
+                if (this.dateOnly) {
+                    this.applyDateOnlyMode();
+                }
             }
 
-            // 初始化子任务按钮显示（新建模式也显示）
-            await this.updateSubtasksDisplay();
+            // 初始化子任务按钮显示（新建模式也显示；dateOnly 模式跳过，避免重新显示子任务）
+            if (!this.dateOnly) {
+                await this.updateSubtasksDisplay();
+            }
 
             // 自动聚焦标题输入框
             titleInput?.focus();
@@ -2259,6 +2595,7 @@ export class QuickReminderDialog {
             noteInput.placeholder = i18n("note");
             noteInput.style.cssText = 'width: 160px;';
             noteInput.value = item.note || '';
+            noteInput.spellcheck = false;
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
@@ -2361,6 +2698,8 @@ export class QuickReminderDialog {
         const editAllInstancesBtn = this.dialog.element.querySelector('#quickEditAllInstancesBtn') as HTMLButtonElement;
         const viewPomodorosBtn = this.dialog.element.querySelector('#quickViewPomodorosBtn') as HTMLButtonElement;
         const durationInput = this.dialog.element.querySelector('#quickDurationDays') as HTMLInputElement;
+        const estimatedPomodoroHoursInput = this.dialog.element.querySelector('#quickEstimatedPomodoroHours') as HTMLInputElement;
+        const estimatedPomodoroMinutesInput = this.dialog.element.querySelector('#quickEstimatedPomodoroMinutes') as HTMLInputElement;
         const syncBlockTitleBtn = this.dialog.element.querySelector('#quickSyncBlockTitleBtn') as HTMLButtonElement;
         const syncTitleToBlockBtn = this.dialog.element.querySelector('#quickSyncTitleToBlockBtn') as HTMLButtonElement;
         const simpleModeBtn = this.dialog.element.querySelector('#quickSimpleModeBtn') as HTMLButtonElement;
@@ -2511,6 +2850,17 @@ export class QuickReminderDialog {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') setTimeout(normalizeDuration, 0);
         });
 
+        const normalizeEstimatedPomodoroDuration = () => {
+            this.normalizeEstimatedPomodoroDurationInputs();
+        };
+
+        estimatedPomodoroHoursInput?.addEventListener('input', normalizeEstimatedPomodoroDuration);
+        estimatedPomodoroHoursInput?.addEventListener('change', normalizeEstimatedPomodoroDuration);
+        estimatedPomodoroHoursInput?.addEventListener('blur', normalizeEstimatedPomodoroDuration);
+        estimatedPomodoroMinutesInput?.addEventListener('input', normalizeEstimatedPomodoroDuration);
+        estimatedPomodoroMinutesInput?.addEventListener('change', normalizeEstimatedPomodoroDuration);
+        estimatedPomodoroMinutesInput?.addEventListener('blur', normalizeEstimatedPomodoroDuration);
+
         // 当结束日期变化，基于开始日期计算持续天数
         endDateInput?.addEventListener('change', () => {
             if (!endDateInput) return;
@@ -2641,6 +2991,15 @@ export class QuickReminderDialog {
         titleInput?.addEventListener('input', () => {
             if (titleInput) {
                 this.autoResizeTextarea(titleInput);
+            }
+        });
+
+        // 标题输入框回车键禁用换行，改为保存
+        titleInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.isComposing && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.saveReminder();
             }
         });
 
@@ -3329,6 +3688,34 @@ export class QuickReminderDialog {
         if (!customGroupContainer) return;
 
         if (projectId) {
+            // 新建任务时，自动填充项目所属分类
+            if (this.mode !== 'edit' && this.mode !== 'batch_edit') {
+                const project = this.projectManager.getProjectById(projectId);
+                if (project && project.categoryId) {
+                    this.selectedCategoryIds = project.categoryId.split(',')
+                        .map(id => id.trim())
+                        .filter(id => id);
+
+                    const categorySelector = this.dialog.element.querySelector('.category-selector') as HTMLElement;
+                    if (categorySelector) {
+                        const buttons = categorySelector.querySelectorAll('.category-option');
+                        buttons.forEach(btn => {
+                            const id = btn.getAttribute('data-category');
+                            if (this.selectedCategoryIds.length === 0) {
+                                if (!id) btn.classList.add('selected');
+                                else btn.classList.remove('selected');
+                            } else {
+                                if (id && this.selectedCategoryIds.includes(id)) {
+                                    btn.classList.add('selected');
+                                } else {
+                                    btn.classList.remove('selected');
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+
             // 检查项目是否有自定义分组
             try {
                 const { ProjectManager } = await import('../utils/projectManager');
@@ -3750,7 +4137,7 @@ export class QuickReminderDialog {
         const milestoneId = milestoneSelector?.value || undefined;
 
         const customReminderPreset = (this.dialog.element.querySelector('#quickCustomReminderPreset') as HTMLSelectElement)?.value || undefined;
-        const estimatedPomodoroDuration = (this.dialog.element.querySelector('#quickEstimatedPomodoroDuration') as HTMLInputElement)?.value.trim() || undefined;
+        const estimatedPomodoroDuration = this.getEstimatedPomodoroDurationValue();
 
         // 每日可做
         const isAvailableToday = (this.dialog.element.querySelector('#quickIsAvailableToday') as HTMLInputElement)?.checked || false;

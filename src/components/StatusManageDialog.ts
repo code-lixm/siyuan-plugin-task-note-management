@@ -76,6 +76,9 @@ export class StatusManageDialog {
                     max-height: 400px;
                     overflow-y: auto;
                 }
+                .statuses-list.drag-active .status-item:not(.dragging) {
+                    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+                }
                 .status-item {
                     display: flex;
                     align-items: center;
@@ -85,7 +88,6 @@ export class StatusManageDialog {
                     background: var(--b3-theme-surface);
                     border: 1px solid var(--b3-border-color);
                     border-radius: 6px;
-                    cursor: grab;
                     transition: all 0.2s ease;
                     position: relative;
                 }
@@ -95,36 +97,70 @@ export class StatusManageDialog {
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                 }
                 .status-item.dragging {
-                    opacity: 0.6;
-                    cursor: grabbing;
-                    transform: rotate(2deg);
+                    opacity: 0.45;
+                    transform: scale(0.98);
                     z-index: 1000;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
                 }
                 .status-item.drag-over-top {
-                    border-top: 3px solid #3498db;
-                    box-shadow: 0 -2px 0 rgba(52, 152, 219, 0.3);
+                    border-color: var(--b3-theme-primary-lightest);
+                    background: rgba(52, 152, 219, 0.08);
                 }
                 .status-item.drag-over-bottom {
-                    border-bottom: 3px solid #3498db;
-                    box-shadow: 0 2px 0 rgba(52, 152, 219, 0.3);
+                    border-color: var(--b3-theme-primary-lightest);
+                    background: rgba(52, 152, 219, 0.08);
+                }
+                .status-item.drag-over-top::before,
+                .status-item.drag-over-bottom::after {
+                    content: "";
+                    position: absolute;
+                    left: 10px;
+                    right: 10px;
+                    height: 2px;
+                    background: var(--b3-theme-primary);
+                    border-radius: 2px;
+                    box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.25);
+                }
+                .status-item.drag-over-top::before {
+                    top: -2px;
+                }
+                .status-item.drag-over-bottom::after {
+                    bottom: -2px;
                 }
                 .status-drag-handle {
                     cursor: grab;
-                    padding: 4px;
-                    color: #999;
+                    width: 24px;
+                    height: 24px;
+                    flex-shrink: 0;
+                    border: 1px solid var(--b3-border-color);
+                    border-radius: 6px;
+                    background: var(--b3-theme-background);
                     display: flex;
                     align-items: center;
+                    justify-content: center;
                     margin-right: 12px;
-                    transition: color 0.2s ease;
+                    transition: all 0.15s ease;
                 }
                 .status-drag-handle:hover {
-                    color: #3498db;
+                    border-color: var(--b3-theme-primary);
+                    background: rgba(52, 152, 219, 0.1);
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+                }
+                .status-drag-handle:active {
+                    cursor: grabbing;
+                    transform: scale(0.96);
                 }
                 .status-drag-handle::before {
-                    content: "⋮⋮";
-                    font-size: 16px;
-                    line-height: 1;
+                    content: "";
+                    width: 10px;
+                    height: 14px;
+                    opacity: 0.9;
+                    background-image:
+                        radial-gradient(circle, var(--b3-theme-on-background, #7d7d7d) 1.2px, transparent 1.3px),
+                        radial-gradient(circle, var(--b3-theme-on-background, #7d7d7d) 1.2px, transparent 1.3px);
+                    background-size: 4px 4px, 4px 4px;
+                    background-position: 0 0, 6px 0;
+                    background-repeat: repeat-y;
                 }
                 .status-info {
                     display: flex;
@@ -185,10 +221,9 @@ export class StatusManageDialog {
     private createStatusElement(status: Status): HTMLElement {
         const statusEl = document.createElement('div');
         statusEl.className = 'status-item';
-        statusEl.draggable = true;
         statusEl.dataset.statusId = status.id;
         statusEl.innerHTML = `
-            <div class="status-drag-handle" title="拖拽排序"></div>
+            <div class="status-drag-handle" title="${i18n("dragToSort")}" draggable="true"></div>
             <div class="status-info">
                 <div class="status-icon">${status.icon || '📝'}</div>
                 <div class="status-name">${status.name}</div>
@@ -226,10 +261,14 @@ export class StatusManageDialog {
     }
 
     private bindDragEvents(element: HTMLElement, status: Status) {
-        element.addEventListener('dragstart', (e) => {
+        const dragHandle = element.querySelector('.status-drag-handle') as HTMLElement;
+        if (!dragHandle) return;
+
+        dragHandle.addEventListener('dragstart', (e) => {
             this.draggedElement = element;
             this.draggedStatus = status;
             element.classList.add('dragging');
+            this.dialog.element.querySelector('.statuses-list')?.classList.add('drag-active');
 
             if (e.dataTransfer) {
                 e.dataTransfer.effectAllowed = 'move';
@@ -237,15 +276,13 @@ export class StatusManageDialog {
             }
         });
 
-        element.addEventListener('dragend', () => {
+        dragHandle.addEventListener('dragend', () => {
             element.classList.remove('dragging');
             this.draggedElement = null;
             this.draggedStatus = null;
+            this.dialog.element.querySelector('.statuses-list')?.classList.remove('drag-active');
 
-            const allItems = this.dialog.element.querySelectorAll('.status-item');
-            allItems.forEach(item => {
-                item.classList.remove('drag-over-top', 'drag-over-bottom');
-            });
+            this.clearDragOverStates();
         });
 
         element.addEventListener('dragover', (e) => {
@@ -255,7 +292,7 @@ export class StatusManageDialog {
             }
 
             if (this.draggedElement && this.draggedElement !== element) {
-                element.classList.remove('drag-over-top', 'drag-over-bottom');
+                this.clearDragOverStates();
                 const rect = element.getBoundingClientRect();
                 const midPoint = rect.top + rect.height / 2;
                 const mouseY = e.clientY;
@@ -296,6 +333,13 @@ export class StatusManageDialog {
         });
     }
 
+    private clearDragOverStates() {
+        const allItems = this.dialog.element.querySelectorAll('.status-item');
+        allItems.forEach(item => {
+            item.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+    }
+
     private async handleStatusReorder(draggedStatus: Status, targetStatus: Status, insertBefore: boolean = false) {
         try {
             const statuses = await this.statusManager.loadStatuses();
@@ -319,10 +363,10 @@ export class StatusManageDialog {
 
             await this.statusManager.reorderStatuses(reorderedStatuses);
             this.renderStatuses();
-            showMessage("状态排序已更新");
+            showMessage(i18n("sortUpdated"));
         } catch (error) {
             console.error('重新排序状态失败:', error);
-            showMessage("排序更新失败，请重试");
+            showMessage(i18n("sortUpdateFailed"));
         }
     }
 
@@ -480,12 +524,10 @@ export class StatusManageDialog {
             try {
                 // eslint-disable-next-line new-cap
                 this.sharedPicker = new Picker({
-                    i18n: zh_CN,
                     locale: 'zh_CN',
                     dataSource: '/plugins/siyuan-plugin-task-daily/assets/emojis_search.json'
                 });
             } catch (e) {
-                // @ts-ignore - fall back to DOM creation
                 this.sharedPicker = document.createElement('emoji-picker') as any;
                 if (this.sharedPicker) {
                     // Set attributes for DOM-created picker

@@ -1,4 +1,6 @@
-import { showMessage, confirm, Menu, Dialog, Constants } from "siyuan";
+import { colorWithOpacity } from "../utils/uiUtils";
+import { showMessage, confirm, Menu, Dialog, Constants, openEmoji, platformUtils } from "siyuan";
+
 
 import { refreshSql, getBlockByID, updateBindBlockAtrrs, openBlock, addBlockProjectId } from "../api";
 import { i18n } from "../pluginInstance";
@@ -15,7 +17,8 @@ import { BlockBindingDialog } from "./BlockBindingDialog";
 import { getAllReminders, saveReminders } from '../utils/icsSubscription';
 import { PasteTaskDialog } from "./PasteTaskDialog";
 import { ProjectDialog } from "./ProjectDialog";
-
+import { getBackend } from "siyuan";
+import { createPomodoroStartSubmenu } from "@/utils/pomodoroPresets";
 
 export class ProjectKanbanView {
     private container: HTMLElement;
@@ -133,6 +136,7 @@ export class ProjectKanbanView {
     private _statusMilestonesInView: Map<string, Set<string>> = new Map();
 
     private lute: any;
+    private showCompletedSubtasks: boolean = true; // 是否显示已完成的子任务
 
     constructor(container: HTMLElement, plugin: any, projectId: string) {
         this.container = container;
@@ -290,7 +294,12 @@ export class ProjectKanbanView {
                     </div>
                     <div class="b3-form__group">
                         <label class="b3-form__label">${i18n('bindBlockId')} (${i18n('optional')})</label>
-                        <input type="text" id="newGroupBlockId" class="b3-text-field" placeholder="${i18n('pleaseEnterBlockId')}" style="width: 100%;">
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="newGroupBlockId" class="b3-text-field" placeholder="${i18n('pleaseEnterBlockId')}" style="flex: 1;">
+                            <button class="b3-button b3-button--outline" id="editGroupBindBlockBtn" title="${i18n('bindBlock')}">
+                                <svg class="b3-button__icon" style="width: 16px; height: 16px;"><use xlink:href="#iconAdd"></use></svg>
+                            </button>
+                        </div>
                         <div class="b3-label__text" style="margin-top: 4px; color: var(--b3-theme-on-surface-light);">${i18n('bindBlockIdHint')}</div>
                     </div>
                     <div class="b3-form__group">
@@ -314,8 +323,22 @@ export class ProjectKanbanView {
         const colorInput = dialog.element.querySelector('#newGroupColor') as HTMLInputElement;
         const iconInput = dialog.element.querySelector('#newGroupIcon') as HTMLInputElement;
         const blockIdInput = dialog.element.querySelector('#newGroupBlockId') as HTMLInputElement;
+        const bindBlockBtn = dialog.element.querySelector('#editGroupBindBlockBtn') as HTMLButtonElement;
         const cancelBtn = dialog.element.querySelector('#newGroupCancel') as HTMLButtonElement;
         const saveBtn = dialog.element.querySelector('#newGroupSave') as HTMLButtonElement;
+
+        // 绑定块按钮：打开 BlockBindingDialog
+        bindBlockBtn?.addEventListener('click', () => {
+            const blockBindingDialog = new BlockBindingDialog(this.plugin, (blockId: string) => {
+                blockIdInput.value = blockId;
+            }, {
+                defaultTab: 'document',
+                defaultProjectId: this.projectId,
+                defaultTitle: nameInput.value.trim(),
+                forGroup: true
+            });
+            blockBindingDialog.show();
+        });
 
         cancelBtn.addEventListener('click', () => dialog.destroy());
 
@@ -411,6 +434,12 @@ export class ProjectKanbanView {
         try {
             const projectData = await this.plugin.loadProjectData();
             this.project = projectData[this.projectId];
+            // 加载显示已完成子任务设置，默认为true
+            if (this.project && typeof this.project.showCompletedSubtasks === 'boolean') {
+                this.showCompletedSubtasks = this.project.showCompletedSubtasks;
+            } else {
+                this.showCompletedSubtasks = true;
+            }
             if (!this.project) {
                 throw new Error(i18n('projectNotExist'));
             }
@@ -1987,7 +2016,7 @@ export class ProjectKanbanView {
             const markdown = generateMarkdown(sortedRootTasks);
 
             try {
-                await navigator.clipboard.writeText(markdown);
+                await platformUtils.writeText(markdown);
                 showMessage(i18n('copiedToClipboard'));
             } catch (err) {
                 console.error(i18n('copyFailed'), err);
@@ -2038,19 +2067,19 @@ export class ProjectKanbanView {
                 let borderColor = '';
                 switch (priority) {
                     case 'high':
-                        backgroundColor = 'rgba(from var(--b3-card-error-background) r g b / .5)';
+                        backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
                         borderColor = 'var(--b3-card-error-color)';
                         break;
                     case 'medium':
-                        backgroundColor = 'rgba(from var(--b3-card-warning-background) r g b / .5)';
+                        backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
                         borderColor = 'var(--b3-card-warning-color)';
                         break;
                     case 'low':
-                        backgroundColor = 'rgba(from var(--b3-card-info-background) r g b / .7)';
+                        backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
                         borderColor = 'var(--b3-card-info-color)';
                         break;
                     default:
-                        backgroundColor = 'rgba(from var(--b3-theme-background-light) r g b / .1)';
+                        backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
                         borderColor = 'var(--b3-theme-background-light)';
                 }
 
@@ -2175,9 +2204,12 @@ export class ProjectKanbanView {
                 titleEl.textContent = task.title || i18n('noContentHint');
                 titleEl.title = (task.blockId || task.docId) ? i18n('clickToOpenBoundBlock', { title: task.title || i18n('noContentHint') }) : (task.title || i18n('noContentHint'));
 
-                // 子任务数量
-                const children = childMap.get(task.id);
-                if (children && children.length > 0) {
+                // 子任务数量（根据设置过滤已完成的子任务）
+                let children = childMap.get(task.id) || [];
+                if (!this.showCompletedSubtasks) {
+                    children = children.filter((t: any) => !t.completed);
+                }
+                if (children.length > 0) {
                     const subtaskIndicator = document.createElement('span');
                     subtaskIndicator.className = 'subtask-indicator';
                     subtaskIndicator.textContent = ` (${children.length})`;
@@ -2341,6 +2373,24 @@ export class ProjectKanbanView {
                         overflow-y: auto;
                     `;
                     noteEl.innerHTML = this.lute ? this.lute.Md2HTML(task.note) : task.note;
+
+                    // 处理私有图片路径渲染
+                    if (this.lute) {
+                        const imgTags = noteEl.querySelectorAll('img');
+                        imgTags.forEach(img => {
+                            const src = img.getAttribute('src');
+                            if (src && src.startsWith('/data/storage/petal/siyuan-plugin-task-note-management/assets/')) {
+                                import('../api').then(({ getFileBlob }) => {
+                                    getFileBlob(src).then(blob => {
+                                        if (blob) {
+                                            img.src = URL.createObjectURL(blob);
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                    }
+
                     taskContentContainer.appendChild(noteEl);
                 }
 
@@ -2450,6 +2500,27 @@ export class ProjectKanbanView {
         const saveBtn = dialog.element.querySelector('#msSave') as HTMLButtonElement;
         const cancelBtn = dialog.element.querySelector('#msCancel') as HTMLButtonElement;
         const bindBlockBtn = dialog.element.querySelector('#msBindBlockBtn') as HTMLButtonElement;
+
+        // 图标选择事件
+        iconInput.addEventListener('click', (event: MouseEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const rect = iconInput.getBoundingClientRect();
+            openEmoji({
+                hideDynamicIcon: true,
+                hideCustomIcon: true,
+                position: {
+                    x: rect.left,
+                    y: rect.bottom
+                },
+                selectedCB: (emojiCode: string) => {
+                    // 将十六进制字符串转换为 Emoji 字符
+                    // 处理可能包含多个码点的情况（如国旗、肤色修饰符等，格式如 "1f1fa-1f1f8"）
+                    const codePoints = emojiCode.split(/[-\s]+/).map(cp => parseInt(cp, 16));
+                    iconInput.value = String.fromCodePoint(...codePoints);
+                }
+            });
+        });
 
         // 绑定块按钮点击事件
         bindBlockBtn?.addEventListener('click', async () => {
@@ -3431,6 +3502,78 @@ export class ProjectKanbanView {
             this.filterButton.classList.remove('b3-button--outline');
         }
         controlsGroup.appendChild(this.filterButton);
+
+        // 显示设置按钮
+        const displaySettingsContainer = document.createElement('div');
+        displaySettingsContainer.className = 'filter-dropdown-container';
+        displaySettingsContainer.style.position = 'relative';
+        displaySettingsContainer.style.display = 'inline-block';
+
+        const displaySettingsButton = document.createElement('button');
+        displaySettingsButton.className = 'b3-button b3-button--outline';
+        displaySettingsButton.style.padding = '6px';
+        displaySettingsButton.innerHTML = '<svg class="b3-button__icon" style="margin-right: 0;"><use xlink:href="#iconEye"></use></svg>';
+        displaySettingsButton.title = i18n("displaySettings") || "显示设置";
+        displaySettingsContainer.appendChild(displaySettingsButton);
+
+        const displaySettingsDropdown = document.createElement('div');
+        displaySettingsDropdown.className = 'filter-dropdown-menu';
+        displaySettingsDropdown.style.display = 'none';
+        displaySettingsDropdown.style.position = 'absolute';
+        displaySettingsDropdown.style.top = '100%';
+        displaySettingsDropdown.style.right = '0';
+        displaySettingsDropdown.style.zIndex = '1000';
+        displaySettingsDropdown.style.backgroundColor = 'var(--b3-theme-background)';
+        displaySettingsDropdown.style.border = '1px solid var(--b3-border-color)';
+        displaySettingsDropdown.style.borderRadius = '4px';
+        displaySettingsDropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        displaySettingsDropdown.style.minWidth = '220px';
+        displaySettingsDropdown.style.padding = '8px';
+
+        // 创建开关项的辅助函数
+        const createSwitchItem = (label: string, value: boolean, onChange: (checked: boolean) => void) => {
+            const item = document.createElement('div');
+            item.className = 'fn__flex fn__flex-center';
+            item.style.padding = '6px 12px';
+            item.style.gap = '8px';
+            item.innerHTML = `
+                <div class="fn__flex-1">${label}</div>
+                <input class="b3-switch" type="checkbox" ${value ? 'checked' : ''}>
+            `;
+            const checkbox = item.querySelector('input') as HTMLInputElement;
+            checkbox.addEventListener('change', () => onChange(checkbox.checked));
+            return item;
+        };
+
+        // 显示已完成子任务设置
+        displaySettingsDropdown.appendChild(createSwitchItem(i18n("showCompletedSubtasks") || "显示已完成的子任务", this.showCompletedSubtasks, async (checked) => {
+            this.showCompletedSubtasks = checked;
+            // 保存到项目数据
+            const projectData = await this.plugin.loadProjectData() || {};
+            if (projectData[this.projectId]) {
+                projectData[this.projectId].showCompletedSubtasks = checked;
+                await this.plugin.saveProjectData(projectData);
+            }
+            await this.queueLoadTasks();
+        }));
+
+        displaySettingsContainer.appendChild(displaySettingsDropdown);
+        controlsGroup.appendChild(displaySettingsContainer);
+
+        // 点击按钮切换下拉菜单显示
+        displaySettingsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = displaySettingsDropdown.style.display === 'block';
+            displaySettingsDropdown.style.display = isVisible ? 'none' : 'block';
+        });
+
+        // 点击外部关闭下拉菜单
+        document.addEventListener('click', () => {
+            displaySettingsDropdown.style.display = 'none';
+        });
+
+        // 防止下拉菜单内部点击触发全局关闭
+        displaySettingsDropdown.addEventListener('click', (e) => e.stopPropagation());
 
         // 搜索按钮和输入框
         const searchContainer = document.createElement('div');
@@ -5283,13 +5426,37 @@ export class ProjectKanbanView {
                     // 'tomorrow': logical date is tomorrow.
 
                     const logicalDate = this.getTaskLogicalDate(t.date, t.time);
+                    // 获取任务的结束日期（逻辑日期，考虑时间因素）
+                    const logicalEndDate = t.endDate ? this.getTaskLogicalDate(t.endDate, t.endTime) : null;
 
                     if (this.selectedDateFilters.has('today')) {
-                        if (t.date && compareDateStrings(logicalDate, today) === 0) return true;
+                        // 检查今天是否在任务的日期范围内
+                        if (t.date) {
+                            // 有结束日期：检查今天是否在 [开始日期, 结束日期] 范围内
+                            if (logicalEndDate) {
+                                if (compareDateStrings(today, logicalDate) >= 0 && compareDateStrings(today, logicalEndDate) <= 0) {
+                                    return true;
+                                }
+                            } else {
+                                // 无结束日期：只匹配开始日期为今天的任务
+                                if (compareDateStrings(logicalDate, today) === 0) return true;
+                            }
+                        }
                     }
 
                     if (this.selectedDateFilters.has('tomorrow')) {
-                        if (t.date && compareDateStrings(logicalDate, tomorrow) === 0) return true;
+                        // 检查明天是否在任务的日期范围内
+                        if (t.date) {
+                            // 有结束日期：检查明天是否在 [开始日期, 结束日期] 范围内
+                            if (logicalEndDate) {
+                                if (compareDateStrings(tomorrow, logicalDate) >= 0 && compareDateStrings(tomorrow, logicalEndDate) <= 0) {
+                                    return true;
+                                }
+                            } else {
+                                // 无结束日期：只匹配开始日期为明天的任务
+                                if (compareDateStrings(logicalDate, tomorrow) === 0) return true;
+                            }
+                        }
                     }
 
 
@@ -7738,6 +7905,10 @@ export class ProjectKanbanView {
             content.appendChild(taskEl);
 
             let children = childTasks.filter(t => t.parentId === task.id);
+            // 如果不显示已完成的子任务，则过滤掉已完成的子任务
+            if (!this.showCompletedSubtasks) {
+                children = children.filter(t => !t.completed);
+            }
             const isCollapsed = this.collapsedTasks.has(task.id);
 
             if (children.length > 0 && !isCollapsed) {
@@ -8310,6 +8481,10 @@ export class ProjectKanbanView {
             content.appendChild(taskEl);
 
             let children = childTasks.filter(t => t.parentId === task.id);
+            // 如果不显示已完成的子任务，则过滤掉已完成的子任务
+            if (!this.showCompletedSubtasks) {
+                children = children.filter(t => !t.completed);
+            }
             const isCollapsed = this.collapsedTasks.has(task.id);
 
             if (children.length > 0 && !isCollapsed) {
@@ -8575,25 +8750,25 @@ export class ProjectKanbanView {
         let borderColor = '';
         switch (task.priority) {
             case 'high':
-                backgroundColor = 'rgba(from var(--b3-card-error-background) r g b / .5)';
+                backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
                 borderColor = 'var(--b3-card-error-color)';
                 break;
             case 'medium':
-                backgroundColor = 'rgba(from var(--b3-card-warning-background) r g b / .5)';
+                backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
                 borderColor = 'var(--b3-card-warning-color)';
                 break;
             case 'low':
-                backgroundColor = 'rgba(from var(--b3-card-info-background) r g b / .7)';
+                backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
                 borderColor = 'var(--b3-card-info-color)';
                 break;
             default:
-                backgroundColor = 'rgba(from var(--b3-theme-background-light) r g b / .1)';
+                backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
                 borderColor = 'var(--b3-theme-background-light)';
         }
 
         // 设置任务元素的背景色和边框
         taskEl.style.cssText = `
-            cursor: grab;
+            cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
             background-color: ${backgroundColor};
@@ -8871,12 +9046,13 @@ export class ProjectKanbanView {
         titleEl.textContent = task.title || i18n('noContentHint');
         titleEl.title = (task.blockId || task.docId) ? i18n('clickToOpenBoundBlock', { title: task.title || i18n('noContentHint') }) : (task.title || i18n('noContentHint'));
 
-        // 如果有子任务，添加数量指示器
-        if (childTasks.length > 0) {
+        // 如果有子任务，添加数量指示器（根据设置过滤已完成的子任务）
+        const visibleChildTasks = this.showCompletedSubtasks ? childTasks : childTasks.filter(t => !t.completed);
+        if (visibleChildTasks.length > 0) {
             const subtaskIndicator = document.createElement('span');
             subtaskIndicator.className = 'subtask-indicator';
-            subtaskIndicator.textContent = ` (${childTasks.length})`;
-            subtaskIndicator.title = i18n('containsNSubtasks', { count: String(childTasks.length) });
+            subtaskIndicator.textContent = ` (${visibleChildTasks.length})`;
+            subtaskIndicator.title = i18n('containsNSubtasks', { count: String(visibleChildTasks.length) });
             subtaskIndicator.style.cssText = `
                 font-size: 12px;
                 color: var(--b3-theme-on-surface);
@@ -9136,11 +9312,27 @@ export class ProjectKanbanView {
                 const listTags = noteEl.querySelectorAll('ul, ol');
                 listTags.forEach(list => {
                     (list as HTMLElement).style.margin = '0';
-                    (list as HTMLElement).style.paddingLeft = '20px';
+                    (list as HTMLElement).style.paddingLeft = '20px'; // 保持缩进
+                    (list as HTMLElement).style.listStylePosition = 'outside'; // 保持列表符号在外侧
                 });
                 const liTags = noteEl.querySelectorAll('li');
                 liTags.forEach(li => {
-                    (li as HTMLElement).style.margin = '0';
+                    (li as HTMLElement).style.display = 'list-item'; // 强制使用 list-item 显示
+                });
+
+                // 处理私有图片路径渲染
+                const imgTags = noteEl.querySelectorAll('img');
+                imgTags.forEach(img => {
+                    const src = img.getAttribute('src');
+                    if (src && src.startsWith('/data/storage/petal/siyuan-plugin-task-note-management/assets/')) {
+                        import('../api').then(({ getFileBlob }) => {
+                            getFileBlob(src).then(blob => {
+                                if (blob) {
+                                    img.src = URL.createObjectURL(blob);
+                                }
+                            });
+                        });
+                    }
                 });
                 // 处理引用样式
                 const quoteTags = noteEl.querySelectorAll('blockquote');
@@ -9186,6 +9378,23 @@ export class ProjectKanbanView {
                             // 乐观更新 UI
                             task.note = updatedReminder.note;
                             noteEl.innerHTML = this.lute ? this.lute.Md2HTML(task.note) : task.note;
+
+                            // 处理私有图片路径渲染
+                            if (this.lute) {
+                                const imgTags = noteEl.querySelectorAll('img');
+                                imgTags.forEach(img => {
+                                    const src = img.getAttribute('src');
+                                    if (src && src.startsWith('/data/storage/petal/siyuan-plugin-task-note-management/assets/')) {
+                                        import('../api').then(({ getFileBlob }) => {
+                                            getFileBlob(src).then(blob => {
+                                                if (blob) {
+                                                    img.src = URL.createObjectURL(blob);
+                                                }
+                                            });
+                                        });
+                                    }
+                                });
+                            }
 
                             // 触发全局更新事件（这会通知其他视图，比如 ReminderPanel）
                             window.dispatchEvent(new CustomEvent('reminderUpdated', {
@@ -9395,220 +9604,233 @@ export class ProjectKanbanView {
         }
 
         // 所有任务均启用拖拽（订阅任务也支持排序）
-        taskEl.draggable = true;
-        this.addTaskDragEvents(taskEl, task);
-        taskEl.addEventListener('dragover', (e) => {
-            const isExternalDrag = e.dataTransfer?.types.includes('application/x-reminder') || e.dataTransfer?.types.includes('text/plain');
-            if (this.isDragging && this.draggedElement && this.draggedElement !== taskEl) {
-                const targetTask = this.getTaskFromElement(taskEl);
-                if (!targetTask) return;
+        const isAndroid = getBackend().endsWith('android');
+        if (!isAndroid) {
+            taskEl.draggable = true;
+            this.addTaskDragEvents(taskEl, task);
+            taskEl.addEventListener('dragover', (e) => {
+                const isExternalDrag = e.dataTransfer?.types.includes('application/x-reminder') || e.dataTransfer?.types.includes('text/plain');
+                if (this.isDragging && this.draggedElement && this.draggedElement !== taskEl) {
+                    const targetTask = this.getTaskFromElement(taskEl);
+                    if (!targetTask) return;
 
-                const rect = taskEl.getBoundingClientRect();
-                const mouseY = e.clientY;
-                const taskTop = rect.top;
-                const taskBottom = rect.bottom;
-                const taskHeight = rect.height;
+                    const rect = taskEl.getBoundingClientRect();
+                    const mouseY = e.clientY;
+                    const taskTop = rect.top;
+                    const taskBottom = rect.bottom;
+                    const taskHeight = rect.height;
 
-                // 定义区域：上边缘20%和下边缘20%用于排序，中间60%用于父子关系
-                const sortZoneHeight = taskHeight * 0.2;
-                const isInTopSortZone = mouseY <= taskTop + sortZoneHeight;
-                const isInBottomSortZone = mouseY >= taskBottom - sortZoneHeight;
-                const isInParentChildZone = !isInTopSortZone && !isInBottomSortZone;
+                    // 定义区域：上边缘20%和下边缘20%用于排序，中间60%用于父子关系
+                    const sortZoneHeight = taskHeight * 0.2;
+                    const isInTopSortZone = mouseY <= taskTop + sortZoneHeight;
+                    const isInBottomSortZone = mouseY >= taskBottom - sortZoneHeight;
+                    const isInParentChildZone = !isInTopSortZone && !isInBottomSortZone;
 
-                // 排序检查 (支持现有同级排序和新的成为同级排序)
-                const canSort = this.canDropForSort(this.draggedTask, targetTask);
-                const canBecomeSibling = this.canBecomeSiblingOf(this.draggedTask, targetTask);
-                const canSetParentChild = this.canSetAsParentChild(this.draggedTask, targetTask);
+                    // 排序检查 (支持现有同级排序和新的成为同级排序)
+                    const canSort = this.canDropForSort(this.draggedTask, targetTask);
+                    const canBecomeSibling = this.canBecomeSiblingOf(this.draggedTask, targetTask);
+                    const canSetParentChild = this.canSetAsParentChild(this.draggedTask, targetTask);
 
-                // --- [新逻辑] ---
-                // 检查是否允许改变状态、分组或优先级
-                let isStructuralChange = false;
-                const draggedStatus = this.getTaskStatus(this.draggedTask);
-                const draggedGroup = this.draggedTask.customGroupId;
-                const draggedPriority = this.draggedTask.priority || 'none';
+                    // --- [新逻辑] ---
+                    // 检查是否允许改变状态、分组或优先级
+                    let isStructuralChange = false;
+                    const draggedStatus = this.getTaskStatus(this.draggedTask);
+                    const draggedGroup = this.draggedTask.customGroupId;
+                    const draggedPriority = this.draggedTask.priority || 'none';
 
-                const draggedParentId = this.draggedTask.parentId;
+                    const draggedParentId = this.draggedTask.parentId;
 
-                let targetStatus: string | undefined;
-                if (this.kanbanMode === 'custom') {
-                    const targetSubGroup = taskEl.closest('.custom-status-group') as HTMLElement;
-                    targetStatus = targetSubGroup?.dataset.status;
-                } else {
-                    targetStatus = this.getTaskStatus(targetTask);
-                }
-                const targetGroup = targetTask.customGroupId;
-                const targetPriority = targetTask.priority || 'none';
-                const targetParentId = targetTask.parentId;
-
-                if ((targetStatus && targetStatus !== draggedStatus) ||
-                    (targetGroup !== draggedGroup) ||
-                    (targetPriority !== draggedPriority) ||
-                    (targetParentId !== draggedParentId)) {
-                    if (!this.draggedTask.isSubscribed) {
-                        isStructuralChange = true;
-                    }
-                }
-                // --- [新逻辑结束] ---
-
-                if ((isInTopSortZone || isInBottomSortZone)) {
-                    // 排序操作
-                    // 如果可以排序、成为同级 或 改变结构，则允许放置
-                    if (canSort || canBecomeSibling || isStructuralChange) {
-                        e.preventDefault();
-                        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                        const position = isInTopSortZone ? 'top' : 'bottom';
-                        this.updateIndicator('sort', taskEl, position, e);
+                    let targetStatus: string | undefined;
+                    if (this.kanbanMode === 'custom') {
+                        const targetSubGroup = taskEl.closest('.custom-status-group') as HTMLElement;
+                        targetStatus = targetSubGroup?.dataset.status;
                     } else {
+                        targetStatus = this.getTaskStatus(targetTask);
+                    }
+                    const targetGroup = targetTask.customGroupId;
+                    const targetPriority = targetTask.priority || 'none';
+                    const targetParentId = targetTask.parentId;
+
+                    if ((targetStatus && targetStatus !== draggedStatus) ||
+                        (targetGroup !== draggedGroup) ||
+                        (targetPriority !== draggedPriority) ||
+                        (targetParentId !== draggedParentId)) {
+                        if (!this.draggedTask.isSubscribed) {
+                            isStructuralChange = true;
+                        }
+                    }
+                    // --- [新逻辑结束] ---
+
+                    if ((isInTopSortZone || isInBottomSortZone)) {
+                        // 排序操作
+                        // 如果可以排序、成为同级 或 改变结构，则允许放置
+                        if (canSort || canBecomeSibling || isStructuralChange) {
+                            e.preventDefault();
+                            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+                            const position = isInTopSortZone ? 'top' : 'bottom';
+                            this.updateIndicator('sort', taskEl, position, e);
+                        } else {
+                            this.updateIndicator('none', null, null);
+                        }
+                    } else if (isInParentChildZone) {
+                        // 父子任务操作
+                        if (canSetParentChild || isStructuralChange) {
+                            e.preventDefault();
+                            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+                            this.updateIndicator('parentChild', taskEl, 'middle');
+                        } else {
+                            this.updateIndicator('none', null, null);
+                        }
+                    } else {
+                        // 清除所有指示器
                         this.updateIndicator('none', null, null);
                     }
-                } else if (isInParentChildZone) {
-                    // 父子任务操作
-                    if (canSetParentChild || isStructuralChange) {
-                        e.preventDefault();
-                        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                        this.updateIndicator('parentChild', taskEl, 'middle');
-                    } else {
-                        this.updateIndicator('none', null, null);
-                    }
-                } else {
-                    // 清除所有指示器
+                } else if (isExternalDrag) {
+                    // 允许外部拖拽冒泡到列区域
+                    e.preventDefault();
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
                     this.updateIndicator('none', null, null);
                 }
-            } else if (isExternalDrag) {
-                // 允许外部拖拽冒泡到列区域
-                e.preventDefault();
-                if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                this.updateIndicator('none', null, null);
-            }
-        });
+            });
 
-        taskEl.addEventListener('dragleave', (_e) => {
-            // 检查是否真的离开了目标区域
-            if (!taskEl.contains((_e as any).relatedTarget as Node)) {
-                this.updateIndicator('none', null, null);
-            }
-        });
+            taskEl.addEventListener('dragleave', (_e) => {
+                // 检查是否真的离开了目标区域
+                if (!taskEl.contains((_e as any).relatedTarget as Node)) {
+                    this.updateIndicator('none', null, null);
+                }
+            });
 
-        taskEl.addEventListener('drop', (e) => {
-            const multiData = e.dataTransfer?.getData('application/vnd.siyuan.kanban-tasks');
-            if (this.isDragging || multiData || e.dataTransfer?.types.includes('application/x-reminder')) {
-                this.clearDropZoneHighlights();
-            }
-            // Check for batch data first
-            if (multiData) {
-                e.preventDefault();
-                e.stopPropagation();
+            taskEl.addEventListener('drop', (e) => {
+                const multiData = e.dataTransfer?.getData('application/vnd.siyuan.kanban-tasks');
+                if (this.isDragging || multiData || e.dataTransfer?.types.includes('application/x-reminder')) {
+                    this.clearDropZoneHighlights();
+                }
+                // Check for batch data first
+                if (multiData) {
+                    e.preventDefault();
+                    e.stopPropagation();
 
-                try {
-                    const taskIds = JSON.parse(multiData);
-                    if (Array.isArray(taskIds) && taskIds.length > 0) {
-                        const targetTask = this.getTaskFromElement(taskEl);
-                        if (!targetTask || taskIds.includes(targetTask.id)) {
-                            this.updateIndicator('none', null, null);
-                            return;
+                    try {
+                        const taskIds = JSON.parse(multiData);
+                        if (Array.isArray(taskIds) && taskIds.length > 0) {
+                            const targetTask = this.getTaskFromElement(taskEl);
+                            if (!targetTask || taskIds.includes(targetTask.id)) {
+                                this.updateIndicator('none', null, null);
+                                return;
+                            }
+
+                            const rect = taskEl.getBoundingClientRect();
+                            const mouseY = e.clientY;
+                            const taskTop = rect.top;
+                            const taskBottom = rect.bottom;
+                            const taskHeight = rect.height;
+                            const sortZoneHeight = taskHeight * 0.2;
+
+                            const isInTopSortZone = mouseY <= taskTop + sortZoneHeight;
+                            const isInBottomSortZone = mouseY >= taskBottom - sortZoneHeight;
+
+                            if (isInTopSortZone || isInBottomSortZone) {
+                                const insertBefore = isInTopSortZone;
+                                this.handleBatchSortDrop(taskIds, targetTask, insertBefore, e);
+                            }
                         }
+                    } catch (err) { console.error(err); }
 
-                        const rect = taskEl.getBoundingClientRect();
-                        const mouseY = e.clientY;
-                        const taskTop = rect.top;
-                        const taskBottom = rect.bottom;
-                        const taskHeight = rect.height;
-                        const sortZoneHeight = taskHeight * 0.2;
-
-                        const isInTopSortZone = mouseY <= taskTop + sortZoneHeight;
-                        const isInBottomSortZone = mouseY >= taskBottom - sortZoneHeight;
-
-                        if (isInTopSortZone || isInBottomSortZone) {
-                            const insertBefore = isInTopSortZone;
-                            this.handleBatchSortDrop(taskIds, targetTask, insertBefore, e);
-                        }
-                    }
-                } catch (err) { console.error(err); }
-
-                this.updateIndicator('none', null, null);
-                return;
-            }
-
-            if (this.isDragging && this.draggedElement && this.draggedElement !== taskEl) {
-                e.preventDefault();
-                e.stopPropagation(); // 阻止事件冒泡到列的 drop 区域
-
-                const targetTask = this.getTaskFromElement(taskEl);
-                if (!targetTask) {
                     this.updateIndicator('none', null, null);
                     return;
                 }
 
-                const rect = taskEl.getBoundingClientRect();
-                const mouseY = e.clientY;
-                const taskTop = rect.top;
-                const taskBottom = rect.bottom;
-                const taskHeight = rect.height;
+                if (this.isDragging && this.draggedElement && this.draggedElement !== taskEl) {
+                    e.preventDefault();
+                    e.stopPropagation(); // 阻止事件冒泡到列的 drop 区域
 
-                // 定义区域
-                const sortZoneHeight = taskHeight * 0.2;
-                const isInTopSortZone = mouseY <= taskTop + sortZoneHeight;
-                const isInBottomSortZone = mouseY >= taskBottom - sortZoneHeight;
-                const isInParentChildZone = !isInTopSortZone && !isInBottomSortZone;
+                    const targetTask = this.getTaskFromElement(taskEl);
+                    if (!targetTask) {
+                        this.updateIndicator('none', null, null);
+                        return;
+                    }
 
-                const canSort = this.canDropForSort(this.draggedTask, targetTask);
-                const canBecomeSibling = this.canBecomeSiblingOf(this.draggedTask, targetTask);
-                const canSetParentChild = this.canSetAsParentChild(this.draggedTask, targetTask);
+                    const rect = taskEl.getBoundingClientRect();
+                    const mouseY = e.clientY;
+                    const taskTop = rect.top;
+                    const taskBottom = rect.bottom;
+                    const taskHeight = rect.height;
 
-                // --- [新逻辑] ---
-                let isStructuralChange = false;
-                const draggedStatus = this.getTaskStatus(this.draggedTask);
-                const draggedGroup = this.draggedTask.customGroupId;
-                const draggedPriority = this.draggedTask.priority || 'none';
+                    // 定义区域
+                    const sortZoneHeight = taskHeight * 0.2;
+                    const isInTopSortZone = mouseY <= taskTop + sortZoneHeight;
+                    const isInBottomSortZone = mouseY >= taskBottom - sortZoneHeight;
+                    const isInParentChildZone = !isInTopSortZone && !isInBottomSortZone;
 
-                const draggedParentId = this.draggedTask.parentId;
+                    const canSort = this.canDropForSort(this.draggedTask, targetTask);
+                    const canBecomeSibling = this.canBecomeSiblingOf(this.draggedTask, targetTask);
+                    const canSetParentChild = this.canSetAsParentChild(this.draggedTask, targetTask);
 
-                let targetStatus: string | undefined;
-                if (this.kanbanMode === 'custom') {
-                    const targetSubGroup = taskEl.closest('.custom-status-group') as HTMLElement;
-                    targetStatus = targetSubGroup?.dataset.status;
-                } else {
-                    targetStatus = this.getTaskStatus(targetTask);
-                }
-                const targetGroup = targetTask.customGroupId;
-                const targetPriority = targetTask.priority || 'none';
-                const targetParentId = targetTask.parentId;
+                    // --- [新逻辑] ---
+                    let isStructuralChange = false;
+                    const draggedStatus = this.getTaskStatus(this.draggedTask);
+                    const draggedGroup = this.draggedTask.customGroupId;
+                    const draggedPriority = this.draggedTask.priority || 'none';
 
-                if ((targetStatus && targetStatus !== draggedStatus) ||
-                    (targetGroup !== draggedGroup) ||
-                    (targetPriority !== draggedPriority) ||
-                    (targetParentId !== draggedParentId)) {
-                    if (!this.draggedTask.isSubscribed) {
-                        isStructuralChange = true;
+                    const draggedParentId = this.draggedTask.parentId;
+
+                    let targetStatus: string | undefined;
+                    if (this.kanbanMode === 'custom') {
+                        const targetSubGroup = taskEl.closest('.custom-status-group') as HTMLElement;
+                        targetStatus = targetSubGroup?.dataset.status;
+                    } else {
+                        targetStatus = this.getTaskStatus(targetTask);
+                    }
+                    const targetGroup = targetTask.customGroupId;
+                    const targetPriority = targetTask.priority || 'none';
+                    const targetParentId = targetTask.parentId;
+
+                    if ((targetStatus && targetStatus !== draggedStatus) ||
+                        (targetGroup !== draggedGroup) ||
+                        (targetPriority !== draggedPriority) ||
+                        (targetParentId !== draggedParentId)) {
+                        if (!this.draggedTask.isSubscribed) {
+                            isStructuralChange = true;
+                        }
+                    }
+                    // --- [新逻辑结束] ---
+
+                    if ((isInTopSortZone || isInBottomSortZone)) {
+                        if (canSort || isStructuralChange) {
+                            // 执行排序
+                            this.handleSortDrop(targetTask, e);
+                        } else if (canBecomeSibling) {
+                            // 执行成为兄弟任务并排序的操作
+                            this.handleBecomeSiblingDrop(this.draggedTask, targetTask, e);
+                        }
+                    } else if (isInParentChildZone) {
+                        if (canSetParentChild) {
+                            // 执行父子任务设置
+                            this.handleParentChildDrop(targetTask);
+                        } else if (canSort || isStructuralChange) {
+                            // [Fallback] Cannot become child, but can sort (e.g. move across groups/status)
+                            this.handleSortDrop(targetTask, e);
+                        }
                     }
                 }
-                // --- [新逻辑结束] ---
+                this.updateIndicator('none', null, null);
+            });
+        }
 
-                if ((isInTopSortZone || isInBottomSortZone)) {
-                    if (canSort || isStructuralChange) {
-                        // 执行排序
-                        this.handleSortDrop(targetTask, e);
-                    } else if (canBecomeSibling) {
-                        // 执行成为兄弟任务并排序的操作
-                        this.handleBecomeSiblingDrop(this.draggedTask, targetTask, e);
-                    }
-                } else if (isInParentChildZone) {
-                    if (canSetParentChild) {
-                        // 执行父子任务设置
-                        this.handleParentChildDrop(targetTask);
-                    } else if (canSort || isStructuralChange) {
-                        // [Fallback] Cannot become child, but can sort (e.g. move across groups/status)
-                        this.handleSortDrop(targetTask, e);
-                    }
-                }
-            }
-            this.updateIndicator('none', null, null);
-        });
 
         // 添加右键菜单
         taskEl.addEventListener('contextmenu', async (e) => {
             e.preventDefault();
             e.stopPropagation();
+            // 多选模式下显示批量操作菜单
+            if (this.isMultiSelectMode) {
+                // 若右键的任务未被选中，先将其加入选择
+                if (!this.selectedTaskIds.has(task.id)) {
+                    this.toggleTaskSelection(task.id, true);
+                }
+                await this.showBatchContextMenu(e);
+                return;
+            }
             if (task.isSubscribed) {
                 this.showSubscribedTaskContextMenu(e, task);
                 return;
@@ -10032,7 +10254,7 @@ export class ProjectKanbanView {
         menu.addItem({
             iconHTML: "🍅",
             label: i18n("startPomodoro") || "开始番茄钟",
-            click: () => this.startPomodoro(task)
+            submenu: this.createPomodoroStartSubmenu(task)
         });
         menu.addItem({
             iconHTML: "⏱️",
@@ -10043,6 +10265,94 @@ export class ProjectKanbanView {
         menu.open({
             x: event.clientX,
             y: event.clientY,
+        });
+    }
+
+    /**
+     * 多选模式下的右键菜单：显示批量操作
+     */
+    private async showBatchContextMenu(event: MouseEvent): Promise<void> {
+        const menu = new Menu("kanbanBatchContextMenu");
+        // 设置已完成
+        menu.addItem({
+            iconHTML: "✅",
+            label: i18n('setCompleted') || '设置已完成',
+            click: () => this.batchSetCompleted()
+        });
+
+        // 设置日期
+        menu.addItem({
+            iconHTML: "🗓",
+            label: i18n('setDate') || '设置日期',
+            click: () => this.batchSetDate()
+        });
+
+        // 设置状态
+        menu.addItem({
+            iconHTML: "🔀",
+            label: i18n('setStatus') || '设置状态',
+            click: () => this.batchSetStatus()
+        });
+
+        // 设置分组（仅在项目有自定义分组时显示）
+        try {
+            const hasActiveGroups = this.project?.customGroups?.some((g: any) => !g.archived);
+            if (hasActiveGroups) {
+                menu.addItem({
+                    iconHTML: "📂",
+                    label: i18n('setGroup'),
+                    click: () => this.batchSetGroup()
+                });
+            }
+        } catch (e) { /* ignore */ }
+
+        // 设置里程碑（工具栏中按钮由 updateBatchToolbar 控制，此处始终尝试展示）
+        try {
+            const projectData = await this.plugin.loadProjectData() || {};
+            const project = projectData[this.projectId];
+            const projectGroups = await this.projectManager.getProjectCustomGroups(this.projectId);
+            // 判断是否存在可用里程碑
+            const hasMilestones = (project?.milestones || []).some((m: any) => !m.archived)
+                || projectGroups.some((g: any) => (g.milestones || []).some((m: any) => !m.archived));
+            if (hasMilestones) {
+                menu.addItem({
+                    iconHTML: "🚩",
+                    label: i18n('setMilestone') || '设置里程碑',
+                    click: () => this.batchSetMilestone()
+                });
+            }
+        } catch (e) { /* ignore */ }
+
+        // 设置标签（仅在项目有标签时显示）
+        try {
+            if (this.project?.tags && this.project.tags.length > 0) {
+                menu.addItem({
+                    iconHTML: "🏷️",
+                    label: i18n('setTags') || '设置标签',
+                    click: () => this.batchSetTags()
+                });
+            }
+        } catch (e) { /* ignore */ }
+
+        // 设置优先级
+        menu.addItem({
+            iconHTML: "🎯",
+            label: i18n('setPriority') || '设置优先级',
+            click: () => this.batchSetPriority()
+        });
+
+        menu.addSeparator();
+
+        // 删除
+        menu.addItem({
+            iconHTML: "🗑️",
+            label: i18n('delete') || '删除',
+            click: () => this.batchDelete()
+        });
+
+        menu.open({
+            x: event.clientX,
+            y: event.clientY
         });
     }
 
@@ -10089,7 +10399,23 @@ export class ProjectKanbanView {
                 menu.addItem({
                     iconHTML: "🔗",
                     label: i18n('bindToBlock'),
-                    click: () => this.showBindToBlockDialog(task)
+                    submenu: [
+                        {
+                            iconHTML: "🔗",
+                            label: i18n('bindToBlock'),
+                            click: () => this.showBindToBlockDialog(task, 'bind')
+                        },
+                        {
+                            iconHTML: "📑",
+                            label: i18n('newHeading'),
+                            click: () => this.showBindToBlockDialog(task, 'heading')
+                        },
+                        {
+                            iconHTML: "📄",
+                            label: i18n('newDocument'),
+                            click: () => this.showBindToBlockDialog(task, 'document')
+                        }
+                    ]
                 });
             }
         }
@@ -10122,24 +10448,13 @@ export class ProjectKanbanView {
             menu.addItem({
                 iconHTML: "📋",
                 label: i18n('copySubtasksAsList'),
-                click: () => {
+                click: async () => {
                     const childLines = this.buildMarkdownListFromChildren(task.id);
                     if (childLines && childLines.length > 0) {
                         const text = childLines.join('\n');
                         // 复制到剪贴板
-                        try {
-                            navigator.clipboard.writeText(text);
-                            showMessage(i18n('copiedSubtasksList'));
-                        } catch (err) {
-                            // 备用：使用临时 textarea
-                            const ta = document.createElement('textarea');
-                            ta.value = text;
-                            document.body.appendChild(ta);
-                            ta.select();
-                            document.execCommand('copy');
-                            document.body.removeChild(ta);
-                            showMessage(i18n('copiedSubtasksList'));
-                        }
+                        await platformUtils.writeText(text);
+                        showMessage(i18n('copiedSubtasksList'));
                     } else {
                         showMessage(i18n('noSubtasksToCopy'));
                     }
@@ -10234,6 +10549,34 @@ export class ProjectKanbanView {
             items.push({ iconHTML: "📅", label: i18n("moveToDayAfterTomorrow") || "移至后天", click: () => apply(dayAfterStr) });
             items.push({ iconHTML: "📅", label: i18n("moveToNextWeek") || "移至下周", click: () => apply(nextWeekStr) });
             items.push({ iconHTML: "❌", label: i18n('clearDate') || '清除日期', click: () => apply(null) });
+            items.push({
+                iconHTML: "✏️", label: i18n("editDate") || "编辑日期", click: () => {
+                    const isInstanceEdit = targetTask.isRepeatInstance && onlyThisInstance;
+                    const originalInstanceDate = (targetTask.isRepeatInstance && targetTask.id && targetTask.id.includes('_'))
+                        ? targetTask.id.split('_').pop()
+                        : targetTask.date;
+                    const dlg = new QuickReminderDialog(
+                        undefined, undefined, undefined, undefined,
+                        {
+                            mode: 'edit',
+                            reminder: isInstanceEdit ? {
+                                ...targetTask,
+                                isInstance: true,
+                                originalId: targetTask.originalId,
+                                instanceDate: originalInstanceDate
+                            } : targetTask,
+                            isInstanceEdit: isInstanceEdit,
+                            plugin: this.plugin,
+                            dateOnly: true,
+                            onSaved: async () => {
+                                this.dispatchReminderUpdate(true);
+                                await this.queueLoadTasks();
+                            }
+                        }
+                    );
+                    dlg.show();
+                }
+            });
             return items;
         };
 
@@ -10447,7 +10790,7 @@ export class ProjectKanbanView {
         menu.addItem({
             iconHTML: "🍅",
             label: i18n('startPomodoro'),
-            click: () => this.startPomodoro(task)
+            submenu: this.createPomodoroStartSubmenu(task)
         });
 
         menu.addItem({
@@ -11633,31 +11976,44 @@ export class ProjectKanbanView {
                     if (taskIndex >= 0) {
                         // 保留原有的 status、pomodoroCount、focusTime 等衍生字段
                         const oldTask = this.tasks[taskIndex];
-                        this.tasks[taskIndex] = {
-                            ...savedTask,
-                            status: oldTask.status || this.getTaskStatus(savedTask),
-                            pomodoroCount: oldTask.pomodoroCount || 0,
-                            focusTime: oldTask.focusTime || 0,
-                            totalRepeatingPomodoroCount: oldTask.totalRepeatingPomodoroCount || 0,
-                            totalRepeatingFocusTime: oldTask.totalRepeatingFocusTime || 0
-                        };
+                        if (savedTask.projectId !== this.projectId) {
+                            this.tasks.splice(taskIndex, 1);
+                        } else {
+                            this.tasks[taskIndex] = {
+                                ...savedTask,
+                                status: oldTask.status || this.getTaskStatus(savedTask),
+                                pomodoroCount: oldTask.pomodoroCount || 0,
+                                focusTime: oldTask.focusTime || 0,
+                                totalRepeatingPomodoroCount: oldTask.totalRepeatingPomodoroCount || 0,
+                                totalRepeatingFocusTime: oldTask.totalRepeatingFocusTime || 0
+                            };
+                        }
                     } else {
                         // 理论上编辑任务不应该走到这里，但以防万一
-                        this.tasks.push({
-                            ...savedTask,
-                            status: this.getTaskStatus(savedTask),
-                            pomodoroCount: 0,
-                            focusTime: 0
-                        });
+                        if (savedTask.projectId === this.projectId) {
+                            this.tasks.push({
+                                ...savedTask,
+                                status: this.getTaskStatus(savedTask),
+                                pomodoroCount: 0,
+                                focusTime: 0
+                            });
+                        }
+                    }
+
+                    if (this.reminderData) {
+                        if (savedTask.projectId === this.projectId) {
+                            this.reminderData[savedTask.id] = {
+                                ...(this.reminderData[savedTask.id] || {}),
+                                ...savedTask
+                            };
+                        } else {
+                            delete this.reminderData[savedTask.id];
+                        }
                     }
 
                     // 2. 立即重新排序和渲染（无延迟）
                     this.sortTasks();
                     this.renderKanban();
-
-                    // 3. 清除缓存，触发后台防抖刷新以确保数据一致性
-                    this.reminderData = null;
-                    this.queueLoadTasks();
                 }
 
                 this.dispatchReminderUpdate(true);
@@ -11833,7 +12189,15 @@ export class ProjectKanbanView {
         );
     }
 
-    private startPomodoro(task: any) {
+    private createPomodoroStartSubmenu(task: any): any[] {
+        return createPomodoroStartSubmenu({
+            source: task,
+            plugin: this.plugin,
+            startPomodoro: (workDurationOverride?: number) => this.startPomodoro(task, workDurationOverride)
+        });
+    }
+
+    private startPomodoro(task: any, workDurationOverride?: number) {
         if (!this.plugin) {
             showMessage(i18n('pomodoroUnavailable'));
             return;
@@ -11862,7 +12226,7 @@ export class ProjectKanbanView {
                 i18n('switchPomodoroTask'),
                 confirmMessage,
                 () => {
-                    this.performStartPomodoro(task, currentState);
+                    this.performStartPomodoro(task, currentState, workDurationOverride);
                 },
                 () => {
                     if (currentState.isRunning && !currentState.isPaused) {
@@ -11875,7 +12239,7 @@ export class ProjectKanbanView {
                 }
             );
         } else {
-            this.performStartPomodoro(task);
+            this.performStartPomodoro(task, undefined, workDurationOverride);
         }
     }
 
@@ -11925,8 +12289,11 @@ export class ProjectKanbanView {
         }
     }
 
-    private async performStartPomodoro(task: any, inheritState?: any) {
+    private async performStartPomodoro(task: any, inheritState?: any, workDurationOverride?: number) {
         const settings = await this.plugin.getPomodoroSettings();
+        const runtimeSettings = workDurationOverride && workDurationOverride > 0
+            ? { ...settings, workDuration: workDurationOverride }
+            : settings;
 
         // 检查是否已有独立窗口存在
         const hasStandaloneWindow = this.plugin && this.plugin.pomodoroWindowId;
@@ -11943,7 +12310,7 @@ export class ProjectKanbanView {
             };
 
             if (typeof this.plugin.openPomodoroWindow === 'function') {
-                await this.plugin.openPomodoroWindow(reminder, settings, false, inheritState);
+                await this.plugin.openPomodoroWindow(reminder, runtimeSettings, false, inheritState);
 
                 // 如果继承了状态且原来正在运行，显示继承信息
                 if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
@@ -11965,7 +12332,7 @@ export class ProjectKanbanView {
                 originalId: task.id
             };
 
-            const pomodoroTimer = new PomodoroTimer(reminder, settings, false, inheritState, this.plugin);
+            const pomodoroTimer = new PomodoroTimer(reminder, runtimeSettings, false, inheritState, this.plugin);
             this.pomodoroManager.setCurrentPomodoroTimer(pomodoroTimer);
             pomodoroTimer.show();
 
@@ -12232,7 +12599,6 @@ export class ProjectKanbanView {
                 border-radius: 6px;
                 padding: 12px;
                 margin-bottom: 8px;
-                cursor: grab;
                 transition: all 0.2s ease;
                 position: relative;
             }
@@ -12548,7 +12914,7 @@ export class ProjectKanbanView {
            .kanban-task-checkbox {
                 -webkit-appearance: none;
                 appearance: none;
-                background-color: background-color: rgba(from var(--b3-theme-background-light) r g b / .1);
+                background-color: ${colorWithOpacity('var(--b3-theme-background-light)', 0.1)};
                 margin: 0;
                 margin-top: 5px; /* 微调对齐 */
                 font: inherit;
@@ -13012,19 +13378,19 @@ export class ProjectKanbanView {
             let borderColor = '';
             switch (priority) {
                 case 'high':
-                    backgroundColor = 'rgba(from var(--b3-card-error-background) r g b / .5)';
+                    backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
                     borderColor = 'var(--b3-card-error-color)';
                     break;
                 case 'medium':
-                    backgroundColor = 'rgba(from var(--b3-card-warning-background) r g b / .5)';
+                    backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
                     borderColor = 'var(--b3-card-warning-color)';
                     break;
                 case 'low':
-                    backgroundColor = 'rgba(from var(--b3-card-info-background) r g b / .7)';
+                    backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
                     borderColor = 'var(--b3-card-info-color)';
                     break;
                 default:
-                    backgroundColor = 'rgba(from var(--b3-theme-background-light) r g b / .1)';
+                    backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
                     borderColor = 'var(--b3-theme-background-light)';
             }
             taskEl.style.backgroundColor = backgroundColor;
@@ -13116,7 +13482,7 @@ export class ProjectKanbanView {
             const title = task.title || "未命名任务";
             const blockRef = `((${blockId} "${title}"))`;
 
-            await navigator.clipboard.writeText(blockRef);
+            await platformUtils.writeText(blockRef);
             showMessage("块引用已复制到剪贴板");
         } catch (error) {
             console.error('复制块引用失败:', error);
@@ -13125,7 +13491,7 @@ export class ProjectKanbanView {
     }
 
     // 显示绑定到块的对话框（支持绑定现有块或创建新文档并绑定）
-    private showBindToBlockDialog(reminder: any) {
+    private showBindToBlockDialog(reminder: any, defaultTab: 'bind' | 'document' | 'heading' = 'heading') {
         const blockBindingDialog = new BlockBindingDialog(this.plugin, async (blockId: string) => {
             try {
                 await this.bindReminderToBlock(reminder, blockId);
@@ -13136,7 +13502,7 @@ export class ProjectKanbanView {
                 showMessage(i18n("bindToBlockFailed"));
             }
         }, {
-            defaultTab: 'heading',
+            defaultTab: defaultTab,
             defaultParentId: reminder.parentId,
             defaultProjectId: this.projectId, // 使用当前项目ID
             defaultCustomGroupId: reminder.customGroupId,
@@ -13818,6 +14184,8 @@ export class ProjectKanbanView {
                 }
             });
 
+            // 依然要重新刷新DOM，避免乐观更新错误
+            await this.queueLoadTasks();
             this.dispatchReminderUpdate(true);
 
         } catch (error) {
@@ -14198,6 +14566,53 @@ export class ProjectKanbanView {
                 throw new Error("Task not found in data");
             }
 
+            // --- Subtask check logic moved early to prevent state changes ---
+            const isSubtaskReorder = draggedTaskInDb.parentId && targetTaskInDb.parentId &&
+                draggedTaskInDb.parentId === targetTaskInDb.parentId;
+
+            if (isSubtaskReorder) {
+                const parentId = draggedTaskInDb.parentId;
+                const siblingTasks = Object.values(reminderData)
+                    .filter((r: any) => r && r.parentId === parentId && r.id !== draggedId)
+                    .sort((a: any, b: any) => (a.sort || 0) - (b.sort || 0));
+
+                const targetIndex = siblingTasks.findIndex((t: any) => t.id === targetId);
+                const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+
+                const oldPriority = draggedTaskInDb.priority || 'none';
+                const targetPriority = targetTaskInDb.priority || 'none';
+                if (oldPriority !== targetPriority) {
+                    draggedTaskInDb.priority = targetPriority;
+                }
+
+                siblingTasks.splice(insertIndex, 0, draggedTaskInDb);
+                siblingTasks.forEach((task: any, index: number) => {
+                    reminderData[task.id].sort = index * 10;
+                });
+                await saveReminders(this.plugin, reminderData);
+                siblingTasks.forEach((task: any) => {
+                    const localTask = this.tasks.find(t => t.id === task.id);
+                    if (localTask) {
+                        localTask.sort = task.sort;
+                        localTask.priority = task.priority;
+                    }
+                });
+                const oldStatus = this.getTaskStatus(draggedTaskInDb);
+                const newStatus = this.getTaskStatus(targetTaskInDb);
+                const oldGroup = (draggedTaskInDb.customGroupId === undefined) ? null : draggedTaskInDb.customGroupId;
+                const newGroup = (targetTaskInDb.customGroupId === undefined) ? null : targetTaskInDb.customGroupId;
+
+                // 仅在属于相同列/分组时执行乐观 DOM 排序，避免跨列拖拽时出现瞬间的状态错误（视觉重排）
+                if (oldStatus === newStatus && oldGroup === newGroup) {
+                    this.reorderTasksDOM(draggedId, targetId, insertBefore);
+                }
+
+                // 依然要重新刷新DOM，避免乐观更新错误
+                await this.queueLoadTasks();
+                this.dispatchReminderUpdate(true);
+                return true;
+            }
+
             const oldStatus = this.getTaskStatus(draggedTaskInDb);
             const newStatus = this.getTaskStatus(targetTaskInDb);
 
@@ -14425,9 +14840,10 @@ export class ProjectKanbanView {
                 // Refresh the dragged task's visual appearance to reflect changes in priority/status
                 if (domUpdated) {
                     this.refreshTaskElement(draggedId);
-                } else {
-                    await this.queueLoadTasks();
                 }
+
+                // 依然要重新刷新DOM，避免乐观更新错误
+                await this.queueLoadTasks();
 
                 this.dispatchReminderUpdate(true);
                 return true;
@@ -14444,35 +14860,6 @@ export class ProjectKanbanView {
                 } else {
                     reminderData[draggedId].customGroupId = targetGroup;
                 }
-            }
-
-            // ... (subtask check logic unchanged) ...
-            const isSubtaskReorder = draggedTaskInDb.parentId && targetTaskInDb.parentId &&
-                draggedTaskInDb.parentId === targetTaskInDb.parentId;
-
-            if (isSubtaskReorder) {
-                // ... (subtask existing logic) ...
-                const parentId = draggedTaskInDb.parentId;
-                const siblingTasks = Object.values(reminderData)
-                    .filter((r: any) => r && r.parentId === parentId && r.id !== draggedId)
-                    .sort((a: any, b: any) => (a.sort || 0) - (b.sort || 0));
-
-                const targetIndex = siblingTasks.findIndex((t: any) => t.id === targetId);
-                const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
-
-                siblingTasks.splice(insertIndex, 0, draggedTaskInDb);
-                siblingTasks.forEach((task: any, index: number) => {
-                    reminderData[task.id].sort = index * 10;
-                });
-                await saveReminders(this.plugin, reminderData);
-                siblingTasks.forEach((task: any) => {
-                    const localTask = this.tasks.find(t => t.id === task.id);
-                    if (localTask) localTask.sort = task.sort;
-                });
-                const domUpdated = this.reorderTasksDOM(draggedId, targetId, insertBefore);
-                if (!domUpdated) await this.queueLoadTasks();
-                this.dispatchReminderUpdate(true);
-                return true;
             }
 
             // ... (top level logic) ...
@@ -14621,14 +15008,14 @@ export class ProjectKanbanView {
                 }
             } catch (err) { console.warn('Update local descendants (fallback) failed', err); }
 
-            // 尝试直接更新DOM,失败时才重新加载
+            // 尝试直接更新DOM(乐观更新)，随后重新加载以避免状态错误
             const domUpdated = this.reorderTasksDOM(draggedId, targetId, insertBefore);
             if (domUpdated) {
                 // Refresh the dragged task's visual appearance
                 this.refreshTaskElement(draggedId);
-            } else {
-                await this.queueLoadTasks();
             }
+            // 依然要重新刷新DOM，避免乐观更新错误
+            await this.queueLoadTasks();
 
             this.dispatchReminderUpdate(true);
 
@@ -15415,19 +15802,19 @@ export class ProjectKanbanView {
             let borderColor = '';
             switch (task.priority) {
                 case 'high':
-                    backgroundColor = 'rgba(from var(--b3-card-error-background) r g b / .5)';
+                    backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
                     borderColor = 'var(--b3-card-error-color)';
                     break;
                 case 'medium':
-                    backgroundColor = 'rgba(from var(--b3-card-warning-background) r g b / .5)';
+                    backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
                     borderColor = 'var(--b3-card-warning-color)';
                     break;
                 case 'low':
-                    backgroundColor = 'rgba(from var(--b3-card-info-background) r g b / .7)';
+                    backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
                     borderColor = 'var(--b3-card-info-color)';
                     break;
                 default:
-                    backgroundColor = 'rgba(from var(--b3-theme-background-light) r g b / .1)';
+                    backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
                     borderColor = 'var(--b3-theme-background-light)';
             }
             taskEl.style.backgroundColor = backgroundColor;
@@ -15687,6 +16074,8 @@ export class ProjectKanbanView {
             if (proceeded) {
                 this.batchReorderTasksDOM(taskIds, targetTask.id, insertBefore);
             }
+            // 依然要重新刷新DOM，避免乐观更新错误
+            await this.queueLoadTasks();
         } catch (error) {
             console.error('批量排序失败:', error);
             showMessage(i18n("sortUpdateFailed") || "排序更新失败");
@@ -16132,8 +16521,8 @@ export class ProjectKanbanView {
             align-items: center;
             gap: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            width: 55%;
+            z-index: 10;
+            width: auto;
         `;
 
         // 选择计数
@@ -16156,103 +16545,6 @@ export class ProjectKanbanView {
         `;
         this.batchToolbar.appendChild(divider);
 
-        // 按钮组
-        const buttonsGroup = document.createElement('div');
-        buttonsGroup.style.cssText = `
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        `;
-        // 设置已完成按钮
-        const setCompletedBtn = document.createElement('button');
-        setCompletedBtn.className = 'b3-button b3-button--outline b3-button--small';
-        setCompletedBtn.innerHTML = `✅ ${i18n('setCompleted') || '设置已完成'}`;
-        setCompletedBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.batchSetCompleted();
-        });
-        buttonsGroup.appendChild(setCompletedBtn);
-        // 设置日期按钮
-        const setDateBtn = document.createElement('button');
-        setDateBtn.className = 'b3-button b3-button--outline b3-button--small';
-        setDateBtn.innerHTML = `🗓 ${i18n('setDate') || '设置日期'}`;
-        setDateBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.batchSetDate();
-        });
-        buttonsGroup.appendChild(setDateBtn);
-
-        // 设置状态按钮
-        const setStatusBtn = document.createElement('button');
-        setStatusBtn.className = 'b3-button b3-button--outline b3-button--small';
-        setStatusBtn.innerHTML = `🔀 ${i18n('setStatus') || '设置状态'}`;
-        setStatusBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.batchSetStatus();
-        });
-        buttonsGroup.appendChild(setStatusBtn);
-
-
-        // 设置分组按钮（只显示有未归档分组时）
-        const hasActiveGroups = this.project?.customGroups?.some((g: any) => !g.archived);
-        if (hasActiveGroups) {
-            const setGroupBtn = document.createElement('button');
-            setGroupBtn.className = 'b3-button b3-button--outline b3-button--small';
-            setGroupBtn.innerHTML = `📂 ${i18n('setGroup')}`;
-            setGroupBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.batchSetGroup();
-            });
-            buttonsGroup.appendChild(setGroupBtn);
-        }
-
-        // 设置里程碑按钮 (默认隐藏，由 updateBatchToolbar 控制显示)
-        const setMilestoneBtn = document.createElement('button');
-        setMilestoneBtn.id = 'batchSetMilestoneBtn';
-        setMilestoneBtn.className = 'b3-button b3-button--outline b3-button--small';
-        setMilestoneBtn.style.display = 'none';
-        setMilestoneBtn.innerHTML = `🚩 ${i18n('setMilestone') || '设置里程碑'}`;
-        setMilestoneBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.batchSetMilestone();
-        });
-        buttonsGroup.appendChild(setMilestoneBtn);
-
-        // 设置标签按钮
-        if (this.project?.tags && this.project.tags.length > 0) {
-            const setTagsBtn = document.createElement('button');
-            setTagsBtn.className = 'b3-button b3-button--outline b3-button--small';
-            setTagsBtn.innerHTML = `🏷️ ${i18n('setTags') || '设置标签'}`;
-            setTagsBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.batchSetTags();
-            });
-            buttonsGroup.appendChild(setTagsBtn);
-        }
-
-        // 设置优先级按钮
-        const setPriorityBtn = document.createElement('button');
-        setPriorityBtn.className = 'b3-button b3-button--outline b3-button--small';
-        setPriorityBtn.innerHTML = `🎯 ${i18n('setPriority') || '设置优先级'}`;
-        setPriorityBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.batchSetPriority();
-        });
-        buttonsGroup.appendChild(setPriorityBtn);
-
-        // 删除按钮
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'b3-button b3-button--outline b3-button--small';
-        deleteBtn.style.color = 'var(--b3-card-error-color)';
-        deleteBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconTrashcan"></use></svg> ${i18n('delete') || '删除'}`;
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            this.batchDelete();
-        });
-        buttonsGroup.appendChild(deleteBtn);
-
-        this.batchToolbar.appendChild(buttonsGroup);
 
         // 右侧：全选和取消按钮
         const rightGroup = document.createElement('div');
@@ -16359,19 +16651,61 @@ export class ProjectKanbanView {
         const selectedIds = Array.from(this.selectedTaskIds);
         if (selectedIds.length === 0) return;
 
-        // 创建日期选择对话框
+        const langTag = (window as any).siyuan?.config?.lang?.replace('_', '-') || 'en-US';
+        const _now = new Date();
+        const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+
+        // 创建日期选择对话框（仿照 QuickReminderDialog 的日期区域）
         const dialog = new Dialog({
             title: i18n('batchSetDate') || '批量设置日期',
             content: `
-                <div class="b3-dialog__content">
-                    <div class="b3-form__group">
-                        <label class="b3-form__label">${i18n('selectDate') || '选择日期'}</label>
-                        <input type="date" id="batchDateInput" class="b3-text-field" style="width: 100%;">
+                <div class="b3-dialog__content" style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <!-- 开始日期/时间行 -->
+                    <div class="b3-form__group" style="margin-bottom: 0;">
+                        <label class="b3-form__label">${i18n('startLabel') || '开始：'}</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex: 1 1 140px; min-width: 120px;">
+                                    <input type="date" id="batchStartDate" class="b3-text-field" max="9999-12-31" style="flex: 1; min-width: 0;" lang="${langTag}">
+                                    <button type="button" id="batchClearStartDateBtn" class="b3-button b3-button--outline" title="${i18n('clearDate') || '清除日期'}" style="padding: 4px 8px; font-size: 12px; flex: 0 0 auto;">
+                                        <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                    </button>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex: 0 0 auto; white-space: nowrap; min-width: 110px; margin-left: auto;">
+                                    <input type="time" id="batchStartTime" class="b3-text-field" style="flex: 0 0 auto; min-width: 100px;" lang="${langTag}">
+                                    <button type="button" id="batchClearStartTimeBtn" class="b3-button b3-button--outline" title="${i18n('clearTime') || '清除时间'}" style="padding: 4px 8px; font-size: 12px;">
+                                        <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="b3-form__group">
-                        <label class="b3-form__label">${i18n('clearDate') || '清空日期'}</label>
-                        <input type="checkbox" id="clearDateCheck" style="margin-left: 8px;">
-                        <span style="color: var(--b3-theme-on-surface-light); font-size: 12px;">${i18n('clearDateHint') || '勾选后将清空所选任务的日期'}</span>
+                    <!-- 结束日期/时间行 -->
+                    <div class="b3-form__group" style="margin-bottom: 0;">
+                        <label class="b3-form__label">${i18n('endLabel') || '结束：'}</label>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1 1 140px; min-width: 120px;">
+                                <input type="date" id="batchEndDate" class="b3-text-field" placeholder="${i18n('endDateOptional') || '结束日期（可选）'}" max="9999-12-31" style="flex: 1; min-width: 0;" lang="${langTag}">
+                                <button type="button" id="batchClearEndDateBtn" class="b3-button b3-button--outline" title="${i18n('clearDate') || '清除日期'}" style="padding: 4px 8px; font-size: 12px; flex: 0 0 auto;">
+                                    <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 0 0 auto; white-space: nowrap; min-width: 110px; margin-left: auto;">
+                                <input type="time" id="batchEndTime" class="b3-text-field" placeholder="${i18n('endTimeOptional') || '结束时间 (可选)'}" style="flex: 0 0 auto; min-width: 100px;" lang="${langTag}">
+                                <button type="button" id="batchClearEndTimeBtn" class="b3-button b3-button--outline" title="${i18n('clearTime') || '清除时间'}" style="padding: 4px 8px; font-size: 12px;">
+                                    <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 清空所有日期选项 -->
+                    <div class="b3-form__group" style="margin-bottom: 0;">
+                        <label class="b3-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" class="b3-switch" id="batchClearAllDatesCheck">
+                            <span class="b3-checkbox__graphic"></span>
+                            <span class="b3-checkbox__label" style="font-size: 13px;">${i18n('clearDate') || '清空日期'}</span>
+                            <span style="font-size: 12px; color: var(--b3-theme-on-surface-light);">${i18n('clearDateHint') || '勾选后将清空所选任务的日期'}</span>
+                        </label>
                     </div>
                 </div>
                 <div class="b3-dialog__action">
@@ -16379,29 +16713,76 @@ export class ProjectKanbanView {
                     <button class="b3-button b3-button--primary" id="batchDateConfirm">${i18n('confirm')}</button>
                 </div>
             `,
-            width: '360px'
+            width: '460px'
         });
 
-        const dateInput = dialog.element.querySelector('#batchDateInput') as HTMLInputElement;
-        const clearCheck = dialog.element.querySelector('#clearDateCheck') as HTMLInputElement;
+        const startDateInput = dialog.element.querySelector('#batchStartDate') as HTMLInputElement;
+        const startTimeInput = dialog.element.querySelector('#batchStartTime') as HTMLInputElement;
+        const endDateInput = dialog.element.querySelector('#batchEndDate') as HTMLInputElement;
+        const endTimeInput = dialog.element.querySelector('#batchEndTime') as HTMLInputElement;
+        const clearAllCheck = dialog.element.querySelector('#batchClearAllDatesCheck') as HTMLInputElement;
         const cancelBtn = dialog.element.querySelector('#batchDateCancel') as HTMLButtonElement;
         const confirmBtn = dialog.element.querySelector('#batchDateConfirm') as HTMLButtonElement;
 
-        // 设置今天为默认日期
-        dateInput.value = new Date().toISOString().split('T')[0];
+        // 设置今天为默认开始日期
+        startDateInput.value = today;
 
-        clearCheck.addEventListener('change', () => {
-            dateInput.disabled = clearCheck.checked;
+        // 清除开始日期按钮
+        dialog.element.querySelector('#batchClearStartDateBtn')?.addEventListener('click', () => {
+            startDateInput.value = '';
+        });
+
+        // 清除开始时间按钮
+        dialog.element.querySelector('#batchClearStartTimeBtn')?.addEventListener('click', () => {
+            startTimeInput.value = '';
+        });
+
+        // 清除结束日期按钮
+        dialog.element.querySelector('#batchClearEndDateBtn')?.addEventListener('click', () => {
+            endDateInput.value = '';
+        });
+
+        // 清除结束时间按钮
+        dialog.element.querySelector('#batchClearEndTimeBtn')?.addEventListener('click', () => {
+            endTimeInput.value = '';
+        });
+
+        // 结束日期变化时自动修正
+        endDateInput.addEventListener('change', () => {
+            if (startDateInput.value && endDateInput.value && endDateInput.value < startDateInput.value) {
+                showMessage(i18n('endDateAdjusted') || '结束日期已自动调整为开始日期');
+                endDateInput.value = startDateInput.value;
+            }
+        });
+
+        // 勾选"清空日期"时禁用所有日期/时间输入
+        clearAllCheck.addEventListener('change', () => {
+            const disabled = clearAllCheck.checked;
+            [startDateInput, startTimeInput, endDateInput, endTimeInput].forEach(el => {
+                el.disabled = disabled;
+                el.style.opacity = disabled ? '0.4' : '1';
+            });
+            ['#batchClearStartDateBtn', '#batchClearStartTimeBtn', '#batchClearEndDateBtn', '#batchClearEndTimeBtn'].forEach(sel => {
+                const btn = dialog.element.querySelector(sel) as HTMLButtonElement;
+                if (btn) {
+                    btn.disabled = disabled;
+                    btn.style.opacity = disabled ? '0.4' : '1';
+                }
+            });
         });
 
         cancelBtn.addEventListener('click', () => dialog.destroy());
 
         confirmBtn.addEventListener('click', async () => {
-            const clearDate = clearCheck.checked;
-            const dateValue = dateInput.value;
+            const clearAll = clearAllCheck.checked;
+            const startDate = startDateInput.value;
+            const startTime = startTimeInput.value;
+            const endDate = endDateInput.value;
+            const endTime = endTimeInput.value;
 
-            if (!clearDate && !dateValue) {
-                showMessage(i18n('pleaseSelectDate') || '请选择日期');
+            // 校验：结束日期不能早于开始日期
+            if (!clearAll && startDate && endDate && endDate < startDate) {
+                showMessage(i18n('endDateCannotBeEarlier') || '结束日期不能早于开始日期');
                 return;
             }
 
@@ -16414,7 +16795,17 @@ export class ProjectKanbanView {
                 for (const taskId of selectedIds) {
                     const task = this.tasks.find(t => t.id === taskId);
                     if (task) {
-                        task.date = clearDate ? undefined : dateValue;
+                        if (clearAll) {
+                            task.date = undefined;
+                            task.time = undefined;
+                            task.endDate = undefined;
+                            task.endTime = undefined;
+                        } else {
+                            if (startDate) task.date = startDate;
+                            task.time = startTime || undefined;
+                            task.endDate = endDate || undefined;
+                            task.endTime = endTime || undefined;
+                        }
                         tasksToUpdate.push(task);
                         successCount++;
                     }
@@ -16623,7 +17014,7 @@ export class ProjectKanbanView {
      * 批量更新任务属性 (用于拖拽)
      */
     private async batchUpdateTasks(taskIds: string[], updates: { kanbanStatus?: string, customGroupId?: string | null, tagIds?: string[], milestoneId?: string | null, projectId?: string | null, priority?: string }) {
-        console.log('[Kanban] batchUpdateTasks called:', { taskIds, updates });
+        // console.log('[Kanban] batchUpdateTasks called:', { taskIds, updates });
         try {
             const reminderData = await this.getReminders();
             // 如果尝试修改状态（尤其是将任务移出 doing/completed），在执行前先检查是否有未完成且日期为今天或已过的任务。
@@ -16647,21 +17038,23 @@ export class ProjectKanbanView {
 
                 if (offendingTasks.length > 0) {
                     // 弹窗提示：告知哪些任务为今天或已过。用户可选择：取消、继续移动其余任务（跳过这些任务）、编辑首个任务时间。
-                    const listHtml = offendingTasks.slice(0, 6).map(t => `<li style="margin-bottom:4px;">${(t.title || '（无标题）')}</li>`).join('');
-                    const moreNote = offendingTasks.length > 6 ? `<div style="margin-top:6px; color:var(--b3-theme-on-surface-light);">... 还有 ${offendingTasks.length - 6} 个任务</div>` : '';
+                    const untitledText = i18n('untitledTask') || '无标题';
+                    const listHtml = offendingTasks.slice(0, 6).map(t => `<li style="margin-bottom:4px;">${t.title || `（${untitledText}）`}</li>`).join('');
+                    const moreTasksText = i18n('andMoreTasks', { count: String(offendingTasks.length - 6) }) || `... 还有 ${offendingTasks.length - 6} 个任务`;
+                    const moreNote = offendingTasks.length > 6 ? `<div style="margin-top:6px; color:var(--b3-theme-on-surface-light);">${moreTasksText}</div>` : '';
                     const dialog = new Dialog({
-                        title: '警告：包含今日/已过任务',
+                        title: i18n('warnTodayOrPastTasks') || '警告：包含今日/已过任务',
                         content: `
                             <div class="b3-dialog__content">
-                                <p>所选任务中有 <strong>${offendingTasks.length}</strong> 个任务的日期为今天或已过，系统会将这些任务自动显示在“进行中”列。</p>
-                                <p>要将这些任务移出“进行中”，请先修改它们的日期或时间。</p>
+                                <p>${i18n('tasksDateTodayOrPast', { count: String(offendingTasks.length) }) || `所选任务中有 <strong>${offendingTasks.length}</strong> 个任务的日期为今天或已过，系统会将这些任务自动显示在“进行中”列。`}</p>
+                                <p>${i18n('moveOutDoingHint') || '要将这些任务移出“进行中”，请先修改它们的日期或时间。'}</p>
                                 <ul style="margin-top:8px; padding-left:16px;">${listHtml}</ul>
                                 ${moreNote}
                             </div>
                             <div class="b3-dialog__action">
-                                <button class="b3-button b3-button--cancel" id="cancelBtn">取消</button>
-                                <button class="b3-button b3-button--outline" id="continueBtn">继续移动其余任务（跳过这些）</button>
-                                <button class="b3-button b3-button--primary" id="editBtn">编辑第一个任务时间</button>
+                                <button class="b3-button b3-button--cancel" id="cancelBtn">${i18n('cancel')}</button>
+                                <button class="b3-button b3-button--outline" id="continueBtn">${i18n('continueMoveRest') || '继续移动其余任务（跳过这些）'}</button>
+                                <button class="b3-button b3-button--primary" id="editBtn">${i18n('editFirstTaskTime') || '编辑第一个任务时间'}</button>
                             </div>
                         `,
                         width: "520px"
@@ -16716,7 +17109,7 @@ export class ProjectKanbanView {
                     continue;
                 }
 
-                console.log('[Kanban] Processing task update:', { taskId, title: taskInDb.title, dbId });
+                // console.log('[Kanban] Processing task update:', { taskId, title: taskInDb.title, dbId });
 
                 if (uiTask.isRepeatInstance && uiTask.originalId) {
                     const instanceDate = uiTask.date;
@@ -16970,7 +17363,7 @@ export class ProjectKanbanView {
                         }
 
                         if (itemChanged) {
-                            console.log('[Kanban] Task updated in DB cache:', { taskId: item.id, itemChanged, finalProject: item.projectId, finalStatus: item.kanbanStatus });
+                            // console.log('[Kanban] Task updated in DB cache:', { taskId: item.id, itemChanged, finalProject: item.projectId, finalStatus: item.kanbanStatus });
                             hasChanges = true;
                             updatedCount++;
                             if (item.blockId || item.docId) {

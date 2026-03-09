@@ -6,7 +6,7 @@
  * API 文档见 [API_zh_CN.md](https://github.com/siyuan-note/siyuan/blob/master/API_zh_CN.md)
  */
 
-import { fetchPost, fetchSyncPost, IWebSocketData, openTab, Constants } from "siyuan";
+import { fetchPost, fetchSyncPost, IWebSocketData, openTab } from "siyuan";
 
 import { getFrontend, openMobileFileById } from 'siyuan';
 import { getPluginInstance } from "./pluginInstance";
@@ -92,7 +92,7 @@ export async function createDocWithMd(notebook: NotebookId, path: string, markdo
     return request(url, data);
 }
 
-export async function searchDocs(k: string, flashcard: boolean = false): Promise<IResSearchDocs[]> {
+export async function searchDocs(k: string, flashcard: boolean = false): Promise<any[]> {
     let data = {
         k: k,
         flashcard: flashcard
@@ -343,14 +343,14 @@ export async function getBlockAttrs(id: BlockId): Promise<{ [key: string]: strin
 
 // **************************************** Block Project IDs Helpers ****************************************
 /**
- * 解析块属性 custom-task-projectId 为数组（去重 & 去空格）
+ * 解析块属性 custom-task-projectid 为数组（去重 & 去空格）
  * @param id block id
  */
 export async function getBlockProjectIds(id: BlockId): Promise<string[]> {
     try {
         const attrs = await getBlockAttrs(id);
         if (!attrs || typeof attrs !== 'object') return [];
-        const raw = attrs['custom-task-projectId'] || '';
+        const raw = attrs['custom-task-projectid'] || attrs['custom-task-projectId'] || '';
         if (!raw) return [];
         return Array.from(new Set(raw.split(',').map(s => s.trim()).filter(s => s)));
     } catch (error) {
@@ -360,12 +360,12 @@ export async function getBlockProjectIds(id: BlockId): Promise<string[]> {
 }
 
 /**
- * 将数组写入块属性 custom-task-projectId（以逗号分隔），如果为空数组则清空属性
+ * 将数组写入块属性 custom-task-projectid（以逗号分隔），如果为空数组则清空属性
  */
 export async function setBlockProjectIds(id: BlockId, projectIds: string[]): Promise<any> {
     try {
         const csv = projectIds && projectIds.length > 0 ? projectIds.join(',') : '';
-        return await setBlockAttrs(id, { 'custom-task-projectId': csv });
+        return await setBlockAttrs(id, { 'custom-task-projectid': csv });
     } catch (error) {
         console.warn('setBlockProjectIds failed:', error);
         throw error;
@@ -373,7 +373,7 @@ export async function setBlockProjectIds(id: BlockId, projectIds: string[]): Pro
 }
 
 /**
- * 将单个 projectId 添加到块的 custom-task-projectId 属性中（去重）
+ * 将单个 projectId 添加到块的 custom-task-projectid 属性中（去重）
  */
 export async function addBlockProjectId(id: BlockId, projectId: string): Promise<any> {
     if (!projectId) return;
@@ -390,7 +390,7 @@ export async function addBlockProjectId(id: BlockId, projectId: string): Promise
 }
 
 /**
- * 从块的 custom-task-projectId 中移除一个 projectId，如果最后为空数组则清空属性
+ * 从块的 custom-task-projectid 中移除一个 projectId，如果最后为空数组则清空属性
  */
 export async function removeBlockProjectId(id: BlockId, projectId: string): Promise<any> {
     try {
@@ -615,8 +615,6 @@ export async function putFile(path: string, isDir: boolean, file: any) {
     let form = new FormData();
     form.append('path', path);
     form.append('isDir', isDir.toString());
-    // Copyright (c) 2023, terwer.
-    // https://github.com/terwer/siyuan-plugin-importer/blob/v1.4.1/src/api/kernel-api.ts
     form.append('modTime', Date.now().toString());
     form.append('file', file);
     let url = '/api/file/putFile';
@@ -625,10 +623,9 @@ export async function putFile(path: string, isDir: boolean, file: any) {
 
 export async function removeFile(path: string) {
     let data = {
-        path: path
+        path: path // "/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy"
     }
     let url = '/api/file/removeFile';
-    // "path": "/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy"
     return request(url, data);
 }
 
@@ -702,6 +699,23 @@ export async function pushErrMsg(msg: string, timeout: number = 7000) {
     };
     let url = "/api/notification/pushErrMsg";
     return request(url, payload);
+}
+
+export async function sendNotification(title: string, body: string, delayInSeconds: number = 0) {
+    const sendNativeNotification = () => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, {
+                body: body,
+                icon: '/stage/icon.png'
+            });
+        }
+    };
+
+    if (delayInSeconds > 0) {
+        setTimeout(sendNativeNotification, delayInSeconds * 1000);
+    } else {
+        sendNativeNotification();
+    }
 }
 
 // **************************************** Network ****************************************
@@ -946,7 +960,7 @@ export async function updateBindBlockAtrrs(blockId: string, plugin: any): Promis
                 await setBlockAttrs(blockId, {
                     "bookmark": "",
                     'custom-bind-reminders': '',
-                    'custom-task-projectId': ''
+                    'custom-task-projectid': ''
                 });
 
                 return;
@@ -980,9 +994,9 @@ export async function updateBindBlockAtrrs(blockId: string, plugin: any): Promis
             attrs['custom-bind-reminders'] = '';
         }
 
-        // ----- 3. 计算 custom-task-projectId -----
+        // ----- 3. 计算 custom-task-projectid -----
         const projectIds = Array.from(new Set(blockReminders.map((r: any) => r.projectId).filter(id => id)));
-        attrs['custom-task-projectId'] = projectIds.length > 0 ? projectIds.join(',') : '';
+        attrs['custom-task-projectid'] = projectIds.length > 0 ? projectIds.join(',') : '';
 
         // 一次性更新所有属性
         await setBlockAttrs(blockId, attrs);

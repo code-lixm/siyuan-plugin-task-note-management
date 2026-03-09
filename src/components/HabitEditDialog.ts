@@ -5,6 +5,7 @@ import { getLocalDateTimeString, getLogicalDateString } from "../utils/dateUtils
 import { HabitGroupManager } from "../utils/habitGroupManager";
 import { CategoryManager } from "../utils/categoryManager";
 import { StatusManager } from "../utils/statusManager";
+import { i18n } from "../pluginInstance";
 
 export class HabitEditDialog {
     private dialog: Dialog;
@@ -20,7 +21,7 @@ export class HabitEditDialog {
 
     show() {
         const isNew = !this.habit;
-        const title = isNew ? "新建习惯" : "编辑习惯";
+        const title = isNew ? i18n("newHabitTitle") : i18n("editHabitTitle");
 
         this.dialog = new Dialog({
             title,
@@ -60,11 +61,11 @@ export class HabitEditDialog {
         form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
 
         // 习惯标题
-        const titleGroup = this.createFormGroup('习惯标题', 'text', 'title', this.habit?.title || '');
+        const titleGroup = this.createFormGroup(i18n("habitTitleLabel"), 'text', 'title', this.habit?.title || '');
         form.appendChild(titleGroup);
 
         // 打卡目标
-        const targetGroup = this.createFormGroup('打卡目标（每次需打卡次数）', 'number', 'target', String(this.habit?.target || 1));
+        const targetGroup = this.createFormGroup(i18n("habitTargetLabel"), 'number', 'target', String(this.habit?.target || 1));
         form.appendChild(targetGroup);
 
         // 频率选择
@@ -73,18 +74,18 @@ export class HabitEditDialog {
 
         // 开始日期
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-        const startDateGroup = this.createFormGroup('开始日期', 'date', 'startDate', this.habit?.startDate || today);
+        const startDateGroup = this.createFormGroup(i18n("habitStartDateLabel"), 'date', 'startDate', this.habit?.startDate || today);
         form.appendChild(startDateGroup);
 
         // 结束日期
-        const endDateGroup = this.createFormGroup('结束日期（可选）', 'date', 'endDate', this.habit?.endDate || '');
+        const endDateGroup = this.createFormGroup(i18n("habitEndDateLabel"), 'date', 'endDate', this.habit?.endDate || '');
         form.appendChild(endDateGroup);
 
         // 提醒时间（支持多个）
         const reminderGroup = document.createElement('div');
         reminderGroup.style.cssText = 'display:flex; flex-direction: column; gap:4px;';
         const reminderLabel = document.createElement('label');
-        reminderLabel.textContent = '提醒时间（可选）';
+        reminderLabel.textContent = i18n("habitReminderLabel");
         reminderLabel.style.cssText = 'font-weight: bold; font-size: 14px;';
         reminderGroup.appendChild(reminderLabel);
 
@@ -96,7 +97,7 @@ export class HabitEditDialog {
         const addTimeBtn = document.createElement('button');
         addTimeBtn.type = 'button';
         addTimeBtn.className = 'b3-button b3-button--outline';
-        addTimeBtn.textContent = '添加提醒时间';
+        addTimeBtn.textContent = i18n("habitAddReminderTime");
         addTimeBtn.style.cssText = 'align-self:flex-start;';
 
         const addTimeInput = (timeVal: string | { time: string; note?: string } = '') => {
@@ -117,14 +118,15 @@ export class HabitEditDialog {
             noteInput.type = 'text';
             noteInput.name = 'reminderTimeNote';
             noteInput.className = 'b3-text-field';
-            noteInput.placeholder = '备注';
+            noteInput.placeholder = i18n("reminderNoteHint");
             noteInput.value = noteStr;
             noteInput.style.cssText = 'flex: 1; min-width: 100px;';
+            noteInput.spellcheck = false;
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'b3-button b3-button--outline';
-            removeBtn.textContent = '移除';
+            removeBtn.textContent = i18n("removeReminderTime");
             removeBtn.addEventListener('click', () => {
                 row.remove();
             });
@@ -168,7 +170,7 @@ export class HabitEditDialog {
         blockGroup.style.cssText = 'display:flex; flex-direction: column; gap:4px;';
 
         const blockLabel = document.createElement('label');
-        blockLabel.textContent = '绑定块（可选）';
+        blockLabel.textContent = i18n("habitBlockLabel");
         blockLabel.style.cssText = 'font-weight: bold; font-size: 14px;';
 
         const blockInputRow = document.createElement('div');
@@ -182,18 +184,19 @@ export class HabitEditDialog {
         blockInput.placeholder = '块或文档 ID（例如：(()) 或 siyuan://blocks/ID）';
         blockInput.value = this.habit?.blockId || '';
         blockInput.style.cssText = 'flex: 1;';
+        blockInput.spellcheck = false;
 
         const pasteBtn = document.createElement('button');
         pasteBtn.type = 'button';
         pasteBtn.className = 'b3-button b3-button--outline';
-        pasteBtn.title = '粘贴块引用';
+        pasteBtn.title = i18n("habitPasteBlockRef");
         pasteBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg>';
 
         const clearBtn = document.createElement('button');
         clearBtn.type = 'button';
         clearBtn.className = 'b3-button b3-button--outline';
-        clearBtn.title = '清除';
-        clearBtn.textContent = '清除';
+        clearBtn.title = i18n("clearBlock");
+        clearBtn.textContent = i18n("clearBlock");
 
         blockInputRow.appendChild(blockInput);
         blockInputRow.appendChild(pasteBtn);
@@ -225,13 +228,13 @@ export class HabitEditDialog {
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'b3-button';
-        cancelBtn.textContent = '取消';
+        cancelBtn.textContent = i18n("cancel");
         cancelBtn.addEventListener('click', () => this.dialog.destroy());
 
         const saveBtn = document.createElement('button');
         saveBtn.type = 'submit';
         saveBtn.className = 'b3-button b3-button--primary';
-        saveBtn.textContent = '保存';
+        saveBtn.textContent = i18n("save");
 
         buttonGroup.appendChild(cancelBtn);
         buttonGroup.appendChild(saveBtn);
@@ -267,13 +270,13 @@ export class HabitEditDialog {
                 if (blockId) {
                     blockInput.value = blockId;
                     await this.updatePreviewForBlock(blockId, blockPreview);
-                    showMessage('已粘贴块引用');
+                    showMessage(i18n("pasteBlockSuccess"));
                 } else {
-                    showMessage('粘贴内容不是块引用/链接', 3000, 'error');
+                    showMessage(i18n("pasteBlockInvalid"), 3000, 'error');
                 }
             } catch (error) {
                 console.error('读取剪贴板失败:', error);
-                showMessage('读取剪贴板失败', 3000, 'error');
+                showMessage(i18n("pasteBlockReadFailed"), 3000, 'error');
             }
         });
 
@@ -345,6 +348,9 @@ export class HabitEditDialog {
         input.name = name;
         input.value = value;
         input.className = 'b3-text-field';
+        if (type === 'text') {
+            input.spellcheck = false;
+        }
         if (type === 'number') {
             input.min = '1';
         }
@@ -360,17 +366,17 @@ export class HabitEditDialog {
         group.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
 
         const label = document.createElement('label');
-        label.textContent = '频率';
+        label.textContent = i18n("frequencyTypeLabel");
         label.style.cssText = 'font-weight: bold; font-size: 14px;';
 
         const select = document.createElement('select');
         select.name = 'frequencyType';
         select.className = 'b3-select';
         select.innerHTML = `
-            <option value="daily">每天</option>
-            <option value="weekly">每周</option>
-            <option value="monthly">每月</option>
-            <option value="yearly">每年</option>
+            <option value="daily">${i18n("freqDaily")}</option>
+            <option value="weekly">${i18n("freqWeekly")}</option>
+            <option value="monthly">${i18n("freqMonthly")}</option>
+            <option value="yearly">${i18n("freqYearly")}</option>
         `;
 
         if (this.habit?.frequency) {
@@ -386,7 +392,7 @@ export class HabitEditDialog {
         intervalContainer.style.cssText = 'display:flex; align-items:center; gap:8px;';
 
         const intervalLabel = document.createElement('label');
-        intervalLabel.textContent = '间隔';
+        intervalLabel.textContent = i18n("intervalLabel");
         intervalLabel.style.cssText = 'min-width: 48px;';
 
         const intervalInput = document.createElement('input');
@@ -398,7 +404,7 @@ export class HabitEditDialog {
         intervalInput.style.cssText = 'width: 80px;';
 
         const intervalSuffix = document.createElement('span');
-        intervalSuffix.textContent = '天';
+        intervalSuffix.textContent = i18n("intervalSuffixDay");
 
         intervalContainer.appendChild(intervalLabel);
         intervalContainer.appendChild(intervalInput);
@@ -408,7 +414,7 @@ export class HabitEditDialog {
         const weekdaysContainer = document.createElement('div');
         weekdaysContainer.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';
         weekdaysContainer.style.display = 'none';
-        const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        const weekdayNamesArr = i18n("weekdayNames").split(',');
         for (let i = 0; i < 7; i++) {
             const cbLabel = document.createElement('label');
             cbLabel.style.cssText = 'display:flex; align-items:center; gap:4px;';
@@ -419,7 +425,7 @@ export class HabitEditDialog {
             cb.checked = this.habit?.frequency?.weekdays ? this.habit.frequency.weekdays.includes(i) : false;
             cbLabel.appendChild(cb);
             const span = document.createElement('span');
-            span.textContent = `周${weekdayNames[i]}`;
+            span.textContent = `${i18n("week")}${weekdayNamesArr[i]}`;
             cbLabel.appendChild(span);
             weekdaysContainer.appendChild(cbLabel);
         }
@@ -438,7 +444,7 @@ export class HabitEditDialog {
             cb.checked = this.habit?.frequency?.monthDays ? this.habit.frequency.monthDays.includes(d) : false;
             cbLabel.appendChild(cb);
             const span = document.createElement('span');
-            span.textContent = `${d}日`;
+            span.textContent = `${d}${i18n("habitDays")}`;
             cbLabel.appendChild(span);
             monthDaysContainer.appendChild(cbLabel);
         }
@@ -449,7 +455,7 @@ export class HabitEditDialog {
         yearlyDateContainer.style.display = 'none';
 
         const yearlyDateLabel = document.createElement('label');
-        yearlyDateLabel.textContent = '日期';
+        yearlyDateLabel.textContent = i18n("yearlyDateLabel");
         yearlyDateLabel.style.cssText = 'min-width: 48px;';
 
         const yearlyDateInput = document.createElement('input');
@@ -467,7 +473,7 @@ export class HabitEditDialog {
         }
 
         const yearlyDateHint = document.createElement('span');
-        yearlyDateHint.textContent = '（格式：MM-DD）';
+        yearlyDateHint.textContent = i18n("yearlyDateHint");
         yearlyDateHint.style.cssText = 'font-size: 12px; color: var(--b3-theme-on-surface-light);';
 
         yearlyDateContainer.appendChild(yearlyDateLabel);
@@ -488,25 +494,25 @@ export class HabitEditDialog {
             const type = select.value;
             if (type === 'daily') {
                 intervalContainer.style.display = 'flex';
-                intervalSuffix.textContent = '天';
+                intervalSuffix.textContent = i18n("intervalSuffixDay");
                 weekdaysContainer.style.display = 'none';
                 monthDaysContainer.style.display = 'none';
                 yearlyDateContainer.style.display = 'none';
             } else if (type === 'weekly') {
                 intervalContainer.style.display = 'flex';
-                intervalSuffix.textContent = '周';
+                intervalSuffix.textContent = i18n("intervalSuffixWeek");
                 weekdaysContainer.style.display = 'flex';
                 monthDaysContainer.style.display = 'none';
                 yearlyDateContainer.style.display = 'none';
             } else if (type === 'monthly') {
                 intervalContainer.style.display = 'flex';
-                intervalSuffix.textContent = '月';
+                intervalSuffix.textContent = i18n("intervalSuffixMonth");
                 weekdaysContainer.style.display = 'none';
                 monthDaysContainer.style.display = 'flex';
                 yearlyDateContainer.style.display = 'none';
             } else if (type === 'yearly') {
                 intervalContainer.style.display = 'flex';
-                intervalSuffix.textContent = '年';
+                intervalSuffix.textContent = i18n("intervalSuffixYear");
                 weekdaysContainer.style.display = 'none';
                 monthDaysContainer.style.display = 'none';
                 yearlyDateContainer.style.display = 'flex';
@@ -531,17 +537,17 @@ export class HabitEditDialog {
         group.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
 
         const label = document.createElement('label');
-        label.textContent = '优先级';
+        label.textContent = i18n("habitPriorityLabel");
         label.style.cssText = 'font-weight: bold; font-size: 14px;';
 
         const select = document.createElement('select');
         select.name = 'priority';
         select.className = 'b3-select';
         select.innerHTML = `
-            <option value="none">无</option>
-            <option value="low">低</option>
-            <option value="medium">中</option>
-            <option value="high">高</option>
+            <option value="none">${i18n("habitPriorityNone")}</option>
+            <option value="low">${i18n("habitPriorityLow")}</option>
+            <option value="medium">${i18n("habitPriorityMedium")}</option>
+            <option value="high">${i18n("habitPriorityHigh")}</option>
         `;
 
         if (this.habit?.priority) {
@@ -577,7 +583,7 @@ export class HabitEditDialog {
                 const statusManager = StatusManager.getInstance(this.plugin);
                 await statusManager.initialize();
                 const statuses = statusManager.getStatuses();
-                
+
                 const projectData = await this.plugin.loadProjectData();
                 if (projectData) {
                     Object.entries(projectData).forEach(([projectId, project]: [string, any]) => {
@@ -590,7 +596,7 @@ export class HabitEditDialog {
                         }
                     });
                 }
-                
+
                 if (this.habit?.projectId) {
                     select.value = this.habit.projectId;
                 }
@@ -628,14 +634,14 @@ export class HabitEditDialog {
                 const categoryManager = CategoryManager.getInstance(this.plugin);
                 await categoryManager.initialize();
                 const categories = categoryManager.getCategories();
-                
+
                 categories.forEach(c => {
                     const option = document.createElement('option');
                     option.value = c.id;
                     option.textContent = `${c.icon || ''} ${c.name}`.trim();
                     select.appendChild(option);
                 });
-                
+
                 if (this.habit?.categoryId) {
                     select.value = this.habit.categoryId;
                 }
@@ -655,7 +661,7 @@ export class HabitEditDialog {
         group.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
 
         const label = document.createElement('label');
-        label.textContent = '分组';
+        label.textContent = i18n("habitGroupLabel");
         label.style.cssText = 'font-weight: bold; font-size: 14px;';
 
         const select = document.createElement('select');
@@ -665,7 +671,7 @@ export class HabitEditDialog {
         // Add "No Group" option
         const noGroupOption = document.createElement('option');
         noGroupOption.value = 'none';
-        noGroupOption.textContent = '无分组';
+        noGroupOption.textContent = i18n("noGroupOption");
         select.appendChild(noGroupOption);
 
         // Add existing groups
@@ -692,13 +698,13 @@ export class HabitEditDialog {
 
         const title = formData.get('title') as string;
         if (!title || title.trim() === '') {
-            showMessage('请输入习惯标题', 3000, 'error');
+            showMessage(i18n("habitInputRequired"), 3000, 'error');
             return;
         }
 
         const startDate = formData.get('startDate') as string;
         if (!startDate) {
-            showMessage('请选择开始日期', 3000, 'error');
+            showMessage(i18n("startDateRequired"), 3000, 'error');
             return;
         }
 
@@ -737,8 +743,8 @@ export class HabitEditDialog {
             categoryId: formData.get('categoryId') as string === 'none' ? undefined : formData.get('categoryId') as string,
             groupId: formData.get('groupId') as string === 'none' ? undefined : formData.get('groupId') as string,
             checkInEmojis: this.habit?.checkInEmojis || [
-                { emoji: '✅', meaning: '完成', promptNote: false },
-                { emoji: '❌', meaning: '未完成', promptNote: false },
+                { emoji: '✅', meaning: i18n("checkInSuccess") || '完成', promptNote: false },
+                { emoji: '❌', meaning: i18n("checkInFailed") || '未完成', promptNote: false },
                 { emoji: '⭕️', meaning: '部分完成', promptNote: false }
             ],
             checkIns: this.habit?.checkIns || {},
@@ -917,11 +923,11 @@ export class HabitEditDialog {
                         habit.frequency.months = [month];
                         habit.frequency.monthDays = [day];
                     } else {
-                        showMessage('日期格式错误：月份应为1-12，日期应为1-31', 3000, 'error');
+                        showMessage(i18n("invalidYearlyDateRange"), 3000, 'error');
                         return;
                     }
                 } else {
-                    showMessage('日期格式错误，请使用 MM-DD 格式（例如：01-01）', 3000, 'error');
+                    showMessage(i18n("invalidYearlyDateFormat"), 3000, 'error');
                     return;
                 }
             }
@@ -932,11 +938,11 @@ export class HabitEditDialog {
 
         try {
             await this.onSave(habit);
-            showMessage(isNew ? '创建成功' : '保存成功');
+            showMessage(isNew ? i18n("habitCreateSuccess") : i18n("habitSaveSuccess"));
             this.dialog.destroy();
         } catch (error) {
             console.error('保存习惯失败:', error);
-            showMessage('保存失败', 3000, 'error');
+            showMessage(i18n("habitSaveFailed"), 3000, 'error');
         }
     }
 
@@ -944,7 +950,7 @@ export class HabitEditDialog {
         try {
             const block = await getBlockByID(blockId);
             if (!block) {
-                previewEl.textContent = '块不存在';
+                previewEl.textContent = i18n("blockNotFound");
                 return;
             }
 
@@ -970,7 +976,7 @@ export class HabitEditDialog {
             previewEl.textContent = snippet ? snippet.trim().slice(0, 200) : '';
         } catch (err) {
             console.error('获取块预览失败:', err);
-            previewEl.textContent = '获取块信息失败';
+            previewEl.textContent = i18n("blockPreviewFailed");
         }
     }
 

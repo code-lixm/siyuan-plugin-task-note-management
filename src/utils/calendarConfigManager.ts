@@ -5,8 +5,10 @@ const CALENDAR_CONFIG_FILE = 'data/storage/petal/siyuan-plugin-task-daily/calend
 
 export interface CalendarConfig {
     colorBy: 'category' | 'priority' | 'project';
-    viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays7';
+    viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays' | 'dayGridMultiDays' | 'listMultiDays' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays';
     viewType: 'timeline' | 'kanban' | 'list' | 'resource';
+    dockViewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays' | 'dayGridMultiDays' | 'listMultiDays' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays';
+    dockViewType: 'timeline' | 'kanban' | 'list' | 'resource';
     showLunar: boolean;
     showPomodoro: boolean;
     completionFilter: 'all' | 'completed' | 'incomplete';
@@ -18,6 +20,9 @@ export interface CalendarConfig {
     showHiddenTasks: boolean; // 显示不在日历视图显示的任务
     showHabits: boolean; // 显示习惯打卡
     defaultNotebookId: string; // 默认日记笔记本ID
+    showCompletedTaskTime: boolean; // 显示已完成任务时间
+    showCompletedTaskTimeOnlyWithoutDate: boolean; // 只显示没有日期的任务的完成时间
+    multiDaysCount: number; // 多天视图显示的天数，默认为3天
 }
 
 export class CalendarConfigManager {
@@ -28,20 +33,25 @@ export class CalendarConfigManager {
     private constructor(plugin: Plugin) {
         this.plugin = plugin;
         this.config = {
-            colorBy: 'priority',
-            viewMode: 'timeGridWeek',
-            viewType: 'timeline',
-            showLunar: true,
-            showPomodoro: true,
-            completionFilter: 'all',
-            showCrossDayTasks: true,
-            crossDayThreshold: -1,
-            showSubtasks: true,
-            showRepeatTasks: true,
-            repeatInstanceLimit: -1,
-            showHiddenTasks: false,
+            colorBy: 'priority', // 默认按优先级上色
+            viewMode: 'timeGridWeek', // 默认周视图
+            viewType: 'timeline', // 默认视图类型
+            dockViewMode: 'timeGridDay', // Dock 默认日视图
+            dockViewType: 'timeline', // Dock 默认视图类型
+            showLunar: true, // 默认显示农历
+            showPomodoro: true, // 默认显示番茄专注时间
+            completionFilter: 'all', // 默认显示全部状态
+            showCrossDayTasks: true, // 默认显示跨天任务
+            crossDayThreshold: -1, // 默认显示全部天数 (-1表示不限制)
+            showSubtasks: true, // 默认显示子任务
+            showRepeatTasks: true, // 默认显示重复任务
+            repeatInstanceLimit: -1, // 默认显示全部实例 (-1表示不限制)
+            showHiddenTasks: false, // 默认不显示隐藏任务
             showHabits: true,
-            defaultNotebookId: ''
+            defaultNotebookId: '',
+            showCompletedTaskTime: true, // 默认显示已完成任务时间
+            showCompletedTaskTimeOnlyWithoutDate: false, // 默认显示所有已完成任务的时间
+            multiDaysCount: 3 // 默认显示3天
         };
     }
 
@@ -62,6 +72,8 @@ export class CalendarConfigManager {
             settings.calendarColorBy = this.config.colorBy;
             settings.calendarViewMode = this.config.viewMode;
             settings.calendarViewType = this.config.viewType;
+            settings.calendarDockViewMode = this.config.dockViewMode;
+            settings.calendarDockViewType = this.config.dockViewType;
             settings.calendarShowLunar = this.config.showLunar;
             settings.calendarShowPomodoro = this.config.showPomodoro;
             settings.calendarCompletionFilter = this.config.completionFilter;
@@ -73,6 +85,9 @@ export class CalendarConfigManager {
             settings.calendarShowHiddenTasks = this.config.showHiddenTasks;
             settings.calendarShowHabits = this.config.showHabits;
             settings.calendarDefaultNotebookId = this.config.defaultNotebookId;
+            settings.calendarShowCompletedTaskTime = this.config.showCompletedTaskTime;
+            settings.calendarShowCompletedTaskTimeOnlyWithoutDate = this.config.showCompletedTaskTimeOnlyWithoutDate;
+            settings.calendarMultiDaysCount = this.config.multiDaysCount;
             await (this.plugin as any).saveSettings(settings);
         } catch (error) {
             console.error('Failed to save calendar config:', error);
@@ -104,21 +119,32 @@ export class CalendarConfigManager {
                 console.log('旧的 calendar-config.json 文件不存在或已处理');
             }
 
+            // 处理旧版视图名称迁移：将 MultiDays7 转换为 MultiDays
+            let viewMode = settings.calendarViewMode || 'timeGridWeek';
+            if (viewMode.includes('MultiDays7')) {
+                viewMode = viewMode.replace('MultiDays7', 'MultiDays');
+            }
+
             this.config = {
-                colorBy: settings.calendarColorBy || 'priority',
-                viewMode: settings.calendarViewMode || 'timeGridWeek',
+                colorBy: settings.calendarColorBy || 'project',
+                viewMode: viewMode as any,
                 viewType: settings.calendarViewType || 'timeline',
-                showLunar: settings.calendarShowLunar !== false,
-                showPomodoro: settings.calendarShowPomodoro !== false,
+                dockViewMode: (settings.calendarDockViewMode || 'timeGridDay') as any,
+                dockViewType: settings.calendarDockViewType || 'timeline',
+                showLunar: settings.calendarShowLunar !== false, // 默认为 true
+                showPomodoro: settings.calendarShowPomodoro !== false, // 默认为 true
                 completionFilter: (settings.calendarCompletionFilter as any) || 'all',
-                showCrossDayTasks: settings.calendarShowCrossDayTasks !== false,
-                crossDayThreshold: settings.calendarCrossDayThreshold !== undefined ? settings.calendarCrossDayThreshold : -1,
-                showSubtasks: settings.calendarShowSubtasks !== false,
-                showRepeatTasks: settings.calendarShowRepeatTasks !== false,
-                repeatInstanceLimit: settings.calendarRepeatInstanceLimit !== undefined ? settings.calendarRepeatInstanceLimit : -1,
-                showHiddenTasks: settings.calendarShowHiddenTasks === true,
+                showCrossDayTasks: settings.calendarShowCrossDayTasks !== false, // 默认为 true
+                crossDayThreshold: settings.calendarCrossDayThreshold !== undefined ? settings.calendarCrossDayThreshold : -1, // 默认为 -1
+                showSubtasks: settings.calendarShowSubtasks !== false, // 默认为 true
+                showRepeatTasks: settings.calendarShowRepeatTasks !== false, // 默认为 true
+                repeatInstanceLimit: settings.calendarRepeatInstanceLimit !== undefined ? settings.calendarRepeatInstanceLimit : -1, // 默认为 -1
+                showHiddenTasks: settings.calendarShowHiddenTasks === true, // 默认为 false
                 showHabits: settings.calendarShowHabits !== false,
-                defaultNotebookId: settings.calendarDefaultNotebookId || ''
+                defaultNotebookId: settings.calendarDefaultNotebookId || '',
+                showCompletedTaskTime: settings.calendarShowCompletedTaskTime !== false, // 默认为 true
+                showCompletedTaskTimeOnlyWithoutDate: settings.calendarShowCompletedTaskTimeOnlyWithoutDate === true, // 默认为 false
+                multiDaysCount: settings.calendarMultiDaysCount !== undefined ? settings.calendarMultiDaysCount : 3 // 默认为3天
             };
         } catch (error) {
             console.warn('Failed to load calendar config, using defaults:', error);
@@ -126,6 +152,8 @@ export class CalendarConfigManager {
                 colorBy: 'priority',
                 viewMode: 'timeGridWeek',
                 viewType: 'timeline',
+                dockViewMode: 'timeGridDay',
+                dockViewType: 'timeline',
                 showLunar: true,
                 showPomodoro: true,
                 completionFilter: 'all',
@@ -136,7 +164,10 @@ export class CalendarConfigManager {
                 repeatInstanceLimit: -1,
                 showHiddenTasks: false,
                 showHabits: true,
-                defaultNotebookId: ''
+                defaultNotebookId: '',
+                showCompletedTaskTime: true,
+                showCompletedTaskTimeOnlyWithoutDate: false,
+                multiDaysCount: 3
             };
             try {
                 await this.saveConfig();
@@ -160,12 +191,12 @@ export class CalendarConfigManager {
         return this.config.colorBy;
     }
 
-    public async setViewMode(viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays7') {
+    public async setViewMode(viewMode: 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays' | 'dayGridMultiDays' | 'listMultiDays' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays') {
         this.config.viewMode = viewMode;
         await this.saveConfig();
     }
 
-    public getViewMode(): 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays7' | 'dayGridMultiDays7' | 'listMultiDays7' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays7' {
+    public getViewMode(): 'multiMonthYear' | 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'dayGridWeek' | 'dayGridDay' | 'listDay' | 'listWeek' | 'listMonth' | 'listYear' | 'timeGridMultiDays' | 'dayGridMultiDays' | 'listMultiDays' | 'resourceTimeGridDay' | 'resourceTimeGridWeek' | 'resourceTimelineDay' | 'resourceTimelineWeek' | 'resourceTimelineMonth' | 'resourceTimelineYear' | 'resourceTimelineMultiDays' {
         return this.config.viewMode;
     }
 
@@ -176,6 +207,25 @@ export class CalendarConfigManager {
 
     public getViewType(): 'timeline' | 'kanban' | 'list' | 'resource' {
         return this.config.viewType;
+    }
+
+    // Dock 侧边栏独立的视图模式
+    public async setDockViewMode(viewMode: CalendarConfig['viewMode']) {
+        this.config.dockViewMode = viewMode;
+        await this.saveConfig();
+    }
+
+    public getDockViewMode(): CalendarConfig['viewMode'] {
+        return this.config.dockViewMode;
+    }
+
+    public async setDockViewType(viewType: 'timeline' | 'kanban' | 'list' | 'resource') {
+        this.config.dockViewType = viewType;
+        await this.saveConfig();
+    }
+
+    public getDockViewType(): 'timeline' | 'kanban' | 'list' | 'resource' {
+        return this.config.dockViewType;
     }
 
     public getCompletionFilter(): 'all' | 'completed' | 'incomplete' {
@@ -261,6 +311,32 @@ export class CalendarConfigManager {
 
     public getShowHabits(): boolean {
         return this.config.showHabits !== false;
+    }
+    public async setShowCompletedTaskTime(show: boolean) {
+        this.config.showCompletedTaskTime = show;
+        await this.saveConfig();
+    }
+
+    public getShowCompletedTaskTime(): boolean {
+        return this.config.showCompletedTaskTime !== undefined ? this.config.showCompletedTaskTime : true;
+    }
+
+    public async setShowCompletedTaskTimeOnlyWithoutDate(show: boolean) {
+        this.config.showCompletedTaskTimeOnlyWithoutDate = show;
+        await this.saveConfig();
+    }
+
+    public getShowCompletedTaskTimeOnlyWithoutDate(): boolean {
+        return this.config.showCompletedTaskTimeOnlyWithoutDate !== undefined ? this.config.showCompletedTaskTimeOnlyWithoutDate : false;
+    }
+
+    public async setMultiDaysCount(count: number) {
+        this.config.multiDaysCount = count;
+        await this.saveConfig();
+    }
+
+    public getMultiDaysCount(): number {
+        return this.config.multiDaysCount !== undefined ? this.config.multiDaysCount : 3;
     }
 
     public getConfig(): CalendarConfig {
