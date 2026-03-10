@@ -1747,7 +1747,6 @@ export class QuickReminderDialog {
                                 <!-- 分类选择器将在这里渲染 -->
                             </div>
                         </div>
-                        <div id="quickAdvancedExtraSection" style="${this.isSimpleCreateMode ? 'display: none;' : ''}">
                         <div class="b3-form__group" id="quickProjectGroup" style="${this.hideProjectSelector ? 'display: none;' : ''}">
                             <label class="b3-form__label">${i18n("setProject")}</label>
                             <div class="custom-select" id="quickProjectSelectCustom" style="position: relative;">
@@ -1760,6 +1759,7 @@ export class QuickReminderDialog {
                                 </div>
                             </div>
                         </div>
+                        <div id="quickAdvancedExtraSection" style="${this.isSimpleCreateMode ? 'display: none;' : ''}">
                         <div class="b3-form__group" id="quickCustomGroup" style="display: none;">
                             <label class="b3-form__label">${i18n("setTaskGroup")}</label>
                             <div class="custom-select" id="quickCustomGroupSelectCustom" style="position: relative;">

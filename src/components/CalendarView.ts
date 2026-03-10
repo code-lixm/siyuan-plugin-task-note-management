@@ -4254,6 +4254,8 @@ export class CalendarView {
                     console.error('打开笔记失败:', error);
                     showMessage(i18n("openNoteFailed"));
                 }
+            } else if (originalReminder?.url) {
+                this.openReminderUrl(originalReminder.url);
             } else {
                 showMessage(i18n("unboundReminder") + "，请右键选择\"绑定到块\"");
             }
@@ -4265,6 +4267,10 @@ export class CalendarView {
 
         // 如果没有绑定块，直接返回（不再弹出未绑定提示）
         if (!reminder.blockId) {
+            if (reminder.url) {
+                this.openReminderUrl(reminder.url);
+                return;
+            }
             if (reminder.isSubscribed) {
                 showMessage(i18n("subscribedTaskReadOnly") || "订阅任务（只读）");
             }
@@ -4288,6 +4294,29 @@ export class CalendarView {
                     showMessage(i18n("openNoteFailed"));
                 }
             );
+        }
+    }
+
+    private openReminderUrl(url: string) {
+        const trimmedUrl = url.trim();
+        if (!trimmedUrl) return;
+
+        try {
+            const blockLinkRegex = /siyuan:\/\/blocks\/([\w-]+)/;
+            const match = trimmedUrl.match(blockLinkRegex);
+            if (match && match[1]) {
+                openBlock(match[1]);
+                return;
+            }
+
+            let targetUrl = trimmedUrl;
+            if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmedUrl)) {
+                targetUrl = `http://${trimmedUrl}`;
+            }
+            window.open(targetUrl, '_blank');
+        } catch (error) {
+            console.error('打开链接失败:', error);
+            showMessage(i18n("operationFailed"));
         }
     }
 

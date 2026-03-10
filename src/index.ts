@@ -2172,6 +2172,9 @@ export default class ReminderPlugin extends Plugin {
             const dockIcon = await this.whenElementExist(selector) as HTMLElement;
             if (!dockIcon) return;
             dockIcon.style.display = visible ? '' : 'none';
+            if (dockKey === 'calendar_dock' && visible) {
+                this.bindCalendarDockOpen(dockIcon);
+            }
             // 如果隐藏时面板处于打开状态，尝试关闭相关面板节点
             if (!visible) {
                 // 关闭面板的最简单方法：尝试触发一次点击事件（如果存在）以收起
@@ -2185,6 +2188,29 @@ export default class ReminderPlugin extends Plugin {
         } catch (err) {
             // ignore if not exist yet
         }
+    }
+
+    private bindCalendarDockOpen(dockIcon: HTMLElement) {
+        if (dockIcon.dataset.calendarDockOpenBound === '1') return;
+        dockIcon.dataset.calendarDockOpenBound = '1';
+
+        const handleMouseDown = (event: MouseEvent) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            this.openCalendarTab();
+        };
+
+        const suppressClick = (event: MouseEvent) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+        };
+
+        dockIcon.addEventListener('mousedown', handleMouseDown, true);
+        dockIcon.addEventListener('click', suppressClick, true);
     }
 
     private async setHabitDockBadgeFallback(count: number) {
