@@ -1,9 +1,9 @@
 {
-  "active_plan": "/Users/lixiaoming/Desktop/personal/siyuan-plugin-task-note-management/.sisyphus/plans/typescript-errors-fix.md",
-  "started_at": "2026-03-09T07:39:36.155Z",
+  "active_plan": "/Users/lixiaoming/Desktop/personal/siyuan-plugin-task-note-management/.spec-workflow/specs/siyuan-database-migration/tasks.md",
+  "started_at": "2026-03-09T14:25:00.000Z",
   "session_ids": [
-    "ses_32e9e209dffe9vyLHL6gXs5zH2"
+    "ses_32d354f0affeuBsc59CfJF8n0V"
   ],
-  "plan_name": "typescript-errors-fix",
+  "plan_name": "siyuan-database-migration",
   "agent": "atlas"
 }

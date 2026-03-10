@@ -23,7 +23,7 @@ export async function refreshSql() {
 
 export async function lsNotebooks(): Promise<IReslsNotebooks> {
     let url = '/api/notebook/lsNotebooks';
-    return request(url, '');
+    return request(url, {});
 }
 
 

@@ -1,6 +1,9 @@
-import { getFile, putFile, removeFile } from '../api';
 import { StatusManager } from './statusManager';
 import { i18n } from '../pluginInstance';
+import { SiYuanDatabaseManager } from './siYuanDatabaseManager';
+import { JSONFallbackManager } from './jsonFallbackManager';
+import { StorageConfigManager } from './storageConfigManager';
+import { StorageMode } from '../types/database';
 
 export interface Milestone {
     id: string;
@@ -61,10 +64,16 @@ export class ProjectManager {
     private projects: Project[] = [];
     private projectColors: { [key: string]: string } = {};
     private statusManager: StatusManager;
+    private siYuanDatabaseManager: SiYuanDatabaseManager;
+    private jsonFallbackManager: JSONFallbackManager;
+    private storageConfigManager: StorageConfigManager;
 
     private constructor(plugin: any) {
         this.plugin = plugin;
         this.statusManager = StatusManager.getInstance(this.plugin);
+        this.siYuanDatabaseManager = SiYuanDatabaseManager.getInstance();
+        this.jsonFallbackManager = JSONFallbackManager.getInstance();
+        this.storageConfigManager = StorageConfigManager.getInstance();
     }
 
     public static getInstance(plugin?: any): ProjectManager {
@@ -79,6 +88,10 @@ export class ProjectManager {
 
     async initialize() {
         await this.statusManager.initialize();
+        await this.storageConfigManager.initialize(this.plugin);
+        await this.jsonFallbackManager.initialize(this.plugin);
+        const config = this.storageConfigManager.getConfig();
+        await this.siYuanDatabaseManager.initialize(config);
         await this.loadProjects();
     }
 
@@ -134,40 +147,109 @@ export class ProjectManager {
 
     public async loadProjects() {
         try {
-            const projectData = await this.plugin.loadProjectData() || {};
-            if (projectData && typeof projectData === 'object') {
+            const config = this.storageConfigManager.getConfig();
+            let loadedProjects: Project[] = [];
 
-                const projectEntries = Object.entries(projectData).filter(([key]) => !key.startsWith('_'));
-                this.projects = projectEntries
-                    .map(([id, project]: [string, any]) => ({
-                        id: id,
-                        name: project.title || i18n('unnamedProject'),
-                        status: project.status || 'active',
-                        color: project.color,
-                        blockId: project.blockId,
-                        priority: project.priority || 'none',
-                        sort: project.sort || 0,
-                        startDate: project.startDate,
-                        createdTime: project.createdTime,
-                        categoryId: project.categoryId
-                    }));
-
-                // 从项目中提取颜色到 projectColors
-                this.projectColors = {};
-                projectEntries.forEach(([id, project]: [string, any]) => {
-                    if (project.color) {
-                        this.projectColors[id] = project.color;
-                    }
-                });
+            if (config.storageMode === StorageMode.JSON_ONLY) {
+                loadedProjects = await this.jsonFallbackManager.loadProjects();
             } else {
-                this.projects = [];
-                this.projectColors = {};
+                try {
+                    const getAllProjects = (this.siYuanDatabaseManager as any).getAllProjects;
+                    if (typeof getAllProjects !== 'function') {
+                        throw new Error('SiYuanDatabaseManager.getAllProjects is not implemented');
+                    }
+                    loadedProjects = await getAllProjects.call(this.siYuanDatabaseManager);
+                } catch (error) {
+                    console.error('Failed to load projects from database:', error);
+                    if (config.fallbackOnError) {
+                        loadedProjects = await this.jsonFallbackManager.loadProjects();
+                    } else {
+                        throw error;
+                    }
+                }
             }
+
+            this.projects = this.normalizeProjects(loadedProjects);
+            this.refreshProjectColors();
         } catch (error) {
             console.error('Failed to load projects:', error);
             this.projects = [];
             this.projectColors = {};
         }
+    }
+
+    public async saveProjects(projects: Project[]): Promise<void> {
+        const config = this.storageConfigManager.getConfig();
+
+        try {
+            if (config.storageMode === StorageMode.JSON_ONLY) {
+                await this.jsonFallbackManager.saveProjects(projects);
+                return;
+            }
+
+            if (config.storageMode === StorageMode.HYBRID) {
+                await this.jsonFallbackManager.saveProjects(projects);
+                try {
+                    const saveProjects = (this.siYuanDatabaseManager as any).saveProjects;
+                    if (typeof saveProjects !== 'function') {
+                        throw new Error('SiYuanDatabaseManager.saveProjects is not implemented');
+                    }
+                    await saveProjects.call(this.siYuanDatabaseManager, projects);
+                } catch (error) {
+                    console.error('Failed to save projects to database in HYBRID mode:', error);
+                    if (!config.fallbackOnError) {
+                        throw error;
+                    }
+                }
+                return;
+            }
+
+            const saveProjects = (this.siYuanDatabaseManager as any).saveProjects;
+            if (typeof saveProjects !== 'function') {
+                throw new Error('SiYuanDatabaseManager.saveProjects is not implemented');
+            }
+            await saveProjects.call(this.siYuanDatabaseManager, projects);
+        } catch (error) {
+            if (config.fallbackOnError && config.storageMode !== StorageMode.JSON_ONLY) {
+                console.warn('Primary storage save failed, falling back to JSON:', error);
+                await this.jsonFallbackManager.saveProjects(projects);
+                return;
+            }
+            throw error;
+        }
+    }
+
+    private normalizeProjects(projects: Project[]): Project[] {
+        if (!Array.isArray(projects)) {
+            return [];
+        }
+
+        return projects.map((project) => ({
+            id: project.id,
+            name: project.name || i18n('unnamedProject'),
+            status: project.status || 'active',
+            color: project.color,
+            kanbanMode: project.kanbanMode,
+            customGroups: project.customGroups,
+            blockId: project.blockId,
+            sortRule: project.sortRule,
+            sortOrder: project.sortOrder,
+            milestones: project.milestones,
+            priority: project.priority || 'none',
+            sort: project.sort || 0,
+            startDate: project.startDate,
+            createdTime: project.createdTime,
+            categoryId: project.categoryId
+        }));
+    }
+
+    private refreshProjectColors(): void {
+        this.projectColors = {};
+        this.projects.forEach((project) => {
+            if (project.color) {
+                this.projectColors[project.id] = project.color;
+            }
+        });
     }
 
     public getAllProjects(): Project[] {
@@ -625,9 +707,6 @@ export class ProjectManager {
         try {
             const projectData = await this.plugin.loadProjectData() || {};
             if (projectData[projectId]) {
-                // 获取默认配置用于对比
-                const defaults = this.getDefaultKanbanStatuses();
-
                 // 构建要保存的状态列表 - 只保存非固定状态
                 // 固定状态的修改会在保存时特殊处理，但只保存非固定状态到数据库
                 const statusesToSave: KanbanStatus[] = [];

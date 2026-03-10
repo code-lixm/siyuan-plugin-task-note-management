@@ -16,13 +16,26 @@
     STATUSES_DATA_FILE,
   } from "./index";
   import type { AudioFileItem } from "./index";
-  import { lsNotebooks, pushErrMsg, pushMsg, removeFile, putFile } from "./api";
+  import {
+    lsNotebooks,
+    pushErrMsg,
+    pushMsg,
+    removeFile,
+    putFile,
+    openBlock,
+    createDocWithMd,
+    sql,
+  } from "./api";
+  import { SiYuanDatabaseManager } from "./utils/siYuanDatabaseManager";
+  import { ProjectHubTemplate } from "./templates/databaseTemplates";
   import { Constants } from "siyuan";
   import { exportIcsFile, uploadIcsToCloud } from "./utils/icsUtils";
   import { importIcsFile } from "./utils/icsImport";
   import { syncHolidays } from "./utils/icsSubscription";
   import { PomodoroManager } from "./utils/pomodoroManager";
   import { resolveAudioPath } from "./utils/audioUtils";
+  import { StorageConfigManager } from "./utils/storageConfigManager";
+  import { StorageMode } from "./types/database";
   export let plugin;
 
   // 使用从 index.ts 导入的默认设置
@@ -30,6 +43,17 @@
 
   // 笔记本列表
   let notebooks: Array<{ id: string; name: string }> = [];
+
+  // 数据库配置
+  let storageConfigManager: StorageConfigManager;
+  let databaseConfig = {
+    storageMode: StorageMode.JSON_ONLY,
+    projectHubDatabaseId: "",
+    projectHubNotebookId: "",
+    projectHubDocPath: "",
+    fallbackOnError: true,
+    autoCreateDatabases: true,
+  };
 
   // 音频文件管理（每个声音设置项各自独立维护文件列表）
   let isUploadingAudio = false;
@@ -1059,6 +1083,131 @@
       items: [], // 使用 SubscriptionPanel 组件渲染
     },
     {
+      name: i18n("databaseConfiguration"),
+      advanced: true,
+      items: [
+        {
+          key: "databaseConfigHint",
+          value: "",
+          type: "hint",
+          title: i18n("databaseConfigTitle"),
+          description: i18n("databaseConfigDesc"),
+        },
+        {
+          key: "storageMode",
+          value: databaseConfig.storageMode,
+          type: "select",
+          title: i18n("storageMode"),
+          description: i18n("storageModeDesc"),
+          options: {
+            [StorageMode.JSON_ONLY]: i18n("storageModeJsonOnly"),
+            [StorageMode.DATABASE_ONLY]: i18n("storageModeDatabaseOnly"),
+            [StorageMode.HYBRID]: i18n("storageModeHybrid"),
+          },
+        },
+        {
+          key: "projectHubNotebookId",
+          value: databaseConfig.projectHubNotebookId,
+          type: "select",
+          title: i18n("projectHubNotebookId"),
+          description: i18n("projectHubNotebookIdDesc"),
+          options: notebooks.reduce(
+            (acc, notebook) => {
+              acc[notebook.id] = notebook.name;
+              return acc;
+            },
+            { "": i18n("pleaseSelectNotebook") } as { [key: string]: string },
+          ),
+        },
+        {
+          key: "refreshProjectHubNotebooks",
+          value: "",
+          type: "button",
+          title: i18n("refreshNotebookList"),
+          description: i18n("refreshNotebookListDesc"),
+          button: {
+            label: i18n("refreshNotebookList"),
+            callback: async () => {
+              await loadNotebooks();
+              updateGroupItems();
+              await pushMsg(i18n("notebookListRefreshed"));
+            },
+          },
+        },
+        {
+          key: "projectHubNotebookIdManual",
+          value: databaseConfig.projectHubNotebookId,
+          type: "textinput",
+          title: i18n("projectHubNotebookIdManual"),
+          description: i18n("projectHubNotebookIdManualDesc"),
+          placeholder: i18n("projectHubNotebookIdManualPlaceholder"),
+        },
+        {
+          key: "projectHubDocPath",
+          value: databaseConfig.projectHubDocPath,
+          type: "textinput",
+          title: i18n("projectHubDocPath"),
+          description: i18n("projectHubDocPathDesc"),
+          placeholder: i18n("projectHubDocPathPlaceholder"),
+        },
+        {
+          key: "projectHubOneClickSetup",
+          value: "",
+          type: "button",
+          title: i18n("projectHubOneClickSetup"),
+          description: i18n("projectHubOneClickSetupDesc"),
+          button: {
+            label: i18n("projectHubOneClickSetup"),
+            callback: setupProjectHubDatabase,
+          },
+        },
+        {
+          key: "projectHubDatabaseId",
+          value: databaseConfig.projectHubDatabaseId,
+          type: "textinput",
+          title: i18n("projectHubDatabaseId"),
+          description: i18n("projectHubDatabaseIdDesc"),
+          placeholder: i18n("projectHubDatabaseIdPlaceholder"),
+        },
+        {
+          key: "openProjectHubDatabaseBlock",
+          value: "",
+          type: "button",
+          title: i18n("openDatabaseBlock"),
+          description: i18n("openDatabaseBlockDesc"),
+          button: {
+            label: i18n("openDatabaseBlock"),
+            callback: openProjectHubDatabaseBlock,
+          },
+        },
+        {
+          key: "fallbackOnError",
+          value: databaseConfig.fallbackOnError,
+          type: "checkbox",
+          title: i18n("fallbackOnError"),
+          description: i18n("fallbackOnErrorDesc"),
+        },
+        {
+          key: "autoCreateDatabases",
+          value: databaseConfig.autoCreateDatabases,
+          type: "checkbox",
+          title: i18n("autoCreateDatabases"),
+          description: i18n("autoCreateDatabasesDesc"),
+        },
+        {
+          key: "openMigrationWizard",
+          value: "",
+          type: "button",
+          title: i18n("migrationWizard"),
+          description: i18n("migrationWizardDesc"),
+          button: {
+            label: i18n("openMigrationWizard"),
+            callback: openMigrationWizard,
+          },
+        },
+      ],
+    },
+    {
       name: i18n("calendarUpload"),
       advanced: true,
       items: [
@@ -1307,6 +1456,50 @@
     const { key, value } = detail;
     console.log(`Setting change: ${key} = ${value}`);
 
+    // 处理数据库配置变更
+    if (key === "storageMode") {
+      databaseConfig.storageMode = value as StorageMode;
+      saveDatabaseConfig();
+      updateGroupItems();
+      return;
+    }
+    if (key === "projectHubDatabaseId") {
+      databaseConfig.projectHubDatabaseId = value as string;
+      saveDatabaseConfig();
+      updateGroupItems();
+      return;
+    }
+    if (key === "projectHubNotebookId") {
+      databaseConfig.projectHubNotebookId = value as string;
+      saveDatabaseConfig();
+      updateGroupItems();
+      return;
+    }
+    if (key === "projectHubNotebookIdManual") {
+      databaseConfig.projectHubNotebookId = value as string;
+      saveDatabaseConfig();
+      updateGroupItems();
+      return;
+    }
+    if (key === "projectHubDocPath") {
+      databaseConfig.projectHubDocPath = value as string;
+      saveDatabaseConfig();
+      updateGroupItems();
+      return;
+    }
+    if (key === "fallbackOnError") {
+      databaseConfig.fallbackOnError = value as boolean;
+      saveDatabaseConfig();
+      updateGroupItems();
+      return;
+    }
+    if (key === "autoCreateDatabases") {
+      databaseConfig.autoCreateDatabases = value as boolean;
+      saveDatabaseConfig();
+      updateGroupItems();
+      return;
+    }
+
     // 统一处理特殊类型的转换
     let newValue = value;
     if (key === "weekStartDay" && typeof value === "string") {
@@ -1457,7 +1650,14 @@
   async function loadNotebooks() {
     try {
       const result = await lsNotebooks();
-      notebooks = result.notebooks.map((notebook) => ({
+      const list = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.notebooks)
+          ? result.notebooks
+          : Array.isArray(result?.data?.notebooks)
+            ? result.data.notebooks
+            : [];
+      notebooks = list.map((notebook) => ({
         id: notebook.id,
         name: notebook.name,
       }));
@@ -1479,16 +1679,206 @@
     }
     // 确保 audioFileLists 存在
     if (!settings.audioFileLists) settings.audioFileLists = {};
+    
+    // 加载数据库配置
+    await loadDatabaseConfig();
+    
     updateGroupItems();
     // 确保设置已保存（可能包含新的默认值），但不发出更新事件
     await saveSettings(false);
     console.debug("加载配置文件完成");
   }
 
+  /** 加载数据库配置 */
+  async function loadDatabaseConfig() {
+    try {
+      storageConfigManager = StorageConfigManager.getInstance();
+      await storageConfigManager.initialize(plugin);
+      const config = storageConfigManager.getConfig();
+      databaseConfig = {
+        storageMode: config.storageMode,
+        projectHubDatabaseId: config.projectHubDatabaseId || "",
+        projectHubNotebookId: config.projectHubNotebookId || "",
+        projectHubDocPath: config.projectHubDocPath || "/Task Note/项目管理中心数据库",
+        fallbackOnError: config.fallbackOnError,
+        autoCreateDatabases: config.autoCreateDatabases,
+      };
+    } catch (error) {
+      console.error("加载数据库配置失败:", error);
+    }
+  }
+
+  /** 保存数据库配置 */
+  async function saveDatabaseConfig() {
+    try {
+      if (!storageConfigManager) {
+        storageConfigManager = StorageConfigManager.getInstance();
+        await storageConfigManager.initialize(plugin);
+      }
+      storageConfigManager.updateConfig(databaseConfig);
+      if (databaseConfig.autoCreateDatabases && databaseConfig.projectHubDatabaseId) {
+        const dbManager = SiYuanDatabaseManager.getInstance();
+        await dbManager.initialize(storageConfigManager.getConfig());
+        const result = await dbManager.ensureTemplateColumns(
+          databaseConfig.projectHubDatabaseId,
+          ProjectHubTemplate,
+        );
+        if (result.added.length > 0) {
+          await pushMsg(
+            i18n("applyDatabaseTemplateSuccess").replace(
+              "${count}",
+              String(result.added.length),
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      console.error("保存数据库配置失败:", error);
+      await pushErrMsg(i18n("saveDatabaseConfigFailed"));
+    }
+  }
+
+  /** 打开迁移向导 */
+  async function openMigrationWizard() {
+    try {
+      // 动态导入迁移向导
+    const { DataMigrationWizard } = await import("./components/DataMigrationWizard");
+    const wizard = new DataMigrationWizard(plugin);
+      await wizard.show();
+      // 迁移完成后刷新配置
+      await loadDatabaseConfig();
+      updateGroupItems();
+    } catch (error) {
+      console.error("打开迁移向导失败:", error);
+      await pushErrMsg(i18n("openMigrationWizardFailed"));
+    }
+  }
+
+  /** 打开项目管理中心数据库块 */
+  async function openProjectHubDatabaseBlock() {
+    try {
+      const blockId = databaseConfig.projectHubDatabaseId?.trim();
+      if (!blockId) {
+        await pushErrMsg(i18n("projectHubDatabaseIdMissing"));
+        return;
+      }
+      await openBlock(blockId);
+    } catch (error) {
+      console.error("打开数据库块失败:", error);
+      await pushErrMsg(i18n("openDatabaseBlockFailed"));
+    }
+  }
+
+  async function waitForAttributeViewBlock(docId: string): Promise<string | null> {
+    const maxAttempts = 30;
+    for (let i = 0; i < maxAttempts; i += 1) {
+      try {
+        const rows = await sql(
+          `SELECT id FROM blocks WHERE type='av' AND root_id='${docId}' ORDER BY updated DESC LIMIT 1`,
+        );
+        if (Array.isArray(rows) && rows.length > 0 && rows[0]?.id) {
+          return rows[0].id as string;
+        }
+      } catch (error) {
+        console.warn("查询数据库块失败:", error);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    return null;
+  }
+
+  async function findDocIdByPath(notebookId: string, docPath: string): Promise<string | null> {
+    const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
+    try {
+      const rows = await sql(
+        `SELECT id FROM blocks WHERE type='d' AND box='${notebookId}' AND path='${normalizedPath}' LIMIT 1`,
+      );
+      if (Array.isArray(rows) && rows.length > 0 && rows[0]?.id) {
+        return rows[0].id as string;
+      }
+    } catch (error) {
+      console.warn('查询承载文档失败:', error);
+    }
+    return null;
+  }
+
+  async function setupProjectHubDatabase() {
+    try {
+      const notebookId = databaseConfig.projectHubNotebookId?.trim();
+      if (!notebookId) {
+        await pushErrMsg(i18n("projectHubNotebookIdMissing"));
+        return;
+      }
+
+      const docPath =
+        (databaseConfig.projectHubDocPath || "").trim() ||
+        "/Task Note/项目管理中心数据库";
+      const title = i18n("projectHubDatabaseTitle") || "项目管理中心";
+      const guide =
+        i18n("projectHubDatabaseGuide") ||
+        "请在此处插入数据库块（/数据库），系统会自动绑定";
+
+      let docId = await findDocIdByPath(notebookId, docPath);
+      if (!docId) {
+        docId = await createDocWithMd(
+          notebookId,
+          docPath,
+          `# ${title}\n\n${guide}`,
+        );
+      }
+
+      await openBlock(docId);
+      await pushMsg(i18n("projectHubInsertDatabaseHint"));
+
+      const avId = await waitForAttributeViewBlock(docId);
+      if (!avId) {
+        await pushErrMsg(i18n("projectHubDatabaseNotFound"));
+        return;
+      }
+
+      databaseConfig.projectHubDatabaseId = avId;
+      storageConfigManager.updateConfig(databaseConfig);
+
+      if (databaseConfig.autoCreateDatabases) {
+        const dbManager = SiYuanDatabaseManager.getInstance();
+        await dbManager.initialize(storageConfigManager.getConfig());
+        await dbManager.ensureTemplateColumns(avId, ProjectHubTemplate);
+      }
+
+      await pushMsg(i18n("projectHubDatabaseSetupSuccess"));
+    } catch (error) {
+      console.error("一键设置数据库失败:", error);
+      await pushErrMsg(i18n("projectHubDatabaseNotFound"));
+    }
+  }
+
   function updateGroupItems() {
     groups = groups.map((group) => ({
       ...group,
       items: group.items.map((item) => {
+        // 处理数据库配置项
+        if (item.key === "storageMode") {
+          return { ...item, value: databaseConfig.storageMode };
+        }
+        if (item.key === "projectHubDatabaseId") {
+          return { ...item, value: databaseConfig.projectHubDatabaseId };
+        }
+        if (item.key === "projectHubNotebookId") {
+          return { ...item, value: databaseConfig.projectHubNotebookId };
+        }
+        if (item.key === "projectHubNotebookIdManual") {
+          return { ...item, value: databaseConfig.projectHubNotebookId };
+        }
+        if (item.key === "projectHubDocPath") {
+          return { ...item, value: databaseConfig.projectHubDocPath };
+        }
+        if (item.key === "fallbackOnError") {
+          return { ...item, value: databaseConfig.fallbackOnError };
+        }
+        if (item.key === "autoCreateDatabases") {
+          return { ...item, value: databaseConfig.autoCreateDatabases };
+        }
+
         const updatedItem = {
           ...item,
           value: (() => {
@@ -1512,6 +1902,15 @@
               return acc;
             },
             {} as { [key: string]: string },
+          );
+        }
+        if (item.key === "projectHubNotebookId") {
+          updatedItem.options = notebooks.reduce(
+            (acc, notebook) => {
+              acc[notebook.id] = notebook.name;
+              return acc;
+            },
+            { "": i18n("pleaseSelectNotebook") } as { [key: string]: string },
           );
         }
 
