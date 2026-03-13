@@ -2509,6 +2509,49 @@
     }
 }
 
+/* 月视图：日期单元格最小高度 + 事项滚动 */
+.fc-dayGridMonth-view {
+    --fc-month-day-min-rows: 5;
+    --fc-month-day-header-height: 26px;
+    --fc-month-day-event-line-height: 1.4;
+    --fc-month-day-min-height: calc(
+        var(--fc-month-day-min-rows) * var(--fc-month-day-event-line-height) * 1em +
+            var(--fc-month-day-header-height)
+    );
+}
+
+.fc-dayGridMonth-view .fc-daygrid-day-frame {
+    min-height: var(--fc-month-day-min-height);
+    height: var(--fc-month-day-min-height);
+    display: flex;
+    flex-direction: column;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-day-top {
+    flex-shrink: 0;
+    height: var(--fc-month-day-header-height);
+}
+
+.fc-dayGridMonth-view .fc-daygrid-day-events {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    line-height: var(--fc-month-day-event-line-height);
+    scrollbar-width: thin;
+    scrollbar-color: var(--b3-theme-surface-lighter) transparent;
+    -webkit-overflow-scrolling: touch;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-day-events::-webkit-scrollbar {
+    width: 4px;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-day-events::-webkit-scrollbar-thumb {
+    background-color: var(--b3-theme-surface-lighter);
+    border-radius: 2px;
+}
+
 /* 隐藏 FullCalendar 许可证提示 */
 .fc-license-message {
     display: none !important;
