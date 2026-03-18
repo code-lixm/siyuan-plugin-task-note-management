@@ -528,6 +528,8 @@
     "pomodoroSystemNotificationDesc": "Show system notification popup when pomodoro session ends",
     "reminderSystemNotification": "Reminder System Notification",
     "reminderSystemNotificationDesc": "Show system notification popup when events are due, supports clicking to jump to related blocks",
+    "showInternalNotification": "Show Internal Notification",
+    "showInternalNotificationDesc": "Show internal notification dialog when task/habit reminder triggers",
     "dailyNotificationTime": "Daily Notification Time",
     "dailyNotificationTimeDesc": "Set the time of day (HH:MM) to show daily reminders (e.g., '09:00'); default is 08:00",
     "dailyNotificationEnabled": "Enable Daily Unified Notification",
@@ -747,7 +749,9 @@
     "copyPlainText": "Copy Plain Text",
     "copyRichText": "Copy Rich Text",
     "copiedToClipboard": "Copied to clipboard",
+    "copySuccess": "Copied to clipboard",
     "copyFailed": "Copy failed",
+    "noBlockToCopy": "No block reference to copy",
     "currentView": "Current View",
     "shortcutSetDocumentAsTask": "Set Current Document as Task",
     "shortcutSetBlockAsTask": "Set Current Block as Task",
@@ -1503,6 +1507,9 @@
     "loadTagsFailed": "Failed to load tags",
     "renderMilestonesFailed": "Failed to render milestone list",
     "preview": "Preview",
+    "previewRecognizedDates": "Preview recognized dates",
+    "noTasksDetected": "No tasks detected",
+    "detectedDate": "Recognition result",
     "completedAtLabel": "Completed at: ",
     "openCalendarView": "Open Calendar View",
     "openCalendarInTab": "Open Calendar in Tab",
@@ -1844,5 +1851,6 @@
     "andMoreTasks": "... and ${count} more tasks",
     "noMilestones": "No Milestones",
     "pleaseInputDateTimeDesc": "Please enter the date and time description",
-    "mergeProject": "Merge Project"
+    "mergeProject": "Merge Project",
+    "batchSetStatus": "Batch Set Status"
 }

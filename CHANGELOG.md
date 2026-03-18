@@ -1,3 +1,35 @@
+## v6.3.0 / 20260315
+- ✨ 移动端设备系统通知优化：提前生成系统通知，
+- 🎨 任务编辑：提醒时间适配移动端，粘贴块引用改为复制块引用
+- 🎨 粘贴新建任务：支持预览日期识别结果
+- 🎨 批量设置块为任务：批量设置项目的应用按钮支持多次点击
+- 🎨 番茄钟：mini 模式拖动到哪里，恢复正常模式时窗口中心就在哪里
+- 🎨 番茄钟：完善随机微休息弹窗关闭和番茄钟结束可能的重复完成问题
+- 🐛 绑定块任务弹窗显示截止日期修复
+- 🐛 日历视图：查看更多任务，fc-popover  右键编辑任务会错误高亮整个fc-popover，导致点
+击fc-popover，是点击任务的效果，无法关闭fc-popover
+
+## v6.2.9 / 20260310
+- 🎨 多选块批量创建任务：支持设置分组和里程碑
+- 🎨 多选块批量创建任务：优化性能，不再调用exportMdContent获取标题和备注
+- 🎨 任务侧栏：拖动排序父任务，子任务也要跟着移动
+- 🎨 番茄钟：mini模式优化
+- 🎨 安装插件不自动创建配置文件，避免因为同步会导致数据丢失
+- 🐛 日历视图编辑有time的固定时间任务，没设置endDate和endTime，编辑的时候会错误添加endDate
+- 📝 vip：明确月会员为30天
+- 🎨 系统通知：适配思源v3.5.10
+
+---
+
+- 🎨 Multi-select block batch task creation: Supports setting groups and milestones
+- 🎨 Multi-select block batch task creation: Optimized performance, no longer calls exportMdContent to retrieve titles and notes
+- 🎨 Task sidebar: Dragging to sort parent tasks also moves child tasks accordingly
+- 🎨 Pomodoro Timer: Mini mode optimization
+- 🎨 Installing plugins no longer automatically creates configuration files to prevent data loss due to synchronization
+- 🐛 Calendar view editing fixed-time tasks with 'time' set but no 'endDate' and 'endTime' incorrectly adds 'endDate' during editing
+- 📝 VIP: Clarifies that monthly membership is for 30 days
+- 🎨 System notifications: Adapted for SiYuan v3.5.10
+
 ## v6.2.7 / 20260309
 - 🎨 番茄钟：全局番茄钟mini模式支持调整大小
 - 🎨 任务侧栏：排序优化

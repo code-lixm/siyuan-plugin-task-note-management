@@ -1430,8 +1430,11 @@ export class ReminderPanel {
 
     /**
      * Recursive completion of all child tasks (including recurring instance ghosts).
+     * Returns array of completed task IDs for mobile notification cancellation.
      */
-    private async completeAllChildTasks(parentId: string, reminderData: any, affectedBlockIds: Set<string>, instanceDate?: string): Promise<void> {
+    private async completeAllChildTasks(parentId: string, reminderData: any, affectedBlockIds: Set<string>, instanceDate?: string): Promise<string[]> {
+        const completedTaskIds: string[] = [];
+        
         // 1. Ghost Subtasks: Children of the original parent (recurse with instanceDate)
         const ghostChildren = (Object.values(reminderData) as any[]).filter(r => r.parentId === parentId);
 
@@ -1448,16 +1451,19 @@ export class ReminderPanel {
                     if (child.blockId) affectedBlockIds.add(child.blockId);
                 }
                 // Recurse to children's children (passing instanceDate to continue ghost chain)
-                await this.completeAllChildTasks(child.id, reminderData, affectedBlockIds, instanceDate);
+                const childIds = await this.completeAllChildTasks(child.id, reminderData, affectedBlockIds, instanceDate);
+                completedTaskIds.push(...childIds);
             } else {
                 // Regular completion
                 if (!child.completed) {
                     child.completed = true;
                     child.completedTime = getLocalDateTimeString(new Date());
                     if (child.blockId) affectedBlockIds.add(child.blockId);
+                    completedTaskIds.push(child.id);
                 }
                 // Recurse to children's children
-                await this.completeAllChildTasks(child.id, reminderData, affectedBlockIds);
+                const childIds = await this.completeAllChildTasks(child.id, reminderData, affectedBlockIds);
+                completedTaskIds.push(...childIds);
             }
         }
 
@@ -1471,11 +1477,15 @@ export class ReminderPanel {
                     child.completed = true;
                     child.completedTime = getLocalDateTimeString(new Date());
                     if (child.blockId) affectedBlockIds.add(child.blockId);
+                    completedTaskIds.push(child.id);
                 }
                 // These are regular tasks now, so recurse without instanceDate
-                await this.completeAllChildTasks(child.id, reminderData, affectedBlockIds);
+                const childIds = await this.completeAllChildTasks(child.id, reminderData, affectedBlockIds);
+                completedTaskIds.push(...childIds);
             }
         }
+        
+        return completedTaskIds;
     }
 
     /**
@@ -4143,12 +4153,14 @@ export class ReminderPanel {
                 const affectedBlockIds = new Set<string>();
                 if (original.blockId) affectedBlockIds.add(original.blockId);
 
+                const completedTaskIds: string[] = [];
                 if (completed) {
                     if (!completedInstances.includes(instanceDate)) completedInstances.push(instanceDate);
                     completedTimes[instanceDate] = getLocalDateTimeString(new Date());
 
-                    // 如果需要，自动完成子任务（收集受影响的块ID）
-                    await this.completeAllChildTasks(originalId, reminderData, affectedBlockIds, instanceDate);
+                    // 如果需要，自动完成子任务（收集受影响的块ID和任务ID）
+                    const childIds = await this.completeAllChildTasks(originalId, reminderData, affectedBlockIds, instanceDate);
+                    completedTaskIds.push(...childIds);
                 } else {
                     const idx = completedInstances.indexOf(instanceDate);
                     if (idx > -1) completedInstances.splice(idx, 1);
@@ -4156,6 +4168,17 @@ export class ReminderPanel {
                 }
 
                 await saveReminders(this.plugin, reminderData);
+
+                // 取消已完成任务的移动端通知
+                if (completed && this.plugin?.cancelMobileNotification) {
+                    for (const taskId of completedTaskIds) {
+                        try {
+                            await this.plugin.cancelMobileNotification(taskId);
+                        } catch (e) {
+                            console.warn('取消移动端通知失败:', taskId, e);
+                        }
+                    }
+                }
 
                 // 更新 allRemindersMap 中的原始数据
                 if (this.allRemindersMap.has(originalId)) {
@@ -4194,16 +4217,29 @@ export class ReminderPanel {
             const affectedBlockIds = new Set<string>();
             if (reminder.blockId) affectedBlockIds.add(reminder.blockId);
 
+            const completedTaskIds: string[] = [];
             reminder.completed = completed;
             if (completed) {
                 reminder.completedTime = getLocalDateTimeString(new Date());
                 // 自动完成子任务
-                await this.completeAllChildTasks(reminderId, reminderData, affectedBlockIds);
+                const childIds = await this.completeAllChildTasks(reminderId, reminderData, affectedBlockIds);
+                completedTaskIds.push(reminderId, ...childIds);
             } else {
                 delete reminder.completedTime;
             }
 
             await saveReminders(this.plugin, reminderData);
+
+            // 取消已完成任务的移动端通知
+            if (completed && this.plugin?.cancelMobileNotification) {
+                for (const taskId of completedTaskIds) {
+                    try {
+                        await this.plugin.cancelMobileNotification(taskId);
+                    } catch (e) {
+                        console.warn('取消移动端通知失败:', taskId, e);
+                    }
+                }
+            }
 
             // 更新 allRemindersMap 中的数据，以便 updateParentProgress 能获取最新的完成状态
             if (this.allRemindersMap.has(reminderId)) {
@@ -4592,14 +4628,16 @@ export class ReminderPanel {
             const deletedIds: string[] = [];
 
             // 找到所有相关的提醒并删除
-            Object.keys(reminderData).forEach(reminderId => {
+            for (const reminderId of Object.keys(reminderData)) {
                 const reminder = reminderData[reminderId];
                 if (reminder && (reminder.blockId === blockId || reminder.id === blockId)) {
                     delete reminderData[reminderId];
+                    // 取消移动端通知
+                    await this.plugin.cancelMobileNotification(reminderId);
                     deletedIds.push(reminderId);
                     deletedCount++;
                 }
-            });
+            };
 
             if (deletedCount > 0) {
                 await saveReminders(this.plugin, reminderData);
@@ -5648,7 +5686,23 @@ export class ReminderPanel {
                 return;
             }
 
-            // 移动DOM元素
+            // 获取被拖拽任务的所有子任务（从缓存中）
+            const getAllDescendants = (parentId: string): any[] => {
+                const result: any[] = [];
+                const children = this.currentRemindersCache.filter(r => r.parentId === parentId);
+                for (const child of children) {
+                    result.push(child);
+                    result.push(...getAllDescendants(child.id));
+                }
+                return result;
+            };
+
+            const draggedChildren = getAllDescendants(draggedReminder.id);
+            const draggedChildElements = draggedChildren
+                .map(child => this.remindersContainer.querySelector(`[data-reminder-id="${child.id}"]`) as HTMLElement)
+                .filter(el => el !== null);
+
+            // 移动DOM元素（父任务）
             if (insertBefore) {
                 this.remindersContainer.insertBefore(draggedElement, targetElement);
             } else {
@@ -5660,20 +5714,40 @@ export class ReminderPanel {
                 }
             }
 
+            // 移动所有子任务元素（紧跟在父任务后面）
+            let lastInsertedElement: HTMLElement = draggedElement;
+            for (const childEl of draggedChildElements) {
+                if (lastInsertedElement.nextSibling) {
+                    this.remindersContainer.insertBefore(childEl, lastInsertedElement.nextSibling);
+                } else {
+                    this.remindersContainer.appendChild(childEl);
+                }
+                lastInsertedElement = childEl;
+            }
+
             // 更新缓存中的顺序
             const draggedIndex = this.currentRemindersCache.findIndex(r => r.id === draggedReminder.id);
             const targetIndex = this.currentRemindersCache.findIndex(r => r.id === targetReminder.id);
 
             if (draggedIndex !== -1 && targetIndex !== -1) {
-                // 从缓存中移除被拖拽的项
-                const [removed] = this.currentRemindersCache.splice(draggedIndex, 1);
+                // 收集被拖拽的任务及其所有后代
+                const itemsToMove = [draggedReminder, ...draggedChildren];
+                const idsToMove = new Set(itemsToMove.map(r => r.id));
+
+                // 从缓存中移除所有被拖拽的项（包括子任务）
+                const removedItems: any[] = [];
+                for (let i = this.currentRemindersCache.length - 1; i >= 0; i--) {
+                    if (idsToMove.has(this.currentRemindersCache[i].id)) {
+                        removedItems.unshift(this.currentRemindersCache.splice(i, 1)[0]);
+                    }
+                }
 
                 // 重新计算插入位置（因为移除操作可能改变了索引）
                 const newTargetIndex = this.currentRemindersCache.findIndex(r => r.id === targetReminder.id);
                 const insertIndex = insertBefore ? newTargetIndex : newTargetIndex + 1;
 
-                // 插入到新位置
-                this.currentRemindersCache.splice(insertIndex, 0, removed);
+                // 插入到新位置（保持父子顺序：父任务在前，子任务在后）
+                this.currentRemindersCache.splice(insertIndex, 0, ...removedItems);
             }
 
         } catch (error) {
@@ -6400,7 +6474,7 @@ export class ReminderPanel {
         // 添加项目管理选项（仅当任务有projectId时显示）
         if (reminder.projectId) {
             menu.addItem({
-                icon: "iconGrid",
+                icon: "iconProject",
                 label: i18n("openProjectKanban"),
                 click: () => this.openProjectKanban(reminder.projectId)
             });
@@ -7419,6 +7493,8 @@ export class ReminderPanel {
                 const rem = reminderData[id];
                 if (rem) {
                     if (rem.blockId) affectedBlockIds.add(rem.blockId);
+                    // 取消移动端通知
+                    await this.plugin.cancelMobileNotification(id);
                     delete reminderData[id];
                     deletedCount++;
                 }
@@ -7431,6 +7507,8 @@ export class ReminderPanel {
                     if (key.startsWith(id + '_')) {
                         const inst = reminderData[key];
                         if (inst && inst.blockId) affectedBlockIds.add(inst.blockId);
+                        // 取消移动端通知
+                        await this.plugin.cancelMobileNotification(key);
                         delete reminderData[key];
                         deletedCount++;
                     }
@@ -8853,7 +8931,7 @@ export class ReminderPanel {
             const maxSort = allReminders.reduce((max, r) => Math.max(max, r.sort || 0), 0);
             const defaultSort = maxSort + 10000;
 
-            const today = getLogicalDateString();
+            const today = getLocalDateString();
             const quickDialog = new QuickReminderDialog(
                 today, // 初始日期为今天
                 undefined, // 不指定初始时间

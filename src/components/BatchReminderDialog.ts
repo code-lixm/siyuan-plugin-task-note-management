@@ -74,129 +74,129 @@ export class BatchReminderDialog {
 
     async autoDetectBatchDateTime(blockIds: string[]): Promise<AutoDetectResult[]> {
         const results = [];
-        const { getBlockByID, getChildBlocks, exportMdContent } = await import("../api");
+        const { sql, getBlockByID } = await import("../api");
 
-        // 第一步：识别所有应该被跳过的子块ID
-        const blocksToSkip = new Set<string>();
+        // 合并查询：一次性获取所有选中块的记录
+        try {
+            const idsList = blockIds.map(id => `'${id}'`).join(',');
+            const blocks = await sql(`select * from blocks where id in (${idsList})`);
+            const blockMap: Record<string, any> = {};
+            (blocks || []).forEach((b: any) => { blockMap[b.id] = b; });
 
-        for (const blockId of blockIds) {
-            try {
-                const block = await getBlockByID(blockId);
-                if (block && block.type === 'h') {
-                    // 获取这个标题的所有子块
-                    const childRes = await getChildBlocks(blockId);
-                    const childIds = childRes ? childRes.map(c => c.id) : [];
-
-                    // 如果子块也在选中列表中，标记为需要跳过
-                    for (const childId of childIds) {
-                        if (blockIds.includes(childId)) {
-                            blocksToSkip.add(childId);
-                        }
-                    }
+            // 合并查询子块：一次性获取 parent_id 在选中范围内的子块，用于跳过被包含的子块
+            const children = await sql(`select id, parent_id from blocks where parent_id in (${idsList})`);
+            const blocksToSkip = new Set<string>();
+            (children || []).forEach((c: any) => {
+                if (blockIds.includes(c.id)) {
+                    blocksToSkip.add(c.id);
                 }
-            } catch (error) {
-                console.error(`检查块 ${blockId} 的子块失败:`, error);
-            }
-        }
+            });
 
-        // 第二步：处理未被跳过的块
-        for (const blockId of blockIds) {
-            // 跳过子块
-            if (blocksToSkip.has(blockId)) {
-                continue;
-            }
-            try {
-                const block = await getBlockByID(blockId);
+            // 处理每个块（避免使用 exportMdContent）
+            for (const blockId of blockIds) {
+                if (blocksToSkip.has(blockId)) continue;
 
-                if (block) {
-                    let exportedContent = '';
-
-                    // 导出块内容
-                    const res = await exportMdContent(blockId);
-                    if (window.siyuan.config.export.addTitle) {
-                        // 需要去掉第一行，为没用的标题行
-                        exportedContent = res?.content?.split('\n').slice(1).join('\n') || '';
-                    } else {
-                        exportedContent = res?.content || '';
+                try {
+                    let block = blockMap[blockId];
+                    if (!block) {
+                        // 兜底：单独获取
+                        block = await getBlockByID(blockId);
                     }
 
-                    // 统一处理：第一行作为标题，其余行作为备注
-                    let content = '';
-                    let note = '';
-
-                    if (exportedContent) {
-                        const originalLines = exportedContent.split('\n');
-                        // 过滤掉空白行，找到真正的第一行内容
-                        const lines = originalLines.map(line => line.trim()).filter(line => line.length > 0);
-
-                        if (lines.length > 0) {
-                            const firstLine = lines[0];
-
-                            if (firstLine.startsWith('#')) {
-                                // 1. 处理标题行：去掉 # 号
-                                content = firstLine.replace(/^#+\s*/, '').trim();
+                    if (block) {
+                        // 根据块类型选择标题来源：
+                        // - 列表与任务项优先使用 fcontent（渲染后的单行内容）
+                        // - 其他块使用 content（完整原始内容）
+                        let exportedContent = '';
+                        try {
+                            const isListType = block.type === 'l' || block.type === 'i';
+                            if (isListType) {
+                                exportedContent = (block.fcontent || block.content || '').toString();
                             } else {
-                                // 2. 处理普通行或列表行
-                                // 这里的正则增加了对 - [ ] 和 - [x] 的支持
-                                // ^[-*+]\s+\[[ xX]\]\s+ : 匹配任务列表 - [ ] 或 - [x]
-                                // |^[-*+]\s+ : 匹配普通无序列表 - 或 * 或 +
-                                // |^\d+\.\s+ : 匹配有序列表 1.
-                                content = firstLine
-                                    .replace(/^[-*+]\s+\[[ xX]\]\s+/, '') // 先匹配任务列表标记
-                                    .replace(/^[-*+]\s+/, '')            // 再匹配普通无序列表标记
-                                    .replace(/^\d+\.\s+/, '')             // 再匹配有序列表标记
-                                    .trim();
+                                exportedContent = (block.content || '').toString();
                             }
+                        } catch (e) {
+                            exportedContent = (block.content || '').toString();
+                        }
 
-                            // 提取备注：保留第一行之后的所有原始内容
-                            const firstLineIndex = originalLines.findIndex(line => line.trim() === firstLine);
-                            if (firstLineIndex >= 0 && firstLineIndex < originalLines.length - 1) {
-                                note = originalLines.slice(firstLineIndex + 1).join('\n').trim();
+                        let content = '';
+                        let note = '';
+
+                        if (exportedContent) {
+                            const originalLines = exportedContent.split('\n');
+                            const lines = originalLines.map((line: string) => line.trim()).filter((line: string) => line.length > 0);
+                            if (lines.length > 0) {
+                                const firstLine = lines[0];
+                                if (firstLine.startsWith('#')) {
+                                    content = firstLine.replace(/^#+\s*/, '').trim();
+                                } else {
+                                    content = firstLine
+                                        .replace(/^[-*+]\s+\[[ xX]\]\s+/, '')
+                                        .replace(/^[-*+]\s+/, '')
+                                        .replace(/^\d+\.\s+/, '')
+                                        .trim();
+                                }
+
+                                const firstLineIndex = originalLines.findIndex((line: string) => line.trim() === firstLine);
+                                if (firstLineIndex >= 0 && firstLineIndex < originalLines.length - 1) {
+                                    note = originalLines.slice(firstLineIndex + 1).join('\n').trim();
+                                }
                             }
                         }
+
+                        const removeMode = await this.plugin.getRemoveDateAfterDetectionMode();
+                        const titleAuto = autoDetectDateTimeFromTitle(content, removeMode);
+
+                        let date = titleAuto.date;
+                        let time = titleAuto.time;
+                        let hasTime = titleAuto.hasTime;
+                        if (!date) {
+                            const contentAuto = autoDetectDateTimeFromTitle(note, removeMode);
+                            date = contentAuto.date;
+                            time = contentAuto.time;
+                            hasTime = contentAuto.hasTime;
+                        }
+
+                        const cleanTitle = titleAuto.cleanTitle || content;
+
+                        results.push({
+                            blockId,
+                            content: content,
+                            note: note,
+                            date,
+                            time,
+                            hasTime,
+                            endDate: titleAuto.endDate,
+                            endTime: titleAuto.endTime,
+                            hasEndTime: titleAuto.hasEndTime,
+                            cleanTitle: cleanTitle
+                        } as AutoDetectResult);
                     }
-
-
-                    const removeMode = await this.plugin.getRemoveDateAfterDetectionMode();
-                    // 从标题中识别日期
-                    const titleAuto = autoDetectDateTimeFromTitle(content, removeMode);
-                    // 从备注中识别日期，如果标题没有
-                    let date = titleAuto.date;
-                    let time = titleAuto.time;
-                    let hasTime = titleAuto.hasTime;
-                    if (!date) {
-                        const contentAuto = autoDetectDateTimeFromTitle(note, removeMode);
-                        date = contentAuto.date;
-                        time = contentAuto.time;
-                        hasTime = contentAuto.hasTime;
-                    }
-
-                    const cleanTitle = titleAuto.cleanTitle || content;
-
+                } catch (error) {
+                    console.error(`获取块 ${blockId} 失败:`, error);
                     results.push({
                         blockId,
-                        content: content,
-                        note: note,
-                        date,
-                        time,
-                        hasTime,
-                        endDate: titleAuto.endDate,
-                        endTime: titleAuto.endTime,
-                        hasEndTime: titleAuto.hasEndTime,
-                        cleanTitle: cleanTitle
-                    });
+                        content: '无法获取块内容',
+                        cleanTitle: '无法获取块内容'
+                    } as AutoDetectResult);
                 }
-            } catch (error) {
-                console.error(`获取块 ${blockId} 失败:`, error);
-                results.push({
-                    blockId,
-                    content: '无法获取块内容',
-                    cleanTitle: '无法获取块内容'
-                });
             }
-        }
 
-        return results;
+            return results;
+        } catch (err) {
+            console.error('批量识别块内容失败:', err);
+            // 回退到逐个处理（兼容性保守策略）
+            const { getBlockByID } = await import("../api");
+            for (const blockId of blockIds) {
+                try {
+                    const block = await getBlockByID(blockId);
+                    results.push({ blockId, content: block?.content || '', cleanTitle: block?.content || '' } as AutoDetectResult);
+                } catch (error) {
+                    results.push({ blockId, content: '无法获取块内容', cleanTitle: '无法获取块内容' } as AutoDetectResult);
+                }
+            }
+            return results;
+        }
     }
 
 
@@ -221,12 +221,27 @@ class SmartBatchDialog {
         this.categoryManager = CategoryManager.getInstance(this.plugin);
         this.projectManager = ProjectManager.getInstance(this.plugin);
 
-        // 初始化每个块的设置
-        this.initializeBlockSettings();
+
     }
 
-    private initializeBlockSettings() {
-        this.autoDetectedData.forEach(data => {
+    private async initializeBlockSettings() {
+        for (const data of this.autoDetectedData) {
+            let projectId = this.defaultSettings?.defaultProjectId || '';
+            let customGroupId = this.defaultSettings?.defaultCustomGroupId || '';
+            let milestoneId = this.defaultSettings?.defaultMilestoneId || '';
+            let categoryId = this.defaultSettings?.defaultCategoryId || '';
+            try {
+                const inherit = await (this.plugin as any).getInheritedProjectAndGroup(data.blockId);
+                if (inherit) {
+                    if (inherit.projectId) projectId = inherit.projectId;
+                    if (inherit.groupId) customGroupId = inherit.groupId;
+                    if (inherit.milestoneId) milestoneId = inherit.milestoneId;
+                    if (inherit.categoryId) categoryId = inherit.categoryId;
+                }
+            } catch (err) {
+                // ignore
+            }
+
             this.blockSettings.set(data.blockId, {
                 blockId: data.blockId,
                 content: data.content,
@@ -238,8 +253,10 @@ class SmartBatchDialog {
                 endTime: data.endTime || '',
                 hasEndTime: data.hasEndTime || false,
                 priority: 'none',
-                categoryId: this.defaultSettings?.defaultCategoryId || '',
-                projectId: this.defaultSettings?.defaultProjectId || '',
+                categoryId: categoryId || '',
+                projectId: projectId || '',
+                customGroupId: customGroupId || '',
+                milestoneId: milestoneId || '',
                 note: data.note || '',
                 repeatConfig: {
                     enabled: false,
@@ -248,13 +265,15 @@ class SmartBatchDialog {
                     endType: 'never'
                 }
             });
-        });
+        }
     }
 
     async show() {
         // 初始化分类管理器和项目管理器
         await this.categoryManager.initialize();
         await this.projectManager.initialize();
+        // 初始化每个块的设置并应用继承的项目/分组/里程碑/分类
+        await this.initializeBlockSettings();
 
         const dialog = new Dialog({
             title: i18n("smartBatchTitle", { count: this.blockIds.length.toString() }),
@@ -288,6 +307,20 @@ class SmartBatchDialog {
                             </div>
                         </div>
                         <div class="batch-operations-content" id="batchOperationsContent" style="display: none;">
+                            <div class="batch-operation-row">
+                                <div class="batch-operation-item">
+                                    <label class="b3-form__label">${i18n("batchSetDate")}</label>
+                                    <div class="batch-date-container">
+                                        <input type="date" id="batchDateInput" class="b3-text-field" value="${getLogicalDateString()}" max="9999-12-31">
+                                        <button type="button" id="batchApplyDateBtn" class="b3-button b3-button--primary">
+                                            ${i18n("applyDateToAll")}
+                                        </button>
+                                        <button type="button" id="batchNlDateBtn" class="b3-button b3-button--outline" title="${i18n('smartDateRecognition')}">
+                                            ✨
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="batch-operation-row">
                                 <div class="batch-operation-item">
                                     <label class="b3-form__label">${i18n("batchSetCategory")}</label>
@@ -330,31 +363,36 @@ class SmartBatchDialog {
                             <div class="batch-operation-row">
                                 <div class="batch-operation-item">
                                     <label class="b3-form__label">${i18n("batchSetProject")}</label>
-                                    <div class="batch-project-container">
-                                        <select id="batchProjectSelector" class="b3-select" style="flex: 1;">
-                                            <option value="">${i18n("noProject")}</option>
-                                            <!-- 项目选择器将在这里渲染 -->
-                                        </select>
+                                    <div class="batch-project-container" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0;">
+                                        <div style="flex:1 1 100%; display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap;">
+                                            <select id="batchProjectSelector" class="b3-select" style="flex: 1 1 200px; min-width:120px;">
+                                                <option value="">${i18n("noProject")}</option>
+                                                <!-- 项目选择器将在这里渲染 -->
+                                            </select>
+                                            <select id="batchGroupSelector" class="b3-select" style="flex: 0 1 160px; min-width:120px; display:none;">
+                                                <option value="">${i18n("noGroup") || '无分组'}</option>
+                                            </select>
+                                            <select id="batchMilestoneSelector" class="b3-select" style="flex: 0 1 200px; min-width:120px; display:none;">
+                                                <option value="">${i18n("noMilestone") || '无里程碑'}</option>
+                                            </select>
+                                        </div>
+                                        <div style="margin-left:auto; flex:0 0 auto;">
                                             <button type="button" id="batchApplyProjectBtn" class="b3-button b3-button--primary" disabled>
                                                 ${i18n("applyToAll")}
                                             </button>
-                                            <select id="batchStatusSelector" class="b3-select" style="margin-left:8px; min-width:140px; display: none;">
-                                                <option value="">${i18n("selectStatus") || '选择状态'}</option>
-                                            </select>
-                                            <button type="button" id="batchApplyStatusBtn" class="b3-button b3-button--primary" disabled style="display:none; margin-left:6px;">
-                                                ${i18n("applyStatusToAll") || '应用状态'}
-                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="batch-operation-row">
                                 <div class="batch-operation-item">
-                                    <label class="b3-form__label">${i18n("batchSetDate")}</label>
-                                    <div class="batch-date-container">
-                                        <input type="date" id="batchDateInput" class="b3-text-field" value="${getLogicalDateString()}" max="9999-12-31">
-                                        <button type="button" id="batchApplyDateBtn" class="b3-button b3-button--primary">
-                                            ${i18n("applyDateToAll")}
-                                        </button>
-                                        <button type="button" id="batchNlDateBtn" class="b3-button b3-button--outline" title="${i18n('smartDateRecognition')}">
-                                            ✨
+                                    <label class="b3-form__label">${i18n("batchSetStatus") || '批量设置状态'}</label>
+                                    <div class="batch-status-container">
+                                        <select id="batchStatusSelector" class="b3-select" style="flex: 1; display:none; min-width:200px;">
+                                            <option value="">${i18n("selectStatus") || '选择状态'}</option>
+                                        </select>
+                                        <button type="button" id="batchApplyStatusBtn" class="b3-button b3-button--primary" disabled style="margin-left:6px; display:none;">
+                                            ${i18n("applyToAll") || '应用状态'}
                                         </button>
                                     </div>
                                 </div>
@@ -402,7 +440,9 @@ class SmartBatchDialog {
             // 获取分类、优先级和项目显示
             const categoryDisplay = this.getCategoryDisplay(setting?.categoryId);
             const priorityDisplay = this.getPriorityDisplay(setting?.priority);
-            const projectDisplay = this.getProjectDisplay(setting?.projectId);
+            const projectDisplay = await this.getProjectDisplay(setting?.projectId, setting?.customGroupId);
+
+            const milestoneDisplay = setting?.milestoneId ? await this.getMilestoneDisplay(setting.projectId, setting.milestoneId) : '';
 
             // 获取状态显示
             let statusDisplay = '';
@@ -443,6 +483,7 @@ class SmartBatchDialog {
                                 <div class="block-project-status">
                                     <span class="block-project">${projectDisplay}</span>
                                     <span class="block-status">${statusDisplay}</span>
+                                    <span class="block-milestone">${milestoneDisplay}</span>
                                 </div>
                             </div>
                         </div>
@@ -500,19 +541,43 @@ class SmartBatchDialog {
         return priorityMap[priority as keyof typeof priorityMap] || priorityMap.none;
     }
 
-    private getProjectDisplay(projectId?: string): string {
+    private async getProjectDisplay(projectId?: string, groupId?: string): Promise<string> {
         if (!projectId) return `📂 ${i18n("noProject")}`;
 
         try {
             const project = this.projectManager.getProjectById(projectId);
             if (project) {
-                return `<span class="project-badge" style="background-color: ${project.color || '#E0E0E0'}; padding: 2px 6px; border-radius: 3px; font-size: 12px;">📂 ${project.name}</span>`;
+                let text = `📂 ${project.name}`;
+                if (groupId) {
+                    try {
+                        const groups = await this.projectManager.getProjectCustomGroups(projectId);
+                        const g = groups.find(gr => gr.id === groupId);
+                        if (g) text += ` / ${g.name}`;
+                    } catch (err) {
+                        // ignore group name failure
+                    }
+                }
+                return `<span class="project-badge" style="background-color: ${project.color || '#E0E0E0'}; padding: 2px 6px; border-radius: 3px; font-size: 12px;">${text}</span>`;
             }
         } catch (error) {
             console.error('获取项目显示失败:', error);
         }
 
         return `📂 ${i18n("noProject")}`;
+    }
+
+
+    private async getMilestoneDisplay(projectId?: string, milestoneId?: string): Promise<string> {
+        if (!projectId || !milestoneId) return '';
+        try {
+            const m = await this.projectManager.getMilestoneById(projectId, milestoneId);
+            if (m) {
+                return `<span class="milestone-badge" style="background-color: #f0f6ff; padding: 2px 6px; border-radius:3px; margin-left:6px; font-size:11px;">🏁 ${m.name}</span>`;
+            }
+        } catch (err) {
+            console.warn('获取里程碑显示失败:', err);
+        }
+        return '';
     }
 
     private bindSmartBatchEvents(dialog: Dialog) {
@@ -624,11 +689,23 @@ class SmartBatchDialog {
                 batchApplyStatusBtn.style.display = 'none';
                 batchApplyStatusBtn.disabled = true;
             }
+            // reset group/milestone selectors
+            const batchGroupSelector = dialog.element.querySelector('#batchGroupSelector') as HTMLSelectElement;
+            const batchMilestoneSelector = dialog.element.querySelector('#batchMilestoneSelector') as HTMLSelectElement;
+            if (batchGroupSelector) {
+                batchGroupSelector.style.display = 'none';
+                batchGroupSelector.innerHTML = `<option value="">${i18n("noGroup") || '无分组'}</option>`;
+            }
+            if (batchMilestoneSelector) {
+                batchMilestoneSelector.style.display = 'none';
+                batchMilestoneSelector.innerHTML = `<option value="">${i18n("noMilestone") || '无里程碑'}</option>`;
+            }
+
             if (!projectId) return;
             try {
+                // 加载状态
                 const statuses = await this.projectManager.getProjectKanbanStatuses(projectId);
                 if (statuses && statuses.length > 0 && batchStatusSelector) {
-                    // 排除已完成状态（id === 'completed'）
                     statuses
                         .filter(s => s.id !== 'completed')
                         .forEach(s => {
@@ -637,8 +714,8 @@ class SmartBatchDialog {
                             opt.text = `${s.icon || ''} ${s.name || s.id}`;
                             batchStatusSelector.appendChild(opt);
                         });
-                    // 如果过滤后仍有选项则显示
                     if (batchStatusSelector.options.length > 1) {
+                        // 状态选择器将显示在单独一行，由 render 中的 UI 布局控制
                         batchStatusSelector.style.display = '';
                         if (batchApplyStatusBtn) {
                             batchApplyStatusBtn.style.display = '';
@@ -646,8 +723,66 @@ class SmartBatchDialog {
                         }
                     }
                 }
+
+                // 加载自定义分组
+                try {
+                    const groups = await this.projectManager.getProjectCustomGroups(projectId);
+                    if (groups && groups.length > 0 && batchGroupSelector) {
+                        groups.forEach(g => {
+                            const opt = document.createElement('option');
+                            opt.value = g.id;
+                            opt.text = g.name || g.id;
+                            batchGroupSelector.appendChild(opt);
+                        });
+                        batchGroupSelector.style.display = '';
+                    }
+                } catch (err) {
+                    console.warn('加载项目自定义分组失败:', err);
+                }
+
+                // 加载项目级里程碑（过滤掉已归档的）
+                try {
+                    const milestones = await this.projectManager.getProjectMilestones(projectId) || [];
+                    const activeMilestones = milestones.filter(m => !m.archived);
+                    if (activeMilestones.length > 0 && batchMilestoneSelector) {
+                        activeMilestones.forEach(m => {
+                            const opt = document.createElement('option');
+                            opt.value = m.id;
+                            opt.text = m.name || m.id;
+                            batchMilestoneSelector.appendChild(opt);
+                        });
+                        batchMilestoneSelector.style.display = '';
+                    }
+                } catch (err) {
+                    console.warn('加载项目里程碑失败:', err);
+                }
+
+                // 当选择某个分组时加载该分组下的里程碑（如果有）
+                if (batchGroupSelector) {
+                    batchGroupSelector.addEventListener('change', async () => {
+                        const gid = batchGroupSelector.value;
+                        if (!gid) return;
+                        try {
+                            const groupMilestones = await this.projectManager.getGroupMilestones(projectId, gid);
+                            if (groupMilestones && groupMilestones.length > 0 && batchMilestoneSelector) {
+                                // 清空并添加分组里程碑（过滤掉已归档）
+                                batchMilestoneSelector.innerHTML = `<option value="">${i18n("noMilestone") || '无里程碑'}</option>`;
+                                groupMilestones.filter(m => !m.archived).forEach(m => {
+                                    const opt = document.createElement('option');
+                                    opt.value = m.id;
+                                    opt.text = m.name || m.id;
+                                    batchMilestoneSelector.appendChild(opt);
+                                });
+                                batchMilestoneSelector.style.display = '';
+                            }
+                        } catch (err) {
+                            console.warn('加载分组里程碑失败:', err);
+                        }
+                    });
+                }
+
             } catch (error) {
-                console.error('加载项目状态失败:', error);
+                console.error('加载项目状态/分组/里程碑失败:', error);
             }
         });
 
@@ -670,8 +805,6 @@ class SmartBatchDialog {
             });
             this.updateBlockListDisplay(dialog);
             showMessage(i18n("settingsApplied"));
-            // disable until next selection
-            if (batchApplyStatusBtn) batchApplyStatusBtn.disabled = true;
         });
 
         // 状态选择器改变时重新启用应用按钮
@@ -905,6 +1038,8 @@ class SmartBatchDialog {
             priority: setting.priority,
             categoryId: setting.categoryId || undefined,
             projectId: setting.projectId || undefined,
+            customGroupId: setting.customGroupId || undefined,
+            milestoneId: setting.milestoneId || undefined,
             kanbanStatus: setting.kanbanStatus || undefined,
             note: setting.note,
             repeat: setting.repeatConfig?.enabled ? setting.repeatConfig : undefined,
@@ -928,6 +1063,8 @@ class SmartBatchDialog {
                     setting.priority = modifiedReminder.priority || 'none';
                     setting.categoryId = modifiedReminder.categoryId || '';
                     setting.projectId = modifiedReminder.projectId || '';
+                    setting.customGroupId = modifiedReminder.customGroupId || '';
+                    setting.milestoneId = modifiedReminder.milestoneId || '';
                     setting.kanbanStatus = modifiedReminder.kanbanStatus || '';
                     setting.note = modifiedReminder.note || '';
                     setting.repeatConfig = modifiedReminder.repeat || {
@@ -1126,15 +1263,17 @@ class SmartBatchDialog {
             const setting = this.blockSettings.get(blockId);
             if (setting) {
                 setting.projectId = projectId;
+                const groupSelector = dialog.element.querySelector('#batchGroupSelector') as HTMLSelectElement;
+                const milestoneSelector = dialog.element.querySelector('#batchMilestoneSelector') as HTMLSelectElement;
+                const gid = groupSelector?.value || '';
+                const mid = milestoneSelector?.value || '';
+                setting.customGroupId = gid || '';
+                setting.milestoneId = mid || '';
             }
         });
 
         this.updateBlockListDisplay(dialog);
         showMessage(i18n("settingsApplied"));
-
-        // 重置按钮状态
-        const batchApplyProjectBtn = dialog.element.querySelector('#batchApplyProjectBtn') as HTMLButtonElement;
-        batchApplyProjectBtn.disabled = true;
     }
 
     private batchApplyDate(dialog: Dialog) {
@@ -1184,12 +1323,13 @@ class SmartBatchDialog {
         const blockPriority = blockItem.querySelector('.block-priority') as HTMLElement;
         const blockProject = blockItem.querySelector('.block-project') as HTMLElement;
         const blockStatus = blockItem.querySelector('.block-project-status .block-status') as HTMLElement;
+        const blockMilestone = blockItem.querySelector('.block-milestone') as HTMLElement;
 
         if (blockDate) blockDate.textContent = dateDisplay;
         if (blockTime) blockTime.textContent = timeDisplay;
         if (blockCategory) blockCategory.innerHTML = this.getCategoryDisplay(setting.categoryId);
         if (blockPriority) blockPriority.innerHTML = this.getPriorityDisplay(setting.priority);
-        if (blockProject) blockProject.innerHTML = this.getProjectDisplay(setting.projectId);
+        if (blockProject) blockProject.innerHTML = await this.getProjectDisplay(setting.projectId, setting.customGroupId);
 
         // 更新状态显示
         let statusDisplay = '';
@@ -1206,6 +1346,7 @@ class SmartBatchDialog {
             }
         }
         if (blockStatus) blockStatus.innerHTML = statusDisplay;
+        if (blockMilestone) blockMilestone.innerHTML = setting.milestoneId ? await this.getMilestoneDisplay(setting.projectId, setting.milestoneId) : '';
     }
 
     private showLoadingDialog(message: string) {
@@ -1247,6 +1388,19 @@ class SmartBatchDialog {
             let failureCount = 0;
             const successfulBlockIds: string[] = [];
 
+            // 批量获取所有相关块信息，减少多次单独查询
+            const allBlockIds = Array.from(this.blockSettings.keys());
+            const { sql } = await import("../api");
+            const blockIdListSql = allBlockIds.map(id => `'${id}'`).join(',');
+            let blockRows: any[] = [];
+            try {
+                blockRows = await sql(`select * from blocks where id in (${blockIdListSql})`);
+            } catch (err) {
+                console.warn('批量获取块信息失败，回退到逐个获取:', err);
+            }
+            const blockMap: Record<string, any> = {};
+            (blockRows || []).forEach(b => blockMap[b.id] = b);
+
             for (const [blockId, setting] of this.blockSettings) {
                 try {
                     if (!setting.date) {
@@ -1255,12 +1409,12 @@ class SmartBatchDialog {
                     }
 
                     const reminderId = `reminder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    const block = await getBlockByID(blockId);
+                    const block = blockMap[blockId];
 
                     const reminder: any = {
                         id: reminderId,
                         blockId: blockId,
-                        docId: block.root_id,
+                        docId: block ? block.root_id : undefined,
                         completed: false,
                         pomodoroCount: 0,
                         createdAt: new Date().toISOString()
@@ -1272,6 +1426,8 @@ class SmartBatchDialog {
                     reminder.priority = setting.priority;
                     reminder.categoryId = setting.categoryId || undefined;
                     reminder.projectId = setting.projectId || undefined;
+                    if (setting.customGroupId) reminder.customGroupId = setting.customGroupId;
+                    if (setting.milestoneId) reminder.milestoneId = setting.milestoneId;
                     if (setting.kanbanStatus) reminder.kanbanStatus = setting.kanbanStatus;
                     reminder.repeat = setting.repeatConfig?.enabled ? setting.repeatConfig : undefined;
 
@@ -1350,14 +1506,14 @@ class SmartBatchDialog {
 
             await this.plugin.saveReminderData(reminderData);
 
-            // 为所有成功创建提醒的块更新属性
-            for (const blockId of successfulBlockIds) {
+            // 并行更新所有成功创建提醒的块的属性，减少等待时间
+            await Promise.all(successfulBlockIds.map(async (blockId) => {
                 try {
                     await updateBindBlockAtrrs(blockId, this.plugin);
                 } catch (error) {
                     console.error(`更新块 ${blockId} 书签失败:`, error);
                 }
-            }
+            }));
 
             if (successCount > 0) {
                 showMessage(i18n("batchCompleted", {
@@ -1396,6 +1552,8 @@ interface BlockSetting {
     priority: string;
     categoryId: string;
     projectId?: string;
+    customGroupId?: string;
+    milestoneId?: string;
     kanbanStatus?: string;
     note: string;
     repeatConfig: RepeatConfig;

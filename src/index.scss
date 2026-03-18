@@ -878,7 +878,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 2px;
+    gap: 10px;
     flex-shrink: 0;
     margin-right: 6px;
     min-width: 16px;
@@ -1162,6 +1162,16 @@
     flex-direction: column;
     overflow: hidden;
     padding: 8px;
+    height: 100%;
+    flex: 1;
+}
+
+// 确保日历 dock 在移动端正确显示高度
+.dock__item[data-type="calendar_dock"] .fn__flex-1,
+.dock__item[data-type="calendar_dock"] > .fn__flex-column,
+.dock__item[data-type="calendar_dock"] > div {
+    height: 100%;
+    min-height: 100%;
 }
 
 // 视图按钮激活状态样式
@@ -1215,12 +1225,31 @@
 }
 
 // 修复 fc-more-popover 超出日历右边界的问题
-.reminder-calendar-container .fc-popover {
+.reminder-calendar-container.fc .fc-popover {
     max-width: calc(100% - 8px); // 限制弹出框最大宽度不超出容器
+    z-index: 10 !important;
+
+    // 确保弹窗内的任务不会因为绝对定位覆盖整个弹窗
+    .fc-event {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: calc(100% - 8px) !important;
+        height: auto !important;
+        margin: 2px 4px !important;
+        display: block !important;
+    }
+
+    .fc-popover-body {
+        max-height: 400px;
+        overflow-y: auto;
+    }
 }
 
 // 修改日历样式以适应思源主题
-.fc {
+.reminder-calendar-container.fc {
     --fc-border-color: var(--b3-border-color);
     --fc-button-bg-color: var(--b3-theme-primary);
     --fc-button-border-color: var(--b3-theme-primary);
@@ -1233,8 +1262,8 @@
 }
 
 // 选择时的临时事件样式（无优先级样式）
-.fc-event-mirror,
-.fc-highlight {
+.reminder-calendar-container.fc .fc-event-mirror,
+.reminder-calendar-container.fc .fc-highlight {
     border-color: var(--b3-theme-surface-lighter) !important;
     background-color: var(--b3-theme-surface-lighter) !important;
     background-color: color-mix(in srgb, var(--b3-theme-surface-lighter), transparent 70%) !important;
@@ -1246,17 +1275,17 @@
     }
 }
 
-.fc .fc-button {
+.reminder-calendar-container.fc .fc-button {
     font-family: inherit;
 }
 
-.fc .fc-jumpTo-button {
+.reminder-calendar-container.fc .fc-jumpTo-button {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
 }
 
-.fc-event-title {
+.reminder-calendar-container.fc .fc-event-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

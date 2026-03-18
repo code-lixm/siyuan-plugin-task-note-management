@@ -415,6 +415,13 @@
           description: i18n("reminderSystemNotificationDesc"),
         },
         {
+          key: "showInternalNotification",
+          value: settings.showInternalNotification,
+          type: "checkbox",
+          title: i18n("showInternalNotification"),
+          description: i18n("showInternalNotificationDesc"),
+        },
+        {
           key: "dailyNotificationTime",
           value: settings.dailyNotificationTime,
           type: "textinput",
@@ -1480,8 +1487,6 @@
     // 确保 audioFileLists 存在
     if (!settings.audioFileLists) settings.audioFileLists = {};
     updateGroupItems();
-    // 确保设置已保存（可能包含新的默认值），但不发出更新事件
-    await saveSettings(false);
     console.debug("加载配置文件完成");
   }
 

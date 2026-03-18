@@ -1707,6 +1707,16 @@ export class CalendarView {
                     targetEl.classList.add('fc-daygrid-block-event');
                 }
 
+                // Ensure events in popovers are not absolute positioned (fixes timeGrid popover issues)
+                if (info.el.closest('.fc-popover')) {
+                    targetEl.style.position = 'relative';
+                    targetEl.style.top = 'auto';
+                    targetEl.style.left = 'auto';
+                    targetEl.style.right = 'auto';
+                    targetEl.style.bottom = 'auto';
+                    targetEl.style.width = '100%';
+                }
+
                 if (!info.view.type.startsWith('list')) {
                     // 背景色使用项目/分类颜色，左边框使用优先级颜色
                     const bgColor = info.event.backgroundColor || 'var(--b3-theme-primary)';
@@ -3373,8 +3383,11 @@ export class CalendarView {
 
                 if (reminderData[reminderId]) {
                     const blockId = reminderData[reminderId].blockId;
+                    // 取消移动端通知
+                    await this.plugin.cancelMobileNotification(reminderId);
                     delete reminderData[reminderId];
-
+                    // 触发更新事件
+                    window.dispatchEvent(new CustomEvent('reminderUpdated', { detail: { source: 'calendar' } }));
                     // 保存数据到存储
                     await saveReminders(this.plugin, reminderData);
 
@@ -3387,8 +3400,7 @@ export class CalendarView {
                         }
                     }
 
-                    // 触发更新事件
-                    window.dispatchEvent(new CustomEvent('reminderUpdated', { detail: { source: 'calendar' } }));
+
                     showMessage(i18n("reminderDeleted"));
                 }
             } catch (error) {

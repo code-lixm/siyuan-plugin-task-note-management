@@ -1,4 +1,4 @@
-import { showMessage, Dialog } from "siyuan";
+import { showMessage, Dialog, platformUtils } from "siyuan";
 import { getBlockByID, getBlockDOM, refreshSql, updateBindBlockAtrrs, updateBlock } from "../api";
 import { compareDateStrings, getLogicalDateString, autoDetectDateTimeFromTitle } from "../utils/dateUtils";
 import { CategoryManager } from "../utils/categoryManager";
@@ -1630,15 +1630,17 @@ export class QuickReminderDialog {
                                 <span>${i18n("addReminderTime")}</span>
                             </button>
                             <div id="quickCustomTimeInputArea" style="display: none; padding: 12px; background: var(--b3-theme-background-light); border-radius: 6px; border: 1px solid var(--b3-theme-surface-lighter);">
-                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                                    <input type="datetime-local" id="quickCustomReminderTime" class="b3-text-field" style="flex: 1;" lang="${langTag}">
-                                    <input type="text" id="quickCustomReminderNote" class="b3-text-field" placeholder="${i18n("note")}" style="width: 120px;" spellcheck="false">
-                                    <button type="button" id="quickConfirmCustomTimeBtn" class="b3-button b3-button--primary" title="${i18n("confirm")}">
-                                        <svg class="b3-button__icon"><use xlink:href="#iconCheck"></use></svg>
-                                    </button>
-                                    <button type="button" id="quickCancelCustomTimeBtn" class="b3-button b3-button--outline" title="${i18n("cancel")}">
-                                        <svg class="b3-button__icon"><use xlink:href="#iconClose"></use></svg>
-                                    </button>
+                                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+                                    <input type="datetime-local" id="quickCustomReminderTime" class="b3-text-field" style="flex: 1 1 140px; min-width: 0;" lang="${langTag}">
+                                    <input type="text" id="quickCustomReminderNote" class="b3-text-field" placeholder="${i18n("note")}" style="flex: 1 1 80px; min-width: 0;" spellcheck="false">
+                                    <div style="display: flex; gap: 8px; flex: 0 0 auto;">
+                                        <button type="button" id="quickConfirmCustomTimeBtn" class="b3-button b3-button--primary" title="${i18n("confirm")}" style="padding: 4px 8px;">
+                                            <svg class="b3-button__icon"><use xlink:href="#iconCheck"></use></svg>
+                                        </button>
+                                        <button type="button" id="quickCancelCustomTimeBtn" class="b3-button b3-button--outline" title="${i18n("cancel")}" style="padding: 4px 8px;">
+                                            <svg class="b3-button__icon"><use xlink:href="#iconClose"></use></svg>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div id="quickPresetContainer" style="width: 100%; display: ${this.initialTime ? 'block' : 'none'};">
                                     <label class="b3-form__label" style="font-size: 12px;">${i18n("reminderPreset")}</label>
@@ -1671,8 +1673,8 @@ export class QuickReminderDialog {
                             <label class="b3-form__label">${i18n("bindToBlock") || '块或文档 ID'}</label>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; ">
                                 <input type="text" id="quickBlockInput" class="b3-text-field" value="${this.defaultBlockId || ''}" placeholder="${i18n("enterBlockId")}" style="flex: 1;" spellcheck="false">
-                                <button type="button" id="quickPasteBlockRefBtn" class="b3-button b3-button--outline" title="${i18n("pasteBlockRef")}">
-                                    <svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg>
+                                <button type="button" id="quickCopyBlockRefBtn" class="b3-button b3-button--outline" title="${i18n("copyBlockRef")}">
+                                    <svg class="b3-button__icon"><use xlink:href="#iconCopy"></use></svg>
                                 </button>
                                 <button type="button" id="quickCreateDocBtn" class="b3-button b3-button--outline" title="${i18n("createNewDocument")}">
                                     <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
@@ -2196,7 +2198,8 @@ export class QuickReminderDialog {
                 // 如果启用了自动识别，从标题中提取日期/时间并填充到输入框
                 if (this.autoDetectDateTime) {
                     try {
-                        const detected = autoDetectDateTimeFromTitle(this.blockContent);
+                        // First parse date/time without altering title; cleanup is applied by global setting below.
+                        const detected = autoDetectDateTimeFromTitle(this.blockContent, 'none');
                         if (detected && (detected.date || detected.endDate)) {
                             this.applyNaturalLanguageResult(detected);
 
@@ -2583,27 +2586,30 @@ export class QuickReminderDialog {
                 display: flex;
                 gap: 8px;
                 align-items: center;
+                flex-wrap: wrap;
                 width: 100%;
             `;
 
             const timeInput = document.createElement('input');
             timeInput.type = 'datetime-local';
             timeInput.className = 'b3-text-field';
-            timeInput.style.cssText = 'flex: 1; min-width: 180px;';
+            timeInput.style.cssText = 'flex: 1 1 140px; min-width: 0;';
             timeInput.value = item.time || '';
 
             const noteInput = document.createElement('input');
             noteInput.type = 'text';
             noteInput.className = 'b3-text-field';
             noteInput.placeholder = i18n("note");
-            noteInput.style.cssText = 'width: 160px;';
+            noteInput.style.cssText = 'flex: 1 1 100px; min-width: 0;';
             noteInput.value = item.note || '';
             noteInput.spellcheck = false;
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'b3-button b3-button--outline';
-            removeBtn.textContent = i18n("remove");
+            removeBtn.style.cssText = 'flex: 0 0 auto; padding: 4px 8px; font-size: 12px;';
+            removeBtn.title = i18n("remove");
+            removeBtn.innerHTML = '<svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconTrashcan"></use></svg>';
 
             // 绑定事件：更新模型并避免空时间项
             timeInput.addEventListener('change', () => {
@@ -2695,7 +2701,7 @@ export class QuickReminderDialog {
         const repeatSettingsBtn = this.dialog.element.querySelector('#quickRepeatSettingsBtn') as HTMLButtonElement;
         const manageCategoriesBtn = this.dialog.element.querySelector('#quickManageCategoriesBtn') as HTMLButtonElement;
         const createDocBtn = this.dialog.element.querySelector('#quickCreateDocBtn') as HTMLButtonElement;
-        const pasteBlockRefBtn = this.dialog.element.querySelector('#quickPasteBlockRefBtn') as HTMLButtonElement;
+        const copyBlockRefBtn = this.dialog.element.querySelector('#quickCopyBlockRefBtn') as HTMLButtonElement;
         const titleInput = this.dialog.element.querySelector('#quickReminderTitle') as HTMLTextAreaElement;
         const viewSubtasksBtn = this.dialog.element.querySelector('#quickViewSubtasksBtn') as HTMLButtonElement;
         const editAllInstancesBtn = this.dialog.element.querySelector('#quickEditAllInstancesBtn') as HTMLButtonElement;
@@ -2804,9 +2810,13 @@ export class QuickReminderDialog {
 
         // 只在编辑模式下，如果设置了开始但未设置结束，才使用持续天数来自动填充结束日期
         // 新建任务时不自动填充，除非用户手动修改了持续天数
+        // 对于仅有固定时间的单次事件，不应自动添加 endDate，这里增加判断以避免误添加
         if (this.mode === 'edit' && startDateInput && startDateInput.value && endDateInput && !endDateInput.value && durationInput) {
-            const days = parseInt(durationInput.value || '1') || 1;
-            endDateInput.value = this.addDaysToDate(startDateInput.value, days - 1);
+            const shouldAutoFill = (this.reminder && this.reminder.endDate) || this.isTimeRange || this.durationManuallyChanged;
+            if (shouldAutoFill) {
+                const days = parseInt(durationInput.value || '1') || 1;
+                endDateInput.value = this.addDaysToDate(startDateInput.value, days - 1);
+            }
         }
 
         // 当开始日期变化，更新结束日期的最小值与自动计算
@@ -2973,7 +2983,8 @@ export class QuickReminderDialog {
                 // 如果启用了自动识别，检测日期时间
                 // 自动识别内置开启：使用粘贴的所有非空行进行识别，支持第二行或后续行
                 const joined = lines.join(' ');
-                const detected = autoDetectDateTimeFromTitle(joined);
+                // First parse date/time without altering title; cleanup is applied by global setting below.
+                const detected = autoDetectDateTimeFromTitle(joined, 'none');
                 if (detected && (detected.date || detected.endDate)) {
                     this.applyNaturalLanguageResult(detected);
 
@@ -3247,48 +3258,24 @@ export class QuickReminderDialog {
             this.showCreateDocumentDialog();
         });
 
-        // 粘贴块引用/链接按钮
-        pasteBlockRefBtn?.addEventListener('click', async () => {
+        // 复制块引用到剪贴板按钮
+        copyBlockRefBtn?.addEventListener('click', async () => {
             try {
-                const clipboardText = await navigator.clipboard.readText();
-                if (!clipboardText) return;
-
-                const blockRefRegex = /\(\(([\w\-]+)\s+'(.*)'\)\)/;
-                const blockLinkRegex = /\[(.*)\]\(siyuan:\/\/blocks\/([\w\-]+)\)/;
-
-                let blockId: string | undefined;
-                let title: string | undefined;
-
-                const refMatch = clipboardText.match(blockRefRegex);
-                if (refMatch) {
-                    blockId = refMatch[1];
-                    title = refMatch[2];
-                } else {
-                    const linkMatch = clipboardText.match(blockLinkRegex);
-                    if (linkMatch) {
-                        title = linkMatch[1];
-                        blockId = linkMatch[2];
-                    }
-                }
+                const blockInput = this.dialog.element.querySelector('#quickBlockInput') as HTMLInputElement;
+                const titleInput = this.dialog.element.querySelector('#quickReminderTitle') as HTMLTextAreaElement;
+                const blockId = blockInput?.value?.trim();
+                const title = titleInput?.value?.trim() || '';
 
                 if (blockId) {
-                    const blockInput = this.dialog.element.querySelector('#quickBlockInput') as HTMLInputElement;
-                    const titleInput = this.dialog.element.querySelector('#quickReminderTitle') as HTMLTextAreaElement;
-
-                    if (blockInput) {
-                        blockInput.value = blockId;
-                        this.updateBlockPreview(blockId);
-                    }
-                    if (titleInput && title && (!titleInput.value || titleInput.value.trim().length === 0)) {
-                        titleInput.value = title;
-                    }
-                    showMessage(i18n('pasteBlockRefSuccess'));
+                    const blockRef = `((${blockId} '${title.replace(/'/g, "\\'")}'))`;
+                    await platformUtils.writeText(blockRef);
+                    showMessage(i18n('copySuccess') || '已复制到剪贴板');
                 } else {
-                    showMessage(i18n('pasteBlockRefFailed'), 3000, 'error');
+                    showMessage(i18n('noBlockToCopy') || '没有可复制的块引用', 3000, 'error');
                 }
             } catch (error) {
-                console.error('读取剪贴板失败:', error);
-                showMessage(i18n('readClipboardFailed'), 3000, 'error');
+                console.error('复制到剪贴板失败:', error);
+                showMessage(i18n('copyFailed') || '复制失败', 3000, 'error');
             }
         });
 
@@ -4522,6 +4509,13 @@ export class QuickReminderDialog {
                         reminderData[reminderId] = reminder;
                         await this.plugin.saveReminderData(reminderData);
 
+                        // 更新移动端定时通知
+                        try {
+                            await this.plugin.updateMobileNotification(reminder, this.reminder);
+                        } catch (e) {
+                            console.warn('更新移动端通知失败:', e);
+                        }
+
                         // 如果看板状态或自定义分组发生变化，将该字段递归应用到所有子任务（包含多层子孙）
                         try {
                             const oldStatus = this.reminder.kanbanStatus;
@@ -4785,6 +4779,13 @@ export class QuickReminderDialog {
 
                 reminderData[reminderId] = reminder;
                 await this.plugin.saveReminderData(reminderData);
+
+                // 更新移动端定时通知（创建新提醒）
+                try {
+                    await this.plugin.updateMobileNotification(reminder);
+                } catch (e) {
+                    console.warn('设置移动端通知失败:', e);
+                }
 
                 // 在保存后，如果绑定了块，确保 reminder 包含 docId（root_id）
                 if (reminder.blockId && !reminder.docId) {

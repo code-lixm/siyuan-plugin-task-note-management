@@ -1,6 +1,6 @@
 import { showMessage, confirm, getFrontend, getBackend, Dialog } from "siyuan";
 import { PomodoroRecordManager } from "../utils/pomodoroRecord";
-import { getBlockByID, openBlock, sendNotification } from "../api";
+import { getBlockByID, openBlock, sendNotification, cancelNotification } from "../api";
 import { i18n } from "../pluginInstance";
 import { resolveAudioPath } from "../utils/audioUtils";
 
@@ -108,12 +108,15 @@ export class PomodoroTimer {
     private isFullscreen: boolean = false; // 新增：全屏模式状态
     private escapeKeyHandler: ((e: KeyboardEvent) => void) | null = null; // 新增：ESC键监听器
     private lastPomodoroTriggerTime: number = -1; // 新增：防止重复触发番茄钟完成逻辑
+    private isCompletingPhase: boolean = false; // 新增：防止 completePhase 系列函数重入
+    private randomRestWindowCloseTime: number = 0; // 新增：记录随机微休息弹窗应关闭的时间点（用于轮询检查）
     private isTabMode: boolean = false; // 是否为Tab模式
     private currentCircumference: number = 2 * Math.PI * 36; // 当前圆周长度，用于进度计算
     private isMiniMode: boolean = false; // BrowserWindow 迷你模式状态
     private isDocked: boolean = false; // BrowserWindow 吸附模式状态
     private normalWindowBounds: { x: number; y: number; width: number; height: number } | null = null; // 保存正常窗口位置和大小
     private inheritedWindowBounds: { x: number; y: number; width: number; height: number } | null = null; // 继承的窗口位置信息
+    private scheduledNotificationIds: number[] = []; // 已调度的移动端通知ID列表
 
     constructor(reminder: any, settings: any, isCountUp: boolean = false, inheritState?: any, plugin?: any, container?: HTMLElement, orphanedWindow?: any) {
         this.reminder = reminder;
@@ -677,7 +680,13 @@ export class PomodoroTimer {
             const breakDurationSeconds = Number(this.settings.randomRestBreakDuration) || 0;
             const breakDuration = Math.max(0, breakDurationSeconds * 1000);
 
+            // 记录弹窗应关闭的目标时刻（用于轮询兜底，防止 setTimeout 被 Electron 后台节流而漏触发）
+            this.randomRestWindowCloseTime = Date.now() + breakDuration + 500; // 加 500ms 容差
+
             this.randomRestEndSoundTimer = window.setTimeout(() => {
+                // setTimeout 正常触发，清除轮询目标时刻
+                this.randomRestWindowCloseTime = 0;
+
                 // 播放结束声音（fire-and-forget，不阻塞关闭和通知）
                 if (this.randomRestEndSound) {
                     this.safePlayAudio(this.randomRestEndSound).then(played => {
@@ -755,7 +764,7 @@ export class PomodoroTimer {
         const randomInterval = minInterval + Math.random() * (actualMaxInterval - minInterval);
         const nextTime = Date.now() + randomInterval;
 
-        console.log(`[PomodoroTimer] 下次随机微休息时间: ${new Date(nextTime).toLocaleTimeString()} (间隔: ${Math.round(randomInterval / 1000 / 60)}分钟)`);
+        // console.log(`[PomodoroTimer] 下次随机微休息时间: ${new Date(nextTime).toLocaleTimeString()} (间隔: ${Math.round(randomInterval / 1000 / 60)}分钟)`);
 
         // 提示音响起具体时间
         return nextTime;
@@ -765,11 +774,45 @@ export class PomodoroTimer {
      * 检查是否需要触发随机微休息（定期检查机制）
      */
     private checkRandomRestTrigger() {
+        const now = Date.now();
+
+        // 检查弹窗是否需要自动关闭（不受 isWorkPhase 限制，确保 setTimeout 被节流时也能关闭）
+        if (this.randomRestWindowCloseTime > 0 && now >= this.randomRestWindowCloseTime) {
+            console.log('[PomodoroTimer] 轮询检测到随机微休息弹窗超时，强制关闭');
+            this.randomRestWindowCloseTime = 0;
+            // 仅当 randomRestEndSoundTimer 还未触发时才手动补充关闭逻辑
+            if (this.randomRestEndSoundTimer) {
+                clearTimeout(this.randomRestEndSoundTimer);
+                this.randomRestEndSoundTimer = null;
+                // 播放结束声音
+                if (this.randomRestEndSound) {
+                    this.safePlayAudio(this.randomRestEndSound).catch(err => {
+                        console.warn('轮询关闭时播放随机微休息结束声音异常:', err);
+                    });
+                }
+                // 关闭弹窗
+                this.closeRandomRestWindow();
+                // 增加计数
+                try {
+                    this.randomRestCount++;
+                    this.updateDisplay();
+                } catch (err) {
+                    console.warn('更新随机微休息计数失败:', err);
+                }
+                // 显示结束系统通知
+                if (this.randomRestSystemNotificationEnabled) {
+                    this.showSystemNotification(
+                        i18n('randomRestSettings'),
+                        i18n('randomRestComplete') || '微休息时间结束，可以继续专注工作了！',
+                        this.randomRestAutoClose ? this.randomRestAutoCloseDelay : undefined
+                    );
+                }
+            }
+        }
+
         if (!this.randomRestEnabled || !this.isWorkPhase || !this.isRunning || this.isPaused) {
             return;
         }
-
-        const now = Date.now();
 
         // 如果当前时间已达到或超过下次触发时间，则播放提示音
         if (now >= this.randomRestNextTriggerTime) {
@@ -4376,6 +4419,8 @@ export class PomodoroTimer {
             this.updateDisplay();
         }, 500);
 
+        // 调度移动端通知
+        this.scheduleAllMobileNotifications();
 
         // 更新显示
         this.updateDisplay();
@@ -4395,7 +4440,8 @@ export class PomodoroTimer {
         // 停止随机微休息定时器
         this.stopRandomRestTimer();
 
-        // 暂停所有背景音
+        // 停止移动端通知并停止音频
+        this.cancelAllMobileNotifications();
         this.stopAllAudio();
 
         // 更新显示
@@ -4473,6 +4519,9 @@ export class PomodoroTimer {
             this.updateDisplay();
         }, 500);
 
+        // 调度移动端通知
+        this.scheduleAllMobileNotifications();
+
         // 更新显示
         this.updateDisplay();
     }
@@ -4489,6 +4538,7 @@ export class PomodoroTimer {
 
         this.stopAllAudio();
         this.stopRandomRestTimer(); // 停止随机微休息
+        this.cancelAllMobileNotifications(); // 取消移动端通知
 
         this.isWorkPhase = true;
         this.isLongBreak = false;
@@ -4527,6 +4577,7 @@ export class PomodoroTimer {
 
         this.stopAllAudio();
         this.stopRandomRestTimer(); // 停止随机微休息
+        this.cancelAllMobileNotifications(); // 取消移动端通知
 
         this.isWorkPhase = false;
         this.isLongBreak = false;
@@ -4564,6 +4615,7 @@ export class PomodoroTimer {
 
         this.stopAllAudio();
         this.stopRandomRestTimer(); // 停止随机微休息
+        this.cancelAllMobileNotifications(); // 取消移动端通知
 
         this.isWorkPhase = false;
         this.isLongBreak = true;
@@ -4682,6 +4734,7 @@ export class PomodoroTimer {
 
         this.stopAllAudio();
         this.stopRandomRestTimer(); // 停止随机微休息
+        this.cancelAllMobileNotifications(); // 取消移动端通知
 
         if (this.isCountUp) {
             this.timeElapsed = 0;
@@ -4742,12 +4795,10 @@ export class PomodoroTimer {
 
     /**
      * 显示系统弹窗通知
+     * 注意：调用方负责检查各自的通知开关（systemNotificationEnabled / randomRestSystemNotificationEnabled），
+     * 本函数不做统一拦截，避免随机微休息通知被番茄钟通知开关错误屏蔽。
      */
-    private showSystemNotification(title: string, message: string, autoCloseDelay?: number) {
-        if (!this.systemNotificationEnabled) {
-            return;
-        }
-
+    private async showSystemNotification(title: string, message: string, autoCloseDelay?: number, scheduledTime?: Date | string): Promise<number | undefined> {
         // 判断是否是移动端
         const isMobileDevice = getFrontend().endsWith('mobile') || getBackend().endsWith('android') || getBackend().endsWith('ios') || getBackend().endsWith('harmony');
 
@@ -4755,7 +4806,11 @@ export class PomodoroTimer {
         if (isMobileDevice) {
             // 手机端：使用内核接口进行系统通知
             try {
-                sendNotification(title, message);
+                if (scheduledTime) {
+                    return await sendNotification(title, message, scheduledTime);
+                } else {
+                    return await sendNotification(title, message);
+                }
             } catch (error) {
                 console.warn('手机端发送系统通知失败:', error);
             }
@@ -4766,7 +4821,6 @@ export class PomodoroTimer {
             if ('Notification' in window && Notification.permission === 'granted') {
                 // 使用浏览器通知作为备选方案
                 const notification = new Notification(title, {
-                    icon: '/favicon.ico',
                     body: message,
                     requireInteraction: !autoCloseDelay,
                     silent: false
@@ -4790,282 +4844,247 @@ export class PomodoroTimer {
         }
     }
 
+    /**
+     * 取消所有已调度的移动端系统通知
+     */
+    private cancelAllMobileNotifications() {
+        if (this.scheduledNotificationIds.length > 0) {
+            this.scheduledNotificationIds.forEach(id => {
+                try {
+                    cancelNotification(id);
+                } catch (e) {
+                    console.warn(`[PomodoroTimer] 取消移动端通知失败: id=${id}`, e);
+                }
+            });
+            this.scheduledNotificationIds = [];
+        }
+    }
+
+    /**
+     * 调度番茄钟相关的移动端系统通知
+     */
+    private async scheduleAllMobileNotifications() {
+        // 先清理旧通知
+        this.cancelAllMobileNotifications();
+
+        // 检查开关
+        if (!this.systemNotificationEnabled) return;
+
+        // 仅移动端调度
+        const isMobileDevice = getFrontend().endsWith('mobile') || getBackend().endsWith('android') || getBackend().endsWith('ios') || getBackend().endsWith('harmony');
+        if (!isMobileDevice) return;
+
+        const now = Date.now();
+
+        try {
+            if (this.isWorkPhase) {
+                // 1. 调度番茄钟结束通知 (倒计时模式)
+                if (!this.isCountUp && this.timeLeft > 0) {
+                    const scheduledTime = new Date(now + this.timeLeft * 1000);
+                    const title = `🍅 ${i18n('pomodoroWorkEnd') || '工作时间结束！'}`;
+                    const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+                    const message = `「${eventTitle}」${i18n('pomodoroWorkEndDesc') || '的工作时间已结束，是时候休息一下了！'}`;
+
+                    const id = await this.showSystemNotification(title, message, undefined, scheduledTime);
+                    if (typeof id === 'number') this.scheduledNotificationIds.push(id);
+                }
+
+                // 2. 调度微休息通知
+                if (this.randomRestEnabled) {
+                    const minInterval = (Number(this.settings.randomRestMinInterval) || 1) * 60 * 1000;
+                    const maxInterval = (Number(this.settings.randomRestMaxInterval) || 1) * 60 * 1000;
+                    const breakDuration = (Number(this.settings.randomRestBreakDuration) || 0) * 1000;
+                    const totalWorkMs = this.settings.workDuration * 60 * 1000;
+                    const workRemainingMs = this.isCountUp ? (totalWorkMs - this.timeElapsed * 1000) : (this.timeLeft * 1000);
+                    const workEndTime = now + workRemainingMs;
+
+                    let currentTime = now;
+                    // 循环预生成该工作阶段内所有的微休息
+                    while (true) {
+                        const randomInterval = minInterval + Math.random() * (Math.max(minInterval, maxInterval) - minInterval);
+                        currentTime += randomInterval;
+
+                        if (currentTime < workEndTime - 60000) { // 至少离结束还有1分钟才调度微休息
+                            const startTime = new Date(currentTime);
+                            const endTime = new Date(currentTime + breakDuration);
+
+                            // 微休息开始通知
+                            const startId = await this.showSystemNotification(
+                                i18n('randomRestSettings'),
+                                i18n('randomRest', { duration: this.settings.randomRestBreakDuration }),
+                                this.randomRestAutoClose ? this.randomRestAutoCloseDelay : undefined,
+                                startTime
+                            );
+                            if (typeof startId === 'number') this.scheduledNotificationIds.push(startId);
+
+                            // 微休息结束通知
+                            const endId = await this.showSystemNotification(
+                                i18n('randomRestSettings'),
+                                i18n('randomRestComplete') || '微休息时间结束，可以继续专注工作了！',
+                                this.randomRestAutoClose ? this.randomRestAutoCloseDelay : undefined,
+                                endTime
+                            );
+                            if (typeof endId === 'number') this.scheduledNotificationIds.push(endId);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // 休息阶段：调度休息结束通知
+                const breakTimeLeftMs = this.isCountUp ? (this.breakTimeLeft * 1000) : (this.timeLeft * 1000);
+                if (breakTimeLeftMs > 0) {
+                    const scheduledTime = new Date(now + breakTimeLeftMs);
+                    const breakType = this.isLongBreak ? (i18n('pomodoroLongBreak') || '长时休息') : (i18n('pomodoroBreak') || '短时休息');
+                    const title = `☕ ${breakType}结束！`;
+                    const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+                    const message = `「${eventTitle}」的${breakType}已结束，准备开始下一个专注阶段吧！`;
+
+                    const id = await this.showSystemNotification(title, message, undefined, scheduledTime);
+                    if (typeof id === 'number') this.scheduledNotificationIds.push(id);
+                }
+            }
+        } catch (e) {
+            console.warn('[PomodoroTimer] 调度移动端通知失败:', e);
+        }
+    }
+
 
     // 完成番茄阶段（正计时模式）
     private async completePomodoroPhase() {
-        // 正计时模式下不停止计时器，只记录番茄数量
-        if (!this.isCountUp) {
-            // 倒计时模式才停止计时器
-            if (this.timer) {
-                clearInterval(this.timer);
-                this.timer = null;
-            }
+        // 先取消所有已调度的移动端通知
+        this.cancelAllMobileNotifications();
 
-            this.stopAllAudio();
-            this.stopRandomRestTimer(); // 添加停止随机微休息
+        // 防重入
+        if (this.isCompletingPhase) {
+            console.warn('[PomodoroTimer] completePomodoroPhase 重入被阻止');
+            return;
+        }
+        this.isCompletingPhase = true;
+        try {
+            // 正计时模式下不停止计时器，只记录番茄数量
+            if (!this.isCountUp) {
+                // 倒计时模式才停止计时器
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
 
-            // 播放工作结束提示音
-            if (this.workEndAudio) {
-                await this.safePlayAudio(this.workEndAudio);
-            }
+                this.stopAllAudio();
+                this.stopRandomRestTimer(); // 添加停止随机微休息
 
-            // 打开番茄钟结束弹窗（如果启用），休息结束后才关闭
-            this.openPomodoroEndWindow();
+                // 播放工作结束提示音
+                if (this.workEndAudio) {
+                    await this.safePlayAudio(this.workEndAudio);
+                }
 
-            // 显示系统弹窗通知
-            if (this.systemNotificationEnabled) {
-                const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
-                this.showSystemNotification(
-                    ` ${i18n('pomodoroWorkEnd') || '工作番茄完成！'}`,
-                    `「${eventTitle}」${i18n('pomodoroWorkEndDesc') || '的工作时间已结束，是时候休息一下了！'}`
+                // 打开番茄钟结束弹窗（如果启用），休息结束后才关闭
+                this.openPomodoroEndWindow();
+
+                // 显示系统弹窗通知
+                if (this.systemNotificationEnabled) {
+                    const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+                    this.showSystemNotification(
+                        `${i18n('pomodoroWorkEnd') || '工作番茄完成！'}`,
+                        `「${eventTitle}」${i18n('pomodoroWorkEndDesc') || '的工作时间已结束，是时候休息一下了！'}`
+                    );
+                } else {
+                    // 只有在系统弹窗关闭时才显示思源笔记弹窗
+                    showMessage(`${i18n('pomodoroWorkCompleted') || '工作番茄完成！开始休息吧～'}`, 3000);
+                }
+
+                // 切换到休息阶段
+                this.isWorkPhase = false;
+                this.isLongBreak = false;
+                this.isRunning = false;
+                this.isPaused = false;
+                this.breakTimeLeft = this.settings.breakDuration * 60;
+
+                this.updateDisplay();
+                this.updateMainSwitchButton(); // 更新主按钮
+
+                setTimeout(() => {
+                    this.updateStatsDisplay();
+                }, 100);
+
+                // 清理 pending 设置
+                this.pendingSettings = null;
+                // 倒计时模式：记录完成的工作番茄（每个实例独立记录）
+                const eventId = this.reminder.id;
+                const eventTitle = this.reminder.title || '番茄专注';
+
+                // 计算实际完成的时间（分钟）
+                const actualDuration = Math.round(this.totalTime / 60);
+
+                await this.recordManager.recordWorkSession(
+                    actualDuration,
+                    eventId,
+                    eventTitle,
+                    actualDuration,
+                    true,
+                    false
                 );
+                // 触发 reminderUpdated 事件
+                window.dispatchEvent(new CustomEvent('reminderUpdated'));
             } else {
-                // 只有在系统弹窗关闭时才显示思源笔记弹窗
-                showMessage(` ${i18n('pomodoroWorkCompleted') || '工作番茄完成！开始休息吧～'}`, 3000);
+                // 正计时模式完成番茄后也要停止随机微休息
+                this.stopRandomRestTimer();
             }
 
-            // 切换到休息阶段
-            this.isWorkPhase = false;
-            this.isLongBreak = false;
-            this.isRunning = false;
-            this.isPaused = false;
-            this.breakTimeLeft = this.settings.breakDuration * 60;
-
-            this.updateDisplay();
-            this.updateMainSwitchButton(); // 更新主按钮
-
-            setTimeout(() => {
-                this.updateStatsDisplay();
-            }, 100);
-
-            // 清理 pending 设置
-            this.pendingSettings = null;
-            // 倒计时模式：记录完成的工作番茄（每个实例独立记录）
-            const eventId = this.reminder.id;
-            const eventTitle = this.reminder.title || '番茄专注';
-
-            // 计算实际完成的时间（分钟）
-            const actualDuration = Math.round(this.totalTime / 60);
-
-            await this.recordManager.recordWorkSession(
-                actualDuration,
-                eventId,
-                eventTitle,
-                actualDuration,
-                true,
-                false
-            );
+            // 更新番茄数量（正计时和倒计时都需要）
+            this.completedPomodoros++;
+            await this.updateReminderPomodoroCount();
             // 触发 reminderUpdated 事件
             window.dispatchEvent(new CustomEvent('reminderUpdated'));
-        } else {
-            // 正计时模式完成番茄后也要停止随机微休息
-            this.stopRandomRestTimer();
-        }
 
-        // 更新番茄数量（正计时和倒计时都需要）
-        this.completedPomodoros++;
-        await this.updateReminderPomodoroCount();
-        // 触发 reminderUpdated 事件
-        window.dispatchEvent(new CustomEvent('reminderUpdated'));
-
-        // 正计时模式下静默更新显示，不记录时间（时间在手动停止时统一记录）
-        if (this.isCountUp) {
-            setTimeout(() => {
-                this.updateStatsDisplay();
-                this.updateDisplay(); // 更新番茄数量显示
-            }, 100);
+            // 正计时模式下静默更新显示，不记录时间（时间在手动停止时统一记录）
+            if (this.isCountUp) {
+                setTimeout(() => {
+                    this.updateStatsDisplay();
+                    this.updateDisplay(); // 更新番茄数量显示
+                }, 100);
+            }
+        } finally {
+            this.isCompletingPhase = false;
         }
     }
 
     // 完成休息阶段（正计时模式）
     private async completeBreakPhase() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
+        // 先取消所有已调度的移动端通知
+        this.cancelAllMobileNotifications();
+
+        // 防重入
+        if (this.isCompletingPhase) {
+            console.warn('[PomodoroTimer] completeBreakPhase 重入被阻止');
+            return;
         }
-        this.stopAllAudio();
-        this.stopRandomRestTimer(); // 添加停止随机微休息
-
-        // 休息结束，关闭番茄钟结束弹窗
-        this.closePomodoroEndWindow();
-
-        // 播放休息结束提示音
-        if (this.breakEndAudio) {
-            await this.safePlayAudio(this.breakEndAudio);
-        }
-
-        // 显示系统弹窗通知
-        const breakType = this.isLongBreak ? (i18n('pomodoroLongBreak') || '长时休息') : (i18n('pomodoroBreak') || '短时休息');
-
-        if (this.systemNotificationEnabled) {
-            const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
-            this.showSystemNotification(
-                `☕ ${breakType}结束！`,
-                `「${eventTitle}」的${breakType}已结束，准备开始下一个工作阶段吧！`
-            );
-        }
-
-        // 记录完成的休息时间（每个实例独立记录）
-        const eventId = this.reminder.id;
-        const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
-
-        await this.recordManager.recordBreakSession(
-            this.currentPhaseOriginalDuration,
-            eventId,
-            eventTitle,
-            this.currentPhaseOriginalDuration,
-            this.isLongBreak,
-            true
-        );
-
-        // 检查是否启用自动模式并进入下一阶段
-        if (this.autoMode) {
-            showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndAutoWork') || '结束！自动开始下一个工作阶段'}`, 3000);
-
-            // 自动切换到工作阶段
-            setTimeout(() => {
-                this.autoSwitchToWork();
-            }, 1000); // 延迟1秒切换
-        } else {
-            showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndAutoWork') || '结束！自动开始下一个工作阶段'}`, 3000);
-
-            this.isWorkPhase = true;
-            this.isLongBreak = false;
-            this.isRunning = false;
-            this.isPaused = false;
-            this.breakTimeLeft = 0;
-
-            // 更新 DOM 显示（如果存在）
-            if (this.statusDisplay) this.statusDisplay.textContent = i18n('pomodoroWork') || '工作时间';
-            this.timeLeft = this.settings.workDuration * 60;
-            this.totalTime = this.timeLeft;
-            // 设置当前阶段的原始时长
-            this.currentPhaseOriginalDuration = this.settings.workDuration;
-
-            this.updateDisplay();
-            this.updateMainSwitchButton(); // 更新主按钮
-
-            // 如果是独立 BrowserWindow，额外推送一次状态更新
-            try {
-                if (!this.isTabMode && this.container && (this.container as any).webContents) {
-                    this.updateBrowserWindowDisplay(this.container);
-                }
-            } catch (e) { }
-
-            setTimeout(() => {
-                this.updateStatsDisplay();
-            }, 100);
-        }
-    }
-
-    // 完成阶段（倒计时模式）
-    private async completePhase() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-
-        this.stopAllAudio();
-        this.stopRandomRestTimer(); // 添加停止随机微休息
-
-        if (this.isWorkPhase) {
-            // 工作阶段结束，停止随机微休息
-
-            // 打开番茄钟结束弹窗（如果启用），休息结束后才关闭
-            this.openPomodoroEndWindow();
-
-            // 显示系统弹窗通知
-            if (this.systemNotificationEnabled) {
-                const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
-                this.showSystemNotification(
-                    ` ${i18n('pomodoroWorkEnd') || '工作时间结束！'}`,
-                    `「${eventTitle}」${i18n('pomodoroWorkEndDesc') || '的工作时间已结束，是时候休息一下了！'}`
-                );
+        this.isCompletingPhase = true;
+        try {
+            if (this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
             }
+            this.stopAllAudio();
+            this.stopRandomRestTimer(); // 添加停止随机微休息
 
-            // 播放工作结束提示音
-
-            if (this.workEndAudio) {
-                await this.safePlayAudio(this.workEndAudio);
-            }            // 记录完成的工作番茄（每个实例独立记录）
-            const eventId = this.reminder.id;
-            const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
-
-            // 计算实际完成的时间（分钟）
-            // 在倒计时模式下，实际完成时间 = totalTime（设定的总时间）
-            const actualDuration = Math.round(this.totalTime / 60);
-
-            await this.recordManager.recordWorkSession(
-                actualDuration,
-                eventId,
-                eventTitle,
-                actualDuration,
-                true,
-                false
-            );
-
-            // 更新番茄数量计数
-            this.completedPomodoros++;
-            await this.updateReminderPomodoroCount();
-
-            // 判断是否应该进入长休息
-            const shouldTakeLongBreak = this.completedPomodoros > 0 &&
-                this.completedPomodoros % this.longBreakInterval === 0;
-
-            // 检查是否启用自动模式
-            if (this.autoMode) {
-                // 只有在系统弹窗关闭时才显示思源笔记弹窗
-                if (!this.systemNotificationEnabled) {
-                    showMessage(` ${i18n('pomodoroWorkEndAutoBreak') || '工作时间结束！自动开始休息'}`, 3000);
-                }
-
-                // 自动切换到休息阶段
-                setTimeout(() => {
-                    this.autoSwitchToBreak(shouldTakeLongBreak);
-                }, 1000);
-            } else {                // 非自动模式下，也要根据番茄钟数量判断休息类型
-                if (shouldTakeLongBreak) {
-                    // 只有在系统弹窗关闭时才显示思源笔记弹窗
-                    if (!this.systemNotificationEnabled) {
-                        showMessage(` ${(i18n('pomodoroCompletedLongBreak') || '工作时间结束！已完成${count}个番茄，开始长时休息').replace('${count}', String(this.completedPomodoros))}`, 3000);
-                    }
-                    this.isWorkPhase = false;
-                    this.isLongBreak = true;
-                    // 只在 DOM 模式下更新 statusDisplay
-                    if (this.statusDisplay) {
-                        this.statusDisplay.textContent = i18n('pomodoroLongBreak') || '长时休息';
-                    }
-                    this.timeLeft = this.settings.longBreakDuration * 60;
-                    this.totalTime = this.timeLeft;
-                    // 设置当前阶段的原始时长
-                    this.currentPhaseOriginalDuration = this.settings.longBreakDuration;
-                } else {
-                    // 只有在系统弹窗关闭时才显示思源笔记弹窗
-                    if (!this.systemNotificationEnabled) {
-                        showMessage(` ${i18n('pomodoroWorkEndAutoBreak') || '工作时间结束！开始短时休息'}`, 3000);
-                    }
-                    this.isWorkPhase = false;
-                    this.isLongBreak = false;
-                    // 只在 DOM 模式下更新 statusDisplay
-                    if (this.statusDisplay) {
-                        this.statusDisplay.textContent = i18n('pomodoroBreak') || '短时休息';
-                    }
-                    this.timeLeft = this.settings.breakDuration * 60;
-                    this.totalTime = this.timeLeft;
-                    // 设置当前阶段的原始时长
-                    this.currentPhaseOriginalDuration = this.settings.breakDuration;
-                }
-                this.isRunning = false;
-                this.isPaused = false;
-                this.updateDisplay();
-            }
-        } else {
             // 休息结束，关闭番茄钟结束弹窗
             this.closePomodoroEndWindow();
 
             // 播放休息结束提示音
             if (this.breakEndAudio) {
                 await this.safePlayAudio(this.breakEndAudio);
+            }
+
+            // 显示系统弹窗通知
+            const breakType = this.isLongBreak ? (i18n('pomodoroLongBreak') || '长时休息') : (i18n('pomodoroBreak') || '短时休息');
+
+            if (this.systemNotificationEnabled) {
+                const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+                this.showSystemNotification(
+                    `☕ ${breakType}结束！`,
+                    `「${eventTitle}」的${breakType}已结束，准备开始下一个工作阶段吧！`
+                );
             }
 
             // 记录完成的休息时间（每个实例独立记录）
@@ -5081,67 +5100,246 @@ export class PomodoroTimer {
                 true
             );
 
-            const breakType = this.isLongBreak ? (i18n('pomodoroLongBreak') || '长时休息') : (i18n('pomodoroBreak') || '短时休息');
-
-            // 显示系统弹窗通知
-            if (this.systemNotificationEnabled) {
-                const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
-                this.showSystemNotification(
-                    `☕ ${breakType}结束！`,
-                    `「${eventTitle}」的${breakType}已结束，准备开始下一个番茄钟吧！`
-                );
-            }
-
-            // 检查是否启用自动模式
+            // 检查是否启用自动模式并进入下一阶段
             if (this.autoMode) {
-                // 只有在系统弹窗关闭时才显示思源笔记弹窗
-                showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndAutoWork') || '结束！自动开始下一个番茄钟'}`, 3000);
+                showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndAutoWork') || '结束！自动开始下一个工作阶段'}`, 3000);
 
                 // 自动切换到工作阶段
                 setTimeout(() => {
                     this.autoSwitchToWork();
-                }, 1000);
+                }, 1000); // 延迟1秒切换
             } else {
-                // 非自动模式：切换到工作阶段（不自动开始）
-                if (!this.systemNotificationEnabled) {
-                    showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndSwitchWork') || '结束！切换到工作时间（不自动开始）'}`, 3000);
-                }
+                showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndAutoWork') || '结束！自动开始下一个工作阶段'}`, 3000);
+
                 this.isWorkPhase = true;
                 this.isLongBreak = false;
+                this.isRunning = false;
+                this.isPaused = false;
+                this.breakTimeLeft = 0;
+
+                // 更新 DOM 显示（如果存在）
                 if (this.statusDisplay) this.statusDisplay.textContent = i18n('pomodoroWork') || '工作时间';
                 this.timeLeft = this.settings.workDuration * 60;
                 this.totalTime = this.timeLeft;
                 // 设置当前阶段的原始时长
                 this.currentPhaseOriginalDuration = this.settings.workDuration;
-                this.isRunning = false;
-                this.isPaused = false;
+
                 this.updateDisplay();
-                this.updateMainSwitchButton();
+                this.updateMainSwitchButton(); // 更新主按钮
+
+                // 如果是独立 BrowserWindow，额外推送一次状态更新
                 try {
                     if (!this.isTabMode && this.container && (this.container as any).webContents) {
                         this.updateBrowserWindowDisplay(this.container);
                     }
                 } catch (e) { }
+
+                setTimeout(() => {
+                    this.updateStatsDisplay();
+                }, 100);
             }
+        } finally {
+            this.isCompletingPhase = false;
         }
+    }
 
-        // 如果不是自动模式，更新统计显示
-        if (!this.autoMode) {
-            setTimeout(() => {
-                this.updateStatsDisplay();
-            }, 100);
+    // 完成阶段（倒计时模式）
+    private async completePhase() {
+        // 先取消所有已调度的移动端通知
+        this.cancelAllMobileNotifications();
+
+        // 防重入：避免 async 执行期间 setInterval 再次触发
+        if (this.isCompletingPhase) {
+            console.warn('[PomodoroTimer] completePhase 重入被阻止');
+            return;
         }
+        this.isCompletingPhase = true;
+        try {
+            if (this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
+            }
 
-        // 如果有 pending 设置（在运行时跳过的设置更新），现在应用它们
-        if (this.pendingSettings) {
-            await this.updateState(
-                this.pendingSettings.reminder,
-                this.pendingSettings.settings,
-                this.pendingSettings.isCountUp,
-                this.pendingSettings.inheritState,
-                false, // 不强制，因为现在已经停止了
-                false  // 显示通知
-            );
+            this.stopAllAudio();
+            this.stopRandomRestTimer(); // 添加停止随机微休息
+
+            if (this.isWorkPhase) {
+                // 工作阶段结束，停止随机微休息
+
+                // 打开番茄钟结束弹窗（如果启用），休息结束后才关闭
+                this.openPomodoroEndWindow();
+
+                // 显示系统弹窗通知
+                if (this.systemNotificationEnabled) {
+                    const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+                    this.showSystemNotification(
+                        `🍅 ${i18n('pomodoroWorkEnd') || '工作时间结束！'}`,
+                        `「${eventTitle}」${i18n('pomodoroWorkEndDesc') || '的工作时间已结束，是时候休息一下了！'}`
+                    );
+                }
+
+                // 播放工作结束提示音
+
+                if (this.workEndAudio) {
+                    await this.safePlayAudio(this.workEndAudio);
+                }            // 记录完成的工作番茄（每个实例独立记录）
+                const eventId = this.reminder.id;
+                const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+
+                // 计算实际完成的时间（分钟）
+                // 在倒计时模式下，实际完成时间 = totalTime（设定的总时间）
+                const actualDuration = Math.round(this.totalTime / 60);
+
+                await this.recordManager.recordWorkSession(
+                    actualDuration,
+                    eventId,
+                    eventTitle,
+                    actualDuration,
+                    true,
+                    false
+                );
+
+                // 更新番茄数量计数
+                this.completedPomodoros++;
+                await this.updateReminderPomodoroCount();
+
+                // 判断是否应该进入长休息
+                const shouldTakeLongBreak = this.completedPomodoros > 0 &&
+                    this.completedPomodoros % this.longBreakInterval === 0;
+
+                // 检查是否启用自动模式
+                if (this.autoMode) {
+                    // 只有在系统弹窗关闭时才显示思源笔记弹窗
+                    if (!this.systemNotificationEnabled) {
+                        showMessage(`🍅 ${i18n('pomodoroWorkEndAutoBreak') || '工作时间结束！自动开始休息'}`, 3000);
+                    }
+
+                    // 自动切换到休息阶段
+                    setTimeout(() => {
+                        this.autoSwitchToBreak(shouldTakeLongBreak);
+                    }, 1000);
+                } else {                // 非自动模式下，也要根据番茄钟数量判断休息类型
+                    if (shouldTakeLongBreak) {
+                        // 只有在系统弹窗关闭时才显示思源笔记弹窗
+                        if (!this.systemNotificationEnabled) {
+                            showMessage(`🍅 ${(i18n('pomodoroCompletedLongBreak') || '工作时间结束！已完成${count}个番茄，开始长时休息').replace('${count}', String(this.completedPomodoros))}`, 3000);
+                        }
+                        this.isWorkPhase = false;
+                        this.isLongBreak = true;
+                        // 只在 DOM 模式下更新 statusDisplay
+                        if (this.statusDisplay) {
+                            this.statusDisplay.textContent = i18n('pomodoroLongBreak') || '长时休息';
+                        }
+                        this.timeLeft = this.settings.longBreakDuration * 60;
+                        this.totalTime = this.timeLeft;
+                        // 设置当前阶段的原始时长
+                        this.currentPhaseOriginalDuration = this.settings.longBreakDuration;
+                    } else {
+                        // 只有在系统弹窗关闭时才显示思源笔记弹窗
+                        if (!this.systemNotificationEnabled) {
+                            showMessage(`🍅 ${i18n('pomodoroWorkEndAutoBreak') || '工作时间结束！开始短时休息'}`, 3000);
+                        }
+                        this.isWorkPhase = false;
+                        this.isLongBreak = false;
+                        // 只在 DOM 模式下更新 statusDisplay
+                        if (this.statusDisplay) {
+                            this.statusDisplay.textContent = i18n('pomodoroBreak') || '短时休息';
+                        }
+                        this.timeLeft = this.settings.breakDuration * 60;
+                        this.totalTime = this.timeLeft;
+                        // 设置当前阶段的原始时长
+                        this.currentPhaseOriginalDuration = this.settings.breakDuration;
+                    }
+                    this.isRunning = false;
+                    this.isPaused = false;
+                    this.updateDisplay();
+                }
+            } else {
+                // 休息结束，关闭番茄钟结束弹窗
+                this.closePomodoroEndWindow();
+
+                // 播放休息结束提示音
+                if (this.breakEndAudio) {
+                    await this.safePlayAudio(this.breakEndAudio);
+                }
+
+                // 记录完成的休息时间（每个实例独立记录）
+                const eventId = this.reminder.id;
+                const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+
+                await this.recordManager.recordBreakSession(
+                    this.currentPhaseOriginalDuration,
+                    eventId,
+                    eventTitle,
+                    this.currentPhaseOriginalDuration,
+                    this.isLongBreak,
+                    true
+                );
+
+                const breakType = this.isLongBreak ? (i18n('pomodoroLongBreak') || '长时休息') : (i18n('pomodoroBreak') || '短时休息');
+
+                // 显示系统弹窗通知
+                if (this.systemNotificationEnabled) {
+                    const eventTitle = this.reminder.title || (i18n('pomodoroFocusDefault') || '番茄专注');
+                    this.showSystemNotification(
+                        `☕ ${breakType}结束！`,
+                        `「${eventTitle}」的${breakType}已结束，准备开始下一个番茄钟吧！`
+                    );
+                }
+
+                // 检查是否启用自动模式
+                if (this.autoMode) {
+                    // 只有在系统弹窗关闭时才显示思源笔记弹窗
+                    showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndAutoWork') || '结束！自动开始下一个番茄钟'}`, 3000);
+
+                    // 自动切换到工作阶段
+                    setTimeout(() => {
+                        this.autoSwitchToWork();
+                    }, 1000);
+                } else {
+                    // 非自动模式：切换到工作阶段（不自动开始）
+                    if (!this.systemNotificationEnabled) {
+                        showMessage(`☕ ${breakType}${i18n('pomodoroBreakEndSwitchWork') || '结束！切换到工作时间（不自动开始）'}`, 3000);
+                    }
+                    this.isWorkPhase = true;
+                    this.isLongBreak = false;
+                    if (this.statusDisplay) this.statusDisplay.textContent = i18n('pomodoroWork') || '工作时间';
+                    this.timeLeft = this.settings.workDuration * 60;
+                    this.totalTime = this.timeLeft;
+                    // 设置当前阶段的原始时长
+                    this.currentPhaseOriginalDuration = this.settings.workDuration;
+                    this.isRunning = false;
+                    this.isPaused = false;
+                    this.updateDisplay();
+                    this.updateMainSwitchButton();
+                    try {
+                        if (!this.isTabMode && this.container && (this.container as any).webContents) {
+                            this.updateBrowserWindowDisplay(this.container);
+                        }
+                    } catch (e) { }
+                }
+            }
+
+            // 如果不是自动模式，更新统计显示
+            if (!this.autoMode) {
+                setTimeout(() => {
+                    this.updateStatsDisplay();
+                }, 100);
+            }
+
+            // 如果有 pending 设置（在运行时跳过的设置更新），现在应用它们
+            if (this.pendingSettings) {
+                await this.updateState(
+                    this.pendingSettings.reminder,
+                    this.pendingSettings.settings,
+                    this.pendingSettings.isCountUp,
+                    this.pendingSettings.inheritState,
+                    false, // 不强制，因为现在已经停止了
+                    false  // 显示通知
+                );
+            }
+        } finally {
+            this.isCompletingPhase = false;
         }
     }
     /**
@@ -5209,6 +5407,9 @@ export class PomodoroTimer {
             }
             this.updateDisplay();
         }, 500);
+
+        // 调度移动端通知
+        this.scheduleAllMobileNotifications();
 
         this.updateDisplay();
         this.updateStatsDisplay();
@@ -5283,6 +5484,9 @@ export class PomodoroTimer {
             }
             this.updateDisplay();
         }, 500);
+
+        // 调度移动端通知
+        this.scheduleAllMobileNotifications();
 
         this.updateDisplay();
         this.updateStatsDisplay();
@@ -7348,6 +7552,15 @@ document.body.classList.remove('docked-mode');
         // 设置默认值
         miniModeTitle = miniModeTitle || (i18n('miniMode') || '迷你模式');
         dockModeTitle = dockModeTitle || (i18n('dockToEdge') || '吸附到屏幕边缘');
+
+        // 计算初始状态图标
+        let initialStatusIcon = '🍅';
+        if (!currentState.isWorkPhase) {
+            initialStatusIcon = currentState.isLongBreak ? '🧘' : '🍵';
+        } else {
+            initialStatusIcon = currentState.isCountUp ? '⏱' : '🍅';
+        }
+
         return `<!DOCTYPE html>
 <html>
 <head>
@@ -8417,12 +8630,50 @@ document.body.classList.remove('docked-mode');
 `).catch((e: any) => console.error(e));
             } else {
                 // 退出迷你模式
-                if (this.normalWindowBounds) {
-                    pomodoroWindow.setBounds(this.normalWindowBounds);
-                    this.normalWindowBounds = null;
-                } else {
-                    pomodoroWindow.setSize(240, 235);
+                // 获取当前 mini 模式窗口位置
+                const currentBounds = pomodoroWindow.getBounds();
+
+                // 正常模式的窗口大小
+                const normalWidth = 240;
+                const normalHeight = 235;
+
+                // 获取屏幕尺寸以进行边界检查
+                let screenWidth = 1920;
+                let screenHeight = 1080;
+                try {
+                    const electronReq = (window as any).require;
+                    const remote = electronReq?.('@electron/remote') || electronReq?.('electron')?.remote;
+                    const screen = remote?.screen || electronReq?.('electron')?.screen;
+                    if (screen && screen.getPrimaryDisplay) {
+                        const primaryDisplay = screen.getPrimaryDisplay();
+                        screenWidth = primaryDisplay.workAreaSize.width;
+                        screenHeight = primaryDisplay.workAreaSize.height;
+                    }
+                } catch (e) {
+                    // 如果无法获取屏幕尺寸，使用窗口大小作为备选
+                    screenWidth = window.screen.availWidth || 1920;
+                    screenHeight = window.screen.availHeight || 1080;
                 }
+
+                // 计算正常模式窗口的位置（以 mini 模式窗口中心为基准）
+                let newX = currentBounds.x + (currentBounds.width - normalWidth) / 2;
+                let newY = currentBounds.y + (currentBounds.height - normalHeight) / 2;
+
+                // 确保窗口不超出屏幕边界
+                newX = Math.max(0, Math.min(newX, screenWidth - normalWidth));
+                newY = Math.max(0, Math.min(newY, screenHeight - normalHeight));
+
+                // 设置窗口大小和位置
+                pomodoroWindow.setBounds({
+                    x: Math.round(newX),
+                    y: Math.round(newY),
+                    width: normalWidth,
+                    height: normalHeight
+                });
+
+                // 清除保存的正常窗口位置，因为我们使用 mini 模式的位置
+                this.normalWindowBounds = null;
+
                 pomodoroWindow.setResizable(true);
                 pomodoroWindow.setAspectRatio(0); // 取消比例限制
 
