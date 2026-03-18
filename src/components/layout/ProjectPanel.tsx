@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Plus, Folder, MoreVertical } from 'lucide-react';
+import { i18n } from '@/pluginInstance';
 
 export function ProjectPanel() {
   const { projects, addProject, selectedProjectId, selectProject } = useProjectStore();
@@ -20,10 +21,10 @@ export function ProjectPanel() {
   return (
     <div className="siyuan-plugin-container h-full flex flex-col bg-background">
       <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">项目</h2>
+        <h2 className="text-lg font-semibold">{i18n("projects")}</h2>
         <Button size="sm" onClick={() => setIsCreating(true)}>
           <Plus className="h-4 w-4 mr-1" />
-          新建
+          {i18n("newTask")}
         </Button>
       </div>
 
@@ -32,12 +33,12 @@ export function ProjectPanel() {
           <div className="flex gap-2">
             <Input
               autoFocus
-              placeholder="项目名称"
+              placeholder={i18n("projectName")}
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             />
-            <Button size="sm" onClick={handleCreate}>保存</Button>
+            <Button size="sm" onClick={handleCreate}>{i18n("save")}</Button>
           </div>
         </div>
       )}
@@ -60,8 +61,8 @@ export function ProjectPanel() {
           ))}
           {projects.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
-              <p>暂无项目</p>
-              <p className="text-sm">创建项目来组织您的任务</p>
+              <p>{i18n("noProjects")}</p>
+              <p className="text-sm">{i18n("createProjectToOrganize")}</p>
             </div>
           )}
         </div>

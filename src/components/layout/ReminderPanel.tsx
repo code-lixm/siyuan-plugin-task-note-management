@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Search, Filter, CheckCircle2, Circle } from 'lucide-react';
+import { i18n } from '@/pluginInstance';
 
 interface ReminderPanelProps {
   initialTab?: string;
@@ -76,14 +77,14 @@ export function ReminderPanel({ initialTab = 'today' }: ReminderPanelProps) {
     <div className="siyuan-plugin-container h-full flex flex-col bg-background">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">每日任务</h2>
+        <h2 className="text-lg font-semibold">{i18n("dailyTasks")}</h2>
         <Button
           size="sm"
           onClick={() => setIsCreating(true)}
           className="gap-1"
         >
           <Plus className="h-4 w-4" />
-          新建
+          {i18n("newTask")}
         </Button>
       </div>
 
@@ -92,7 +93,7 @@ export function ReminderPanel({ initialTab = 'today' }: ReminderPanelProps) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="搜索任务..."
+            placeholder={i18n("searchTasks")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -109,14 +110,14 @@ export function ReminderPanel({ initialTab = 'today' }: ReminderPanelProps) {
           <div className="flex gap-2">
             <Input
               autoFocus
-              placeholder="输入任务名称..."
+              placeholder={i18n("enterReminderTitle")}
               value={newReminderTitle}
               onChange={(e) => setNewReminderTitle(e.target.value)}
               onKeyDown={handleKeyDown}
               className="flex-1"
             />
             <Button size="sm" onClick={handleCreateReminder}>
-              保存
+              {i18n("save")}
             </Button>
             <Button
               size="sm"
@@ -126,7 +127,7 @@ export function ReminderPanel({ initialTab = 'today' }: ReminderPanelProps) {
                 setNewReminderTitle('');
               }}
             >
-              取消
+              {i18n("cancel")}
             </Button>
           </div>
         </div>
@@ -135,21 +136,21 @@ export function ReminderPanel({ initialTab = 'today' }: ReminderPanelProps) {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-3 mx-4 mt-4">
-          <TabsTrigger value="today">今日</TabsTrigger>
-          <TabsTrigger value="upcoming">待办</TabsTrigger>
-          <TabsTrigger value="completed">已完成</TabsTrigger>
+          <TabsTrigger value="today">{i18n("today")}</TabsTrigger>
+          <TabsTrigger value="upcoming">{i18n("unfinished")}</TabsTrigger>
+          <TabsTrigger value="completed">{i18n("completed")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="flex-1 overflow-auto p-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
-              加载中...
+              {i18n("loading")}
             </div>
           ) : filteredReminders.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <Circle className="h-12 w-12 mb-2 opacity-20" />
-              <p>暂无任务</p>
-              <p className="text-sm">点击上方"新建"按钮添加任务</p>
+              <p>{i18n("noReminders")}</p>
+              <p className="text-sm">{i18n("clickNewToAddTask")}</p>
             </div>
           ) : (
             <div className="space-y-2">

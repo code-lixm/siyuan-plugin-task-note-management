@@ -98,6 +98,8 @@
     "completed": "已完成",
     "modify": "修改",
     "edit": "修改",
+    "loading": "加载中...",
+    "clickNewToAddTask": "点击上方"新建"按钮添加任务",
     "delete": "删除",
     "deleteSuccess": "删除成功",
     "deleteFailed": "删除失败",
@@ -1851,5 +1853,13 @@
     "noMilestones": "暂无里程碑",
     "pleaseInputDateTimeDesc": "请输入日期时间描述",
     "mergeProject": "合并项目",
-    "batchSetStatus": "批量设置状态"
+    "batchSetStatus": "批量设置状态",
+    "projectName": "项目名称",
+    "noProjects": "暂无项目",
+    "createProjectToOrganize": "创建项目来组织您的任务",
+    "habitName": "习惯名称",
+    "noHabits": "暂无习惯",
+    "addHabitToTrack": "添加习惯开始追踪",
+    "clickNewToAddTask": "点击上方"新建"按钮添加任务",
+    "loading": "加载中..."
 }

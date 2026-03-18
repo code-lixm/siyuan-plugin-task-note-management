@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Plus, Check, Flame } from 'lucide-react';
+import { i18n } from '@/pluginInstance';
 
 export function HabitPanel() {
   const { habits, selectedDate, checkIn, uncheck, setSelectedDate } = useHabitStore();
@@ -23,12 +24,12 @@ export function HabitPanel() {
     <div className="siyuan-plugin-container h-full flex flex-col bg-background">
       <div className="flex items-center justify-between p-4 border-b">
         <div>
-          <h2 className="text-lg font-semibold">习惯打卡</h2>
+          <h2 className="text-lg font-semibold">{i18n("habits")}</h2>
           <p className="text-sm text-muted-foreground">{selectedDate}</p>
         </div>
         <Button size="sm" onClick={() => setIsCreating(true)}>
           <Plus className="h-4 w-4 mr-1" />
-          新建
+          {i18n("newTask")}
         </Button>
       </div>
 
@@ -37,11 +38,11 @@ export function HabitPanel() {
           <div className="flex gap-2">
             <Input
               autoFocus
-              placeholder="习惯名称"
+              placeholder={i18n("habitName")}
               value={newHabitName}
               onChange={(e) => setNewHabitName(e.target.value)}
             />
-            <Button size="sm">保存</Button>
+            <Button size="sm">{i18n("save")}</Button>
           </div>
         </div>
       )}
@@ -74,8 +75,8 @@ export function HabitPanel() {
           })}
           {habits.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
-              <p>暂无习惯</p>
-              <p className="text-sm">添加习惯开始追踪</p>
+              <p>{i18n("noHabits")}</p>
+              <p className="text-sm">{i18n("addHabitToTrack")}</p>
             </div>
           )}
         </div>

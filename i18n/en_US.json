@@ -98,6 +98,8 @@
     "completed": "Completed",
     "modify": "Modify",
     "edit": "Edit",
+    "loading": "Loading...",
+    "clickNewToAddTask": "Click \"New\" button above to add a task",
     "delete": "Delete",
     "deleteSuccess": "Delete Success",
     "deleteFailed": "Delete Failed",
@@ -1852,5 +1854,12 @@
     "noMilestones": "No Milestones",
     "pleaseInputDateTimeDesc": "Please enter the date and time description",
     "mergeProject": "Merge Project",
-    "batchSetStatus": "Batch Set Status"
+    "batchSetStatus": "Batch Set Status",
+    "projectName": "Project Name",
+    "noProjects": "No projects",
+    "createProjectToOrganize": "Create a project to organize your tasks",
+    "habitName": "Habit Name",
+    "noHabits": "No habits",
+    "addHabitToTrack": "Add a habit to start tracking",
+    "clickNewToAddTask": "Click \"New\" button above to add a task"
 }

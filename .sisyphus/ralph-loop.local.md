@@ -1,11 +1,14 @@
 ---
 active: true
-iteration: 1
-completion_promise: "DONE"
+iteration: 3
+completion_promise: "VERIFIED"
 initial_completion_promise: "DONE"
+verification_attempt_id: "f86efb4e-0f11-4967-9651-0a59c1e86899"
+verification_session_id: "ses_2fdb340cdffeXtMf4B2hQizkVs"
 started_at: "2026-03-18T18:16:36.124Z"
 session_id: "ses_2fdd79867ffeaM3wC2XIFAVS2b"
 ultrawork: true
+verification_pending: true
 strategy: "continue"
 message_count_at_start: 1
 ---

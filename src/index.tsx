@@ -167,16 +167,18 @@ export default class ReminderPlugin extends Plugin {
                 title: i18n("dailyTasks"),
             },
             init: (dock) => {
-                dock.element.innerHTML = '<div id="reminder-dock-root" style="height: 100%;"></div>';
-                const container = dock.element.querySelector('#reminder-dock-root') as HTMLElement;
-                if (container) {
-                    this.reminderPanelDestroy = mountDockComponent(
-                        container,
-                        ReminderPanel,
-                        this as any,
-                        { initialTab: 'today' }
-                    );
-                }
+                // Use document.createElement instead of innerHTML for security
+                const container = document.createElement('div');
+                container.id = 'reminder-dock-root';
+                container.style.height = '100%';
+                dock.element.appendChild(container);
+                
+                this.reminderPanelDestroy = mountDockComponent(
+                    container,
+                    ReminderPanel,
+                    this as any,
+                    { initialTab: 'today' }
+                );
             },
             destroy: () => {
                 if (this.reminderPanelDestroy) {
@@ -196,15 +198,17 @@ export default class ReminderPlugin extends Plugin {
                 title: i18n("projects"),
             },
             init: (dock) => {
-                dock.element.innerHTML = '<div id="project-dock-root" style="height: 100%;"></div>';
-                const container = dock.element.querySelector('#project-dock-root') as HTMLElement;
-                if (container) {
-                    this.projectPanelDestroy = mountDockComponent(
-                        container,
-                        ProjectPanel,
-                        this as any
-                    );
-                }
+                // Use document.createElement instead of innerHTML for security
+                const container = document.createElement('div');
+                container.id = 'project-dock-root';
+                container.style.height = '100%';
+                dock.element.appendChild(container);
+                
+                this.projectPanelDestroy = mountDockComponent(
+                    container,
+                    ProjectPanel,
+                    this as any
+                );
             },
             destroy: () => {
                 if (this.projectPanelDestroy) {
@@ -224,15 +228,17 @@ export default class ReminderPlugin extends Plugin {
                 title: i18n("habits"),
             },
             init: (dock) => {
-                dock.element.innerHTML = '<div id="habit-dock-root" style="height: 100%;"></div>';
-                const container = dock.element.querySelector('#habit-dock-root') as HTMLElement;
-                if (container) {
-                    this.habitPanelDestroy = mountDockComponent(
-                        container,
-                        HabitPanel,
-                        this as any
-                    );
-                }
+                // Use document.createElement instead of innerHTML for security
+                const container = document.createElement('div');
+                container.id = 'habit-dock-root';
+                container.style.height = '100%';
+                dock.element.appendChild(container);
+                
+                this.habitPanelDestroy = mountDockComponent(
+                    container,
+                    HabitPanel,
+                    this as any
+                );
             },
             destroy: () => {
                 if (this.habitPanelDestroy) {
