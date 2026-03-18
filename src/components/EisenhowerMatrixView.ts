@@ -1330,11 +1330,11 @@ export class EisenhowerMatrixView {
 
             // 根据kanbanStatus确定状态配置
             const statusConfig: { [key: string]: { icon: string; label: string; color: string } } = {
-                'doing': { icon: '⏳', label: '进行中', color: '#f39c12' },
-                'short_term': { icon: '📋', label: '短期', color: '#3498db' },
-                'long_term': { icon: '🤔', label: '长期', color: '#9b59b6' }
+                'doing': { icon: '', label: '进行中', color: '#f39c12' },
+                'short_term': { icon: '', label: '短期', color: '#3498db' },
+                'long_term': { icon: '', label: '长期', color: '#9b59b6' }
             };
-            const statusInfo = statusConfig[kanbanStatus] || { icon: '📋', label: '短期', color: '#3498db' };
+            const statusInfo = statusConfig[kanbanStatus] || { icon: '', label: '短期', color: '#3498db' };
 
             const statusSpan = document.createElement('span');
             statusSpan.className = 'task-kanban-status';
@@ -1362,7 +1362,7 @@ export class EisenhowerMatrixView {
             if (completedTimeStr) {
                 const completedSpan = document.createElement('span');
                 completedSpan.className = 'task-completed-time';
-                completedSpan.textContent = `✅ ${this.formatCompletedTime(completedTimeStr)}`;
+                completedSpan.textContent = ` ${this.formatCompletedTime(completedTimeStr)}`;
                 completedSpan.title = this.formatCompletedTime(completedTimeStr);
                 taskMeta.appendChild(completedSpan);
             }
@@ -1379,7 +1379,7 @@ export class EisenhowerMatrixView {
                 return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
             };
             const focusText = focusMinutes > 0 ? ` ⏱ ${formatMinutesToString(focusMinutes)}` : '';
-            pomodoroSpan.textContent = `🍅 ${task.pomodoroCount || 0}${focusText}`;
+            pomodoroSpan.textContent = ` ${task.pomodoroCount || 0}${focusText}`;
             pomodoroSpan.style.cssText = `
                 display: inline-flex;
                 align-items: center;
@@ -3042,7 +3042,7 @@ export class EisenhowerMatrixView {
                 });
 
                 menu.addItem({
-                    iconHTML: "📋",
+                    iconHTML: "",
                     label: i18n("copyBlockRef"),
                     click: () => this.copyBlockRef(task)
                 });
@@ -3050,13 +3050,13 @@ export class EisenhowerMatrixView {
 
             // 番茄钟功能对订阅任务仍然可用
             menu.addItem({
-                iconHTML: "🍅",
+                iconHTML: "",
                 label: i18n("startPomodoro"),
                 submenu: this.createPomodoroStartSubmenu(task)
             });
 
             menu.addItem({
-                iconHTML: "⏱️",
+                iconHTML: "",
                 label: i18n("startCountUp"),
                 click: () => this.startPomodoroCountUp(task)
             });
@@ -3102,7 +3102,7 @@ export class EisenhowerMatrixView {
             });
 
             menu.addItem({
-                iconHTML: "📋",
+                iconHTML: "",
                 label: i18n("copyBlockRef"),
                 click: () => this.copyBlockRef(task)
             });
@@ -3169,9 +3169,9 @@ export class EisenhowerMatrixView {
                 icon: string;
                 kanbanStatus: string;
             }> = [
-                    { key: 'doing', label: i18n('doing'), icon: '⏳', kanbanStatus: 'doing' },
-                    { key: 'short_term', label: i18n('shortTerm'), icon: '📋', kanbanStatus: 'short_term' },
-                    { key: 'long_term', label: i18n('longTerm'), icon: '🤔', kanbanStatus: 'long_term' }
+                    { key: 'doing', label: i18n('doing'), icon: '', kanbanStatus: 'doing' },
+                    { key: 'short_term', label: i18n('shortTerm'), icon: '', kanbanStatus: 'short_term' },
+                    { key: 'long_term', label: i18n('longTerm'), icon: '', kanbanStatus: 'long_term' }
                 ];
 
             const currentKanbanStatus = task.extendedProps?.kanbanStatus || 'short_term';
@@ -3199,13 +3199,13 @@ export class EisenhowerMatrixView {
         menu.addSeparator();
 
         menu.addItem({
-            iconHTML: "🍅",
+            iconHTML: "",
             label: i18n("startPomodoro"),
             submenu: this.createPomodoroStartSubmenu(task)
         });
 
         menu.addItem({
-            iconHTML: "⏱️",
+            iconHTML: "",
             label: i18n("startStopwatch"),
             click: () => this.startPomodoroCountUp(task)
         });

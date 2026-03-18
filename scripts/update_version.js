@@ -133,7 +133,7 @@ function incrementVersion(version, type) {
         await writeJsonFile(pluginJsonPath, pluginData);
         await writeJsonFile(packageJsonPath, packageData);
 
-        console.log(`\n✅  Version successfully updated to: \x1b[32m${newVersion}\x1b[0m\n`);
+        console.log(`\n  Version successfully updated to: \x1b[32m${newVersion}\x1b[0m\n`);
 
     } catch (error) {
         console.error('❌  Error:', error);

@@ -59,7 +59,7 @@ export class TaskStatsView {
 
     private createDialog() {
         this.dialog = new Dialog({
-            title: "✅ " + (i18n("taskStats") || "任务统计"),
+            title: " " + (i18n("taskStats") || "任务统计"),
             content: this.createContent(),
             width: "90vw",
             height: "85vh",
@@ -92,10 +92,10 @@ export class TaskStatsView {
             <div class="pomodoro-stats-view">
                 <div class="stats-switch">
                     <button class="stats-switch-btn active" data-mode="task">
-                        ✅ ${i18n("taskStats")}
+                         ${i18n("taskStats")}
                     </button>
                     <button class="stats-switch-btn" data-mode="pomodoro">
-                        🍅 ${i18n("pomodoroStats")}
+                         ${i18n("pomodoroStats")}
                     </button>
                 </div>
                 <!-- 导航标签 -->

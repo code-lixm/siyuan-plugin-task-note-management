@@ -891,7 +891,7 @@ export class ProjectPanel {
         // 添加番茄钟总数显示
         const pomodoroCountEl = document.createElement('span');
         pomodoroCountEl.className = 'project-count project-count--pomodoro';
-        pomodoroCountEl.textContent = '🍅 总计: ...';
+        pomodoroCountEl.textContent = ' 总计: ...';
         countsContainer.appendChild(pomodoroCountEl);
 
         infoEl.appendChild(countsContainer);
@@ -931,10 +931,12 @@ export class ProjectPanel {
                 categoryIds.forEach((id: string) => {
                     const category = this.categoryManager.getCategoryById(id);
                     if (category) {
+                        const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                         const categoryEl = document.createElement('div');
                         categoryEl.className = 'project-category-tag';
-                        categoryEl.style.color = category.color;
-                        categoryEl.style.borderColor = `${category.color}40`;
+                        categoryEl.style.color = labelStyle.textColor;
+                        categoryEl.style.backgroundColor = labelStyle.backgroundColor;
+                        categoryEl.style.borderColor = labelStyle.borderColor;
 
                         if (category.icon) {
                             const iconSpan = document.createElement('span');
@@ -1027,7 +1029,7 @@ export class ProjectPanel {
                     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
                 };
                 const focusText = totalFocus > 0 ? ` ⏱ ${formatMinutesToString(totalFocus)}` : '';
-                pomodoroEl.textContent = `🍅 总计: ${totalPomodoro}${focusText}`;
+                pomodoroEl.textContent = ` 总计: ${totalPomodoro}${focusText}`;
             }
 
             // 计算进度： done / (sum of non-completed statuses + done)
@@ -1047,7 +1049,7 @@ export class ProjectPanel {
                 <span class="project-count project-count--long-term">${i18n("longTerm") || '长期'}: ?</span>
                 <span class="project-count project-count--done">${i18n("done") || '已完成'}: ?</span>
             `;
-            if (pomodoroEl) pomodoroEl.textContent = `🍅 总计: ?`;
+            if (pomodoroEl) pomodoroEl.textContent = ` 总计: ?`;
             if (progressBarInner && progressText) {
                 progressBarInner.style.width = `0%`;
                 progressText.textContent = `0%`;

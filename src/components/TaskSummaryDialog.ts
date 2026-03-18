@@ -1489,8 +1489,8 @@ export class TaskSummaryDialog {
         html += `<h4 class="task-project-title">${i18n('habitCheckInTitle')}</h4>`;
         html += `<ul class="task-list">`;
         hList.forEach(habit => {
-          // 只需要显示一个✅和⬜，代表打卡完成和打卡未完成
-          const progress = habit.completed ? '✅' : '⬜';
+          // 只需要显示一个和⬜，代表打卡完成和打卡未完成
+          const progress = habit.completed ? '' : '⬜';
 
           // 习惯打卡名称后改为：名称（频率：xxx，目标次数，今天打卡： emoji），如果今日没打卡，今日打卡改为无
           const emojiStr = habit.emojis.length > 0 ? habit.emojis.join('') : i18n('noneVal');
@@ -1544,7 +1544,7 @@ export class TaskSummaryDialog {
 
             if (dailyCount > 0 || dailyMinutes > 0) {
               // 显示本次番茄钟
-              pomodoroStr = ` (🍅 ${dailyCount} | 🕒 ${this.formatDuration(dailyMinutes)}`;
+              pomodoroStr = ` ( ${dailyCount} | 🕒 ${this.formatDuration(dailyMinutes)}`;
 
               // 如果是重复任务，或者是普通任务但历史总计大于今日，则显示系列/总计
               const isRepeated = task.extendedProps?.isRepeated;
@@ -1557,11 +1557,11 @@ export class TaskSummaryDialog {
 
                 // 重复任务（无论是实例还是原始头任务）：总是显示系列总计
                 if (isRecurring || isRepeated) {
-                  pomodoroStr += ` / ${i18n('series')}: 🍅 ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)}`;
+                  pomodoroStr += ` / ${i18n('series')}:  ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)}`;
                 }
                 // 普通任务：只有当总计大于今日时显示
                 else if (allStat.minutes > dailyMinutes + 1) {
-                  pomodoroStr += ` / ${i18n('totalStats')}: 🍅 ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)}`;
+                  pomodoroStr += ` / ${i18n('totalStats')}:  ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)}`;
                 }
               }
               pomodoroStr += `)`;
@@ -1576,7 +1576,7 @@ export class TaskSummaryDialog {
                 const allStat = stats.pomodoro.allTimeTaskStats[statsId];
                 if (allStat.minutes > 0) {
                   const label = (isRecurring || isRepeated) ? i18n('series') : i18n('totalStats');
-                  pomodoroStr = ` (${label}: 🍅 ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)})`;
+                  pomodoroStr = ` (${label}:  ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)})`;
                 }
               }
             }
@@ -1600,7 +1600,7 @@ export class TaskSummaryDialog {
 
             html += `
                   <li class="task-item ${completedClass} ${priorityClass}" style="${indentStyle}" data-depth="${task.depth}">
-                    <span class="task-checkbox">${task.completed ? '✅' : '⬜'}</span>
+                    <span class="task-checkbox">${task.completed ? '' : '⬜'}</span>
                     <div class="task-body" style="flex:1; display:flex; flex-direction:column;">
                       <div class="task-line">
                         <span class="task-title">${task.title}${task.repeatLabel ? ` <span style="color:#888; font-size:12px;">(${task.repeatLabel})</span>` : ''}${timeStr}${estStr}${pomodoroStr}${completedTimeStr}</span>
@@ -1951,7 +1951,7 @@ export class TaskSummaryDialog {
         tasks.forEach(task => {
           const depth = parseInt(task.getAttribute('data-depth') || '0');
           const indent = '  '.repeat(depth);
-          const checkbox = task.classList.contains('completed') ? '✅' : '⬜';
+          const checkbox = task.classList.contains('completed') ? '' : '⬜';
 
           // 提取任务标题（包含所有内联元素）
           const taskTitle = task.querySelector('.task-title');

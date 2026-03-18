@@ -1580,8 +1580,8 @@ export class ReminderPanel {
                                 };
                                 const totalFocusText = focusTimeMinutes > 0 ? ` ⏱ ${formatMinutesToString(focusTimeMinutes)}` : '';
                                 const todayFocusText = (todayFocusMinutes > 0 || totalCount > 0) ? ` ⏱ ${formatMinutesToString(todayFocusMinutes)}` : '';
-                                const totalLine = (totalCount > 0 || focusTimeMinutes > 0) ? `<span title="累计完成的番茄钟: ${totalCount}">🍅 ${totalCount}</span><span title="总专注时长: ${focusTimeMinutes} 分钟" style="margin-left:8px; opacity:0.9;">${totalFocusText}</span>` : '';
-                                const todayLine = (todayCount > 0 || todayFocusMinutes > 0 || totalCount > 0) ? `<div style="margin-top:6px; font-size:12px; opacity:0.95;"><span title='今日完成的番茄钟: ${todayCount}'>今日: 🍅 ${todayCount}</span><span title='今日专注时长: ${todayFocusMinutes} 分钟' style='margin-left:8px'>${todayFocusText}</span></div>` : '';
+                                const totalLine = (totalCount > 0 || focusTimeMinutes > 0) ? `<span title="累计完成的番茄钟: ${totalCount}"> ${totalCount}</span><span title="总专注时长: ${focusTimeMinutes} 分钟" style="margin-left:8px; opacity:0.9;">${totalFocusText}</span>` : '';
+                                const todayLine = (todayCount > 0 || todayFocusMinutes > 0 || totalCount > 0) ? `<div style="margin-top:6px; font-size:12px; opacity:0.95;"><span title='今日完成的番茄钟: ${todayCount}'>今日:  ${todayCount}</span><span title='今日专注时长: ${todayFocusMinutes} 分钟' style='margin-left:8px'>${todayFocusText}</span></div>` : '';
 
                                 const focusTimeText = focusTimeMinutes > 0 ? ` ⏱ ${formatMinutesToString(focusTimeMinutes)}` : '';
                                 pomEl.innerHTML = `${totalLine}${todayLine}`;
@@ -2441,7 +2441,7 @@ export class ReminderPanel {
             const totalFocus = cachedData.focusTime || 0;
             const todayFocus = cachedData.todayFocusTime || 0;
             // totals should be displayed with aggregated numbers
-            const formattedTotalTomato = `🍅 ${totalCount}`;
+            const formattedTotalTomato = ` ${totalCount}`;
             const focusTimeMinutes = cachedData.focusTime || 0;
             const formatMinutesToString = (minutes: number) => {
                 const hours = Math.floor(minutes / 60);
@@ -2478,11 +2478,11 @@ export class ReminderPanel {
 
                 totalLine = `<div style="margin-top:${estimatedLine ? '6px' : '0'}; font-size:12px;">
                     <div title="${i18n('seriesTotalTomatoTitle')}${repeatingTotal}">
-                        <span>${i18n('series')}: 🍅 ${repeatingTotal}</span>
+                        <span>${i18n('series')}:  ${repeatingTotal}</span>
                         <span style="margin-left:8px; opacity:0.9;">${repeatingFocusText}</span>
                     </div>
                     <div title="${i18n('instanceTomatoTitle')}${instanceCount}" style="margin-top:4px; opacity:0.95;">
-                        <span>${i18n('currentInstance')}: 🍅 ${instanceCount}</span>
+                        <span>${i18n('currentInstance')}:  ${instanceCount}</span>
                         <span style="margin-left:8px; opacity:0.9;">${instanceFocusText}</span>
                     </div>
                  </div>`;
@@ -2495,7 +2495,7 @@ export class ReminderPanel {
                 // 第三行：今日数据（只在总番茄不等于今日番茄时显示，即有历史数据时）
                 // 判断条件：总数量大于今日数量，或者总时长大于今日时长
                 const hasHistoricalData = (totalCount > todayCount) || (totalFocus > todayFocus);
-                todayLine = hasHistoricalData && (todayCount > 0 || todayFocus > 0) ? `<div style="margin-top:6px; font-size:12px; opacity:0.95;"><span title='${i18n('todayCompletedPomodoroTitle')}${todayCount}'>${i18n('today')}: 🍅 ${todayCount}</span><span title='${i18n('todayFocusTimeTitle')}${todayFocus} ${i18n('minutes')}' style='margin-left:8px'>${todayFocusText}</span></div>` : '';
+                todayLine = hasHistoricalData && (todayCount > 0 || todayFocus > 0) ? `<div style="margin-top:6px; font-size:12px; opacity:0.95;"><span title='${i18n('todayCompletedPomodoroTitle')}${todayCount}'>${i18n('today')}:  ${todayCount}</span><span title='${i18n('todayFocusTimeTitle')}${todayFocus} ${i18n('minutes')}' style='margin-left:8px'>${todayFocusText}</span></div>` : '';
             }
 
             pomodoroDisplay.innerHTML = `${estimatedLine}${totalLine}${todayLine}`;
@@ -2534,7 +2534,7 @@ export class ReminderPanel {
                     const timeOnly = formattedTime.includes(' ') ? formattedTime.substring(formattedTime.indexOf(' ') + 1) : formattedTime;
                     completedEl.textContent = i18n('todayCompletedWithTime', { time: timeOnly });
                 } else {
-                    completedEl.textContent = `✅ ${formattedTime}`;
+                    completedEl.textContent = ` ${formattedTime}`;
                 }
 
                 completedEl.style.cssText = 'font-size:12px;  margin-top:6px; opacity:0.95;';
@@ -2811,6 +2811,7 @@ export class ReminderPanel {
                 if (!id) return;
                 const category = this.categoryManager.getCategoryById(id);
                 if (category) {
+                    const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                     const categoryTag = document.createElement('div');
                     categoryTag.className = 'reminder-item__category';
                     categoryTag.style.cssText = `
@@ -2818,9 +2819,9 @@ export class ReminderPanel {
                         align-items: center;
                         gap: 2px;
                         font-size: 11px;
-                        background-color: ${category.color}20;
-                        color: ${category.color};
-                        border: 1px solid ${category.color}40;
+                        background-color: ${labelStyle.backgroundColor};
+                        color: ${labelStyle.textColor};
+                        border: 1px solid ${labelStyle.borderColor};
                         border-radius: 12px;
                         padding: 2px 8px;
                         margin-top: 4px;
@@ -6147,7 +6148,7 @@ export class ReminderPanel {
                     click: () => this.openBlockTab(reminder.blockId)
                 });
                 menu.addItem({
-                    iconHTML: "📋",
+                    iconHTML: "",
                     label: i18n("copyBlockRef") || "复制块引用",
                     click: () => this.copyBlockRef(reminder)
                 });
@@ -6165,12 +6166,12 @@ export class ReminderPanel {
 
             // 生产力工具
             menu.addItem({
-                iconHTML: "🍅",
+                iconHTML: "",
                 label: i18n("startPomodoro") || "开始番茄钟",
                 submenu: this.createPomodoroStartSubmenu(reminder)
             });
             menu.addItem({
-                iconHTML: "⏱️",
+                iconHTML: "",
                 label: i18n("startCountUp") || "开始正向计时",
                 click: () => this.startPomodoroCountUp(reminder)
             });
@@ -6209,7 +6210,7 @@ export class ReminderPanel {
 
         if (isDessert && !reminder.completed && !isAlreadyCompletedToday) {
             menu.addItem({
-                iconHTML: "✅",
+                iconHTML: "",
                 label: i18n("markTodayCompleted"),
                 click: () => {
                     // Logic: Mark complete, set completion time, AND set date to today (so it shows in calendar history)
@@ -6285,7 +6286,7 @@ export class ReminderPanel {
         // 粘贴新建子任务（高级功能）
         if (this.showAdvancedFeatures) {
             menu.addItem({
-                iconHTML: "📋",
+                iconHTML: "",
                 label: i18n("pasteCreateSubtask"),
                 click: () => this.showPasteTaskDialog(reminder)
             });
@@ -6475,7 +6476,7 @@ export class ReminderPanel {
             // 只对已绑定块的事件显示复制块引用
             if (reminder.blockId) {
                 menu.addItem({
-                    iconHTML: "📋",
+                    iconHTML: "",
                     label: i18n("copyBlockRef"),
                     click: () => this.copyBlockRef(reminder)
                 });
@@ -6508,7 +6509,7 @@ export class ReminderPanel {
             if (isSpanningInToday && !reminder.completed) {
                 const isTodayCompleted = this.isSpanningEventTodayCompleted(reminder);
                 menu.addItem({
-                    iconHTML: isTodayCompleted ? "🔄" : "✅",
+                    iconHTML: isTodayCompleted ? "🔄" : "",
                     label: isTodayCompleted ? i18n("unmarkTodayCompleted") : i18n("markTodayCompleted"),
                     click: () => {
                         if (isTodayCompleted) {
@@ -6544,12 +6545,12 @@ export class ReminderPanel {
             });
             menu.addSeparator();
             menu.addItem({
-                iconHTML: "🍅",
+                iconHTML: "",
                 label: i18n("startPomodoro"),
                 submenu: this.createPomodoroStartSubmenu(reminder)
             });
             menu.addItem({
-                iconHTML: "⏱️",
+                iconHTML: "",
                 label: i18n("startCountUp"),
                 click: () => this.startPomodoroCountUp(reminder)
             });
@@ -6575,7 +6576,7 @@ export class ReminderPanel {
             // 只对已绑定块的事件显示复制块引用
             if (reminder.blockId) {
                 menu.addItem({
-                    iconHTML: "📋",
+                    iconHTML: "",
                     label: i18n("copyBlockRef"),
                     click: () => this.copyBlockRef(reminder)
                 });
@@ -6608,7 +6609,7 @@ export class ReminderPanel {
             if (isSpanningInToday && !reminder.completed) {
                 const isTodayCompleted = this.isSpanningEventTodayCompleted(reminder);
                 menu.addItem({
-                    iconHTML: isTodayCompleted ? "🔄" : "✅",
+                    iconHTML: isTodayCompleted ? "🔄" : "",
                     label: isTodayCompleted ? i18n("unmarkTodayCompleted") : i18n("markTodayCompleted"),
                     click: () => {
                         if (isTodayCompleted) {
@@ -6640,12 +6641,12 @@ export class ReminderPanel {
             });
             menu.addSeparator();
             menu.addItem({
-                iconHTML: "🍅",
+                iconHTML: "",
                 label: i18n("startPomodoro"),
                 submenu: this.createPomodoroStartSubmenu(reminder)
             });
             menu.addItem({
-                iconHTML: "⏱️",
+                iconHTML: "",
                 label: i18n("startCountUp"),
                 click: () => this.startPomodoroCountUp(reminder)
             });
@@ -7678,6 +7679,7 @@ export class ReminderPanel {
                             if (categoryId) {
                                 const category = this.categoryManager.getCategoryById(categoryId);
                                 if (category) {
+                                    const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                                     const categoryTag = document.createElement('div');
                                     categoryTag.className = 'reminder-item__category';
                                     categoryTag.style.cssText = `
@@ -7685,9 +7687,9 @@ export class ReminderPanel {
                                         align-items: center;
                                         gap: 2px;
                                         font-size: 11px;
-                                        background-color: ${category.color}20;
-                                        color: ${category.color};
-                                        border: 1px solid ${category.color}40;
+                                        background-color: ${labelStyle.backgroundColor};
+                                        color: ${labelStyle.textColor};
+                                        border: 1px solid ${labelStyle.borderColor};
                                         border-radius: 12px;
                                         padding: 2px 8px;
                                         margin-top: 4px;
@@ -8547,7 +8549,10 @@ export class ReminderPanel {
             const categoryEl = document.createElement('div');
             categoryEl.className = 'category-option';
             categoryEl.setAttribute('data-category', category.id);
-            categoryEl.style.backgroundColor = category.color;
+            const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
+            categoryEl.style.backgroundColor = labelStyle.backgroundColor;
+            categoryEl.style.color = labelStyle.textColor;
+            categoryEl.style.borderColor = labelStyle.borderColor;
             categoryEl.innerHTML = `<span>${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
             if (category.id === defaultCategoryId) {
                 categoryEl.classList.add('selected');
@@ -8621,7 +8626,7 @@ export class ReminderPanel {
                 cursor: pointer;
                 transition: transform 0.15s ease;
                 border: 1px solid transparent;
-                color: white;
+                color: #000000;
             }
             .category-selector .category-option.selected {
                 transform: scale(1.05);
@@ -9743,7 +9748,7 @@ export class ReminderPanel {
 
         // 设置已完成
         menu.addItem({
-            iconHTML: '✅',
+            iconHTML: '',
             label: i18n('setCompleted') || '设置已完成',
             click: () => this.panelBatchSetCompleted()
         });

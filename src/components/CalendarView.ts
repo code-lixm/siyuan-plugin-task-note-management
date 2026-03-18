@@ -726,7 +726,7 @@ export class CalendarView {
         this.pomodoroToggleBtn.style.transition = 'opacity 140ms ease';
         this.pomodoroToggleBtn.style.visibility = 'hidden';
         this.pomodoroToggleBtn.style.pointerEvents = 'none';
-        this.pomodoroToggleBtn.innerHTML = '🍅';
+        this.pomodoroToggleBtn.innerHTML = '';
         this.pomodoroToggleBtn.title = i18n("togglePomodoroRecords") || "显示/隐藏番茄专注记录";
         this.pomodoroToggleBtn.onclick = async () => {
             this.showPomodoro = !this.showPomodoro;
@@ -1714,10 +1714,8 @@ export class CalendarView {
 
                     // Reset standard styles
                     targetEl.style.border = 'none';
-                    // Adjust opacity based on theme mode
-                    const themeMode = document.querySelector('html')?.getAttribute('data-theme-mode');
-                    const opacity = themeMode === 'dark' ? '0.3' : '0.15';
-                    targetEl.style.backgroundColor = colorWithOpacity(bgColor, parseFloat(opacity));
+                    // 使用分类颜色并添加50%透明度
+                    targetEl.style.backgroundColor = colorWithOpacity(bgColor, 0.5);
 
                     // Add thick left border (使用优先级颜色)
                     targetEl.style.borderLeft = `4px solid ${borderColor}`;
@@ -2690,13 +2688,13 @@ export class CalendarView {
             menu.addSeparator();
 
             menu.addItem({
-                iconHTML: "🍅",
+                iconHTML: "",
                 label: i18n("startPomodoro"),
                 submenu: this.createPomodoroStartSubmenu(calendarEvent)
             });
 
             menu.addItem({
-                iconHTML: "⏱️",
+                iconHTML: "",
                 label: i18n("startCountUp"),
                 click: () => {
                     this.startPomodoroCountUp(calendarEvent);
@@ -2811,7 +2809,7 @@ export class CalendarView {
         }
 
         menu.addItem({
-            iconHTML: "✅",
+            iconHTML: "",
             label: calendarEvent.extendedProps.completed ? i18n("markAsUncompleted") : i18n("markAsCompleted"),
             click: () => {
                 this.toggleEventCompleted(calendarEvent);
@@ -2858,7 +2856,7 @@ export class CalendarView {
         // 添加复制块引选项 - 只对已绑定块的事件显示，排除未绑定块的事项和快速提醒
         if (calendarEvent.extendedProps.blockId) {
             menu.addItem({
-                iconHTML: "📋",
+                iconHTML: "",
                 label: i18n("copyBlockRef"),
                 click: () => {
                     this.copyBlockRef(calendarEvent);
@@ -2900,13 +2898,13 @@ export class CalendarView {
 
         // 添加番茄钟选项
         menu.addItem({
-            iconHTML: "🍅",
+            iconHTML: "",
             label: i18n("startPomodoro"),
             submenu: this.createPomodoroStartSubmenu(calendarEvent)
         });
 
         menu.addItem({
-            iconHTML: "⏱️",
+            iconHTML: "",
             label: i18n("startCountUp"),
             click: () => {
                 this.startPomodoroCountUp(calendarEvent);
@@ -4381,7 +4379,7 @@ export class CalendarView {
 
                 const checkIn = habit.checkIns[dateStr];
                 // 使用第一个配置的 emoji 进行打卡
-                const emojiConfig = habit.checkInEmojis?.[0] || { emoji: '✅' };
+                const emojiConfig = habit.checkInEmojis?.[0] || { emoji: '' };
                 const emoji = emojiConfig.emoji;
 
                 checkIn.entries = checkIn.entries || [];
@@ -5961,12 +5959,16 @@ export class CalendarView {
                 if (!this.showRepeatTasks && reminder.repeat?.enabled) return false;
 
                 // 跨天任务过滤
-                const durationDays = getDaysDifference(reminder.date, reminder.endDate || reminder.date);
-                if (durationDays > 0) {
-                    if (!this.showCrossDayTasks) return false;
-                    if (this.crossDayThreshold === 0) return false;
-                    if (this.crossDayThreshold > 0 && (durationDays + 1) > this.crossDayThreshold) return false;
-                    // crossDayThreshold === -1 means no limit
+                const baseStartDate = reminder.date || reminder.startDate;
+                const baseEndDate = reminder.endDate || reminder.date || reminder.startDate;
+                if (baseStartDate && baseEndDate) {
+                    const durationDays = getDaysDifference(baseStartDate, baseEndDate);
+                    if (durationDays > 0) {
+                        if (!this.showCrossDayTasks) return false;
+                        if (this.crossDayThreshold === 0) return false;
+                        if (this.crossDayThreshold > 0 && (durationDays + 1) > this.crossDayThreshold) return false;
+                        // crossDayThreshold === -1 means no limit
+                    }
                 }
 
                 if (!this.passesCategoryFilter(reminder, projectData)) return false;
@@ -6009,7 +6011,7 @@ export class CalendarView {
 
                 // If repeat settings exist, do not display the original event (only display instances); otherwise, display the original event
                 if (!reminder.repeat?.enabled) {
-                    this.addEventToList(events, reminder, reminder.id, false);
+                    this.addEventToList(events, reminder, reminder.id, false, undefined, this.calendar?.view?.type);
                 } else if (this.showRepeatTasks) {
                     // Generate repeat event instances
                     let repeatInstances = generateRepeatInstances(reminder, startDate, endDate);
@@ -6055,7 +6057,7 @@ export class CalendarView {
 
                         // 事件 id 应使用原始实例键，以便后续的拖拽/保存逻辑能够基于原始实例键进行修改，避免产生重复的 instanceModifications 条目
                         const uniqueInstanceId = `${reminder.id}_${originalKey}`;
-                        this.addEventToList(events, instanceReminder, uniqueInstanceId, true, instance.originalId);
+                        this.addEventToList(events, instanceReminder, uniqueInstanceId, true, instance.originalId, this.calendar?.view?.type);
                     }
 
                     // 处理被移动到当前视图范围内但原始日期不在范围内的实例
@@ -6123,7 +6125,7 @@ export class CalendarView {
                             }
 
                             const uniqueInstanceId = `${reminder.id}_${originalDateKey}`;
-                            this.addEventToList(events, instanceReminder, uniqueInstanceId, true, reminder.id);
+                            this.addEventToList(events, instanceReminder, uniqueInstanceId, true, reminder.id, this.calendar?.view?.type);
                         }
                     }
                 }
@@ -6167,7 +6169,7 @@ export class CalendarView {
                         }
 
                         // Construct title: "<TomatoIcon> TaskName"
-                        const title = `🍅 ${session.eventTitle || i18n('unnamedTask')}`;
+                        const title = ` ${session.eventTitle || i18n('unnamedTask')}`;
 
                         // Determine colors based on session type
                         let backgroundColor = '#f23145'; // Default to work type
@@ -6360,7 +6362,8 @@ export class CalendarView {
                     }
                 } else if (this.colorBy === 'category' && reminder.categoryId) {
                     const firstCategoryId = this.getPrimaryCategoryIdByDisplayOrder(reminder.categoryId);
-                    const categoryStyle = this.categoryManager.getCategoryStyle(firstCategoryId);
+                    const category = this.categoryManager.getCategoryById(firstCategoryId);
+                    const categoryStyle = this.categoryManager.getCategoryLabelStyle(category);
                     backgroundColor = categoryStyle.backgroundColor || '#27ae60';
                 } else if (this.colorBy === 'project' && reminder.projectId) {
                     backgroundColor = this.projectManager.getProjectColor(reminder.projectId) || '#27ae60';
@@ -6747,7 +6750,7 @@ export class CalendarView {
         }
     }
 
-    private addEventToList(events: any[], reminder: any, eventId: string, isRepeated: boolean, originalId?: string) {
+    private addEventToList(events: any[], reminder: any, eventId: string, isRepeated: boolean, originalId?: string, viewType?: string) {
         const priority = reminder.priority || 'none';
         const primaryCategoryId = this.getPrimaryCategoryIdByDisplayOrder(reminder.categoryId) || '';
 
@@ -6789,7 +6792,8 @@ export class CalendarView {
             } else if (this.colorBy === 'category') {
                 if (primaryCategoryId) {
                     // Use the first category for color if multiple are present
-                    const categoryStyle = this.categoryManager.getCategoryStyle(primaryCategoryId);
+                    const category = this.categoryManager.getCategoryById(primaryCategoryId);
+                    const categoryStyle = this.categoryManager.getCategoryLabelStyle(category);
                     backgroundColor = categoryStyle.backgroundColor;
                     // 有优先级时使用优先级颜色作为边框，否则使用分类颜色
                     borderColor = priorityBorderColor || categoryStyle.borderColor;
@@ -6847,7 +6851,7 @@ export class CalendarView {
             extendedProps: {
                 completed: isCompleted,
                 note: reminder.note || '',
-                date: reminder.date,
+                date: reminder.date || reminder.startDate || reminder.endDate,
                 endDate: reminder.endDate || null,
                 time: reminder.time || null,
                 endTime: reminder.endTime || null,
@@ -6872,16 +6876,26 @@ export class CalendarView {
         };
 
         // 处理日期逻辑：优先使用 date 作为开始日期，如果没有 date 则使用 endDate
-        const startDate = reminder.date || reminder.endDate;
+        const startDate = reminder.date || reminder.startDate || reminder.endDate;
         const endDate = reminder.endDate;
 
         // 处理跨天事件
         if (endDate && startDate !== endDate) {
             // 既有开始日期又有结束日期，且不相同，是跨天事件
             if (reminder.time && reminder.endTime) {
-                eventObj.start = `${startDate}T${reminder.time}:00`;
-                eventObj.end = `${endDate}T${reminder.endTime}:00`;
-                eventObj.allDay = false;
+                const isDayGridView = viewType ? (viewType.startsWith('dayGrid') || viewType === 'multiMonthYear') : false;
+                if (isDayGridView) {
+                    eventObj.start = startDate;
+                    const endDateObj = new Date(endDate);
+                    endDateObj.setDate(endDateObj.getDate() + 1);
+                    eventObj.end = getLocalDateString(endDateObj);
+                    eventObj.allDay = true;
+                    eventObj.title = `${reminder.title || i18n("unnamedNote")} (${reminder.time}~${reminder.endTime})`;
+                } else {
+                    eventObj.start = `${startDate}T${reminder.time}:00`;
+                    eventObj.end = `${endDate}T${reminder.endTime}:00`;
+                    eventObj.allDay = false;
+                }
             } else {
                 eventObj.start = startDate;
                 const endDateObj = new Date(endDate);
@@ -7088,7 +7102,7 @@ export class CalendarView {
             // Title
             htmlParts.push(
                 `<div style="font-weight: 600; color: var(--b3-theme-on-surface); margin-bottom: 8px; font-size: 14px; text-align: left; width: 100%;">`,
-                `🍅 ${this.escapeHtml(title)}`,
+                ` ${this.escapeHtml(title)}`,
                 `</div>`
             );
 
@@ -7124,7 +7138,7 @@ export class CalendarView {
             // Title
             htmlParts.push(
                 `<div style="font-weight: 600; color: var(--b3-theme-success); margin-bottom: 8px; font-size: 14px; text-align: left; width: 100%;">`,
-                `✅ ${this.escapeHtml(title)}`,
+                ` ${this.escapeHtml(title)}`,
                 `</div>`
             );
 
@@ -7270,8 +7284,9 @@ export class CalendarView {
                 categoryIds.forEach(id => {
                     const category = this.categoryManager.getCategoryById(id);
                     if (category) {
+                        const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                         htmlParts.push(
-                            `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background-color: ${category.color}; border-radius: 4px; color: white; font-size: 11px;">`
+                            `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background-color: ${labelStyle.backgroundColor}; border-radius: 4px; color: ${labelStyle.textColor}; font-size: 11px; border: 1px solid ${labelStyle.borderColor};">`
                         );
                         if (category.icon) {
                             htmlParts.push(`<span style="font-size: 12px;">${category.icon}</span>`);
@@ -7359,7 +7374,7 @@ export class CalendarView {
 
                 htmlParts.push(
                     `<div style="color: var(--b3-theme-success); margin-top: 6px; display: flex; align-items: center; gap: 4px; font-size: 12px;">`,
-                    `<span>✅</span>`,
+                    `<span></span>`,
                     `<span>${i18n("completed")}</span>`
                 );
 

@@ -455,7 +455,7 @@ export class QuickReminderDialog {
 
         existingContainer.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <div style="font-weight: 500; color: var(--b3-theme-on-surface);">📋 已绑定提醒 (${this.existingReminders.length})</div>
+                <div style="font-weight: 500; color: var(--b3-theme-on-surface);"> 已绑定提醒 (${this.existingReminders.length})</div>
                 <div class="sort-controls" style="display: flex; gap: 4px;">
                     <button class="b3-button b3-button--outline" data-sort="time" style="padding: 2px 8px; font-size: 12px;">时间</button>
                     <button class="b3-button b3-button--outline" data-sort="priority" style="padding: 2px 8px; font-size: 12px;">优先级</button>
@@ -1302,7 +1302,7 @@ export class QuickReminderDialog {
                 const seriesTimeStr = seriesMinutes > 0 ? `(${Math.floor(seriesMinutes / 60)}h${seriesMinutes % 60}m)` : '';
 
                 if (instanceCount > 0 || seriesCount > 0) {
-                    pomodorosCountText.textContent = `${i18n("viewPomodoros")} ${instanceCount}🍅${instanceTimeStr} / 系列: ${seriesCount}🍅${seriesTimeStr}`;
+                    pomodorosCountText.textContent = `${i18n("viewPomodoros")} ${instanceCount}${instanceTimeStr} / 系列: ${seriesCount}${seriesTimeStr}`;
                 } else {
                     pomodorosCountText.textContent = `${i18n("viewPomodoros")}`;
                 }
@@ -1313,7 +1313,7 @@ export class QuickReminderDialog {
                 const seriesTimeStr = seriesMinutes > 0 ? ` (${Math.floor(seriesMinutes / 60)}h${seriesMinutes % 60}m)` : '';
 
                 if (seriesCount > 0 || seriesMinutes > 0) {
-                    pomodorosCountText.textContent = `${i18n("viewPomodoros")} ${seriesCount}🍅${seriesTimeStr}`;
+                    pomodorosCountText.textContent = `${i18n("viewPomodoros")} ${seriesCount}${seriesTimeStr}`;
                 } else {
                     pomodorosCountText.textContent = `${i18n("viewPomodoros")}`;
                 }
@@ -1324,7 +1324,7 @@ export class QuickReminderDialog {
                 const timeStr = totalMinutes > 0 ? ` (${Math.floor(totalMinutes / 60)}h${totalMinutes % 60}m)` : '';
 
                 if (count > 0 || totalMinutes > 0) {
-                    pomodorosCountText.textContent = `${i18n("viewPomodoros")} ${count}🍅${timeStr}`;
+                    pomodorosCountText.textContent = `${i18n("viewPomodoros")} ${count}${timeStr}`;
                 } else {
                     pomodorosCountText.textContent = `${i18n("viewPomodoros")}`;
                 }
@@ -2423,7 +2423,10 @@ export class QuickReminderDialog {
                 const categoryEl = document.createElement('div');
                 categoryEl.className = 'category-option';
                 categoryEl.setAttribute('data-category', category.id);
-                categoryEl.style.backgroundColor = category.color;
+                const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
+                categoryEl.style.backgroundColor = labelStyle.backgroundColor;
+                categoryEl.style.color = labelStyle.textColor;
+                categoryEl.style.borderColor = labelStyle.borderColor;
                 categoryEl.innerHTML = `<span>${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
                 categorySelector.appendChild(categoryEl);
             });
@@ -3803,7 +3806,7 @@ export class QuickReminderDialog {
 
             // 添加所有未归档分组选项
             activeGroups.forEach((group: any) => {
-                const label = `${group.icon || '📋'} ${group.name}`.trim();
+                const label = `${group.icon || ''} ${group.name}`.trim();
                 html += `<div class="b3-menu__item" data-value="${group.id}" data-label="${label}"><span class="b3-menu__label">${label}</span></div>`;
             });
 

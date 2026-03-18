@@ -16,7 +16,7 @@ See: [CHANGELOG.md](https://cdn.jsdelivr.net/gh/code-lixm/siyuan-plugin-task-dai
 
 Help Documentation: https://www.zhihu.com/column/c_1998349446233202806
 
-## 🤔 Guiding Philosophy Behind the Plugin: Bullet Journal Method
+##  Guiding Philosophy Behind the Plugin: Bullet Journal Method
 
 ### What is the Bullet Journal Method
 
@@ -223,7 +223,7 @@ Custom grouping kanban supports custom colors and emojis
 5. Support setting categories, adjusting category display order, setting category colors and icons
 
    <img alt="PixPin_2025-06-15_11-58-31" src="https://assets.b3logfile.com/siyuan/1610205759005/assets/network-asset-PixPin_2025-06-15_11-58-31-20250615115835-mncf5ne.png" />
-6. After creating a reminder, the plugin adds a "⏰" bookmark to the block. After deleting a reminder, it checks if the block still has unfinished reminders - if not, it removes the bookmark. When tasks are completed, it changes to use a "✅" bookmark. If the added block is a task list block and tasks are completed, it will automatically check the task list item.
+6. After creating a reminder, the plugin adds a "⏰" bookmark to the block. After deleting a reminder, it checks if the block still has unfinished reminders - if not, it removes the bookmark. When tasks are completed, it changes to use a "" bookmark. If the added block is a task list block and tasks are completed, it will automatically check the task list item.
 
 ### Reminder Notification Logic
 
@@ -405,10 +405,10 @@ How to use the Pomodoro timer:
       <img alt="PixPin_2025-10-23_00-54-14" src="https://assets.b3logfile.com/siyuan/1610205759005/assets/PixPin_2025-10-23_00-54-14-20251023005415-mv61t9x.png" />
    3. **Support switching between countdown and count-up Pomodoro timer:**
 
-      Click the ⏳ or ⏱ button to switch
+      Click the  or ⏱ button to switch
 
       <img alt="PixPin_2025-10-23_00-54-26" src="https://assets.b3logfile.com/siyuan/1610205759005/assets/PixPin_2025-10-23_00-54-26-20251023005427-q8ultdm.png" />
-   4. **Mini window mode:** Click the tomato 🍅 button in the top-left corner to start mini window mode
+   4. **Mini window mode:** Click the tomato  button in the top-left corner to start mini window mode
 
       <img alt="PixPin_2025-06-14_12-59-56" src="https://assets.b3logfile.com/siyuan/1610205759005/assets/network-asset-PixPin_2025-06-14_12-59-56-20250614125957-61censs.png" />
 
@@ -434,11 +434,11 @@ How to use the Pomodoro timer:
    <img alt="PixPin_2025-10-23_00-54-14" src="https://assets.b3logfile.com/siyuan/1610205759005/assets/PixPin_2025-10-23_00-54-14-20251023005415-mv61t9x.png" />
 
 3. **Support switching between countdown and count-up Pomodoro timer:**
-   - Click the ⏳ or ⏱ button to switch
+   - Click the  or ⏱ button to switch
 
    <img alt="PixPin_2025-10-23_00-54-26" src="https://assets.b3logfile.com/siyuan/1610205759005/assets/PixPin_2025-10-23_00-54-26-20251023005427-q8ultdm.png" />
 
-4. **Mini window mode:** Click the tomato 🍅 button in the top-left corner to start mini window mode
+4. **Mini window mode:** Click the tomato  button in the top-left corner to start mini window mode
 
    <img alt="PixPin_2025-06-14_12-59-56" src="https://assets.b3logfile.com/siyuan/1610205759005/assets/network-asset-PixPin_2025-06-14_12-59-56-20250614125957-61censs.png" />
 

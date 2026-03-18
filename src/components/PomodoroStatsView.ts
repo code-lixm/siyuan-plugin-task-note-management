@@ -61,7 +61,7 @@ export class PomodoroStatsView {
 
     private createDialog() {
         this.dialog = new Dialog({
-            title: "🍅 " + i18n("pomodoroStats"),
+            title: " " + i18n("pomodoroStats"),
             content: this.createContent(),
             width: "90vw",
             height: "85vh",
@@ -94,10 +94,10 @@ export class PomodoroStatsView {
             <div class="pomodoro-stats-view">
                 <div class="stats-switch">
                     <button class="stats-switch-btn" data-mode="task">
-                        ✅ ${i18n("taskStats")}
+                         ${i18n("taskStats")}
                     </button>
                     <button class="stats-switch-btn active" data-mode="pomodoro">
-                        🍅 ${i18n("pomodoroStats")}
+                         ${i18n("pomodoroStats")}
                     </button>
                 </div>
                 <!-- 导航标签 -->
@@ -420,7 +420,7 @@ export class PomodoroStatsView {
         return `
             <div class="record-item ${session.type}">
                 <div class="record-icon">
-                    ${session.type === 'work' ? '🍅' : (session.type === 'longBreak' ? '🧘' : '☕')}
+                    ${session.type === 'work' ? '' : (session.type === 'longBreak' ? '🧘' : '☕')}
                 </div>
                 <div class="record-content">
                     <div class="record-title">${session.eventTitle}</div>
@@ -428,7 +428,7 @@ export class PomodoroStatsView {
                         <span class="record-date">${dateStr}</span>
                         <span class="record-time">${timeStr}</span>
                         <span class="record-duration">${session.duration}${i18n("minutes")}</span>
-                        ${session.completed ? '<span class="record-completed">✅</span>' : '<span class="record-incomplete">⏸</span>'}
+                        ${session.completed ? '<span class="record-completed"></span>' : '<span class="record-incomplete">⏸</span>'}
                     </div>
                 </div>
                 <div class="record-actions">

@@ -35,7 +35,7 @@ ics.createEvents(event, (error, value) => {
 
     // 保存到文件
     fs.writeFileSync('全天和定时事件.ics', value);
-    console.log('✅ 事件已成功创建并保存到 event.ics');
+    console.log(' 事件已成功创建并保存到 event.ics');
     console.log('\n文件内容预览:');
     console.log(value);
 });

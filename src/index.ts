@@ -2002,7 +2002,7 @@ export default class ReminderPlugin extends Plugin {
                 const isManaged = this.outlinePrefixCache.has(blockId);
 
                 // 如果该块目前没有相关属性，且之前也不在管理列表中，则视为“非管理块”，跳过处理
-                // 这样可以保留用户自己在标题文本中手动添加的 ✅ 或 ⏰
+                // 这样可以保留用户自己在标题文本中手动添加的  或 ⏰
                 if (!hasAttribute && !isManaged) {
                     return;
                 }
@@ -2011,8 +2011,8 @@ export default class ReminderPlugin extends Plugin {
 
                 // 确定应有的前缀
                 let prefix = '';
-                if (bookmark === '✅') {
-                    prefix = '✅ ';
+                if (bookmark === '') {
+                    prefix = ' ';
                 } else if (bookmark === '⏰') {
                     prefix = '⏰ ';
                 }
@@ -2028,7 +2028,7 @@ export default class ReminderPlugin extends Plugin {
 
                 // 计算更新后的文本：移除现有前缀并添加正确前缀
                 const currentText = textElement.textContent || '';
-                const textWithoutPrefix = currentText.replace(/^[✅⏰]\s*/, '');
+                const textWithoutPrefix = currentText.replace(/^[⏰]\s*/, '');
                 const targetText = prefix + textWithoutPrefix;
 
                 // 只有当文本确实需要改变时才更新，避免产生不必要的 DOM 操作和 Observer 回调
@@ -2483,7 +2483,7 @@ export default class ReminderPlugin extends Plugin {
         // 添加查看文档所有提醒菜单项（只处理第一个选中的文档）
         if (documentIds.length === 1) {
             detail.menu.addItem({
-                iconHTML: "📋",
+                iconHTML: "",
                 label: i18n("viewDocumentAllReminders"),
                 click: () => {
                     const documentReminderDialog = new DocumentReminderDialog(documentIds[0], this);
@@ -2553,7 +2553,7 @@ export default class ReminderPlugin extends Plugin {
 
         // 添加文档提醒查看功能
         detail.menu.addItem({
-            iconHTML: "📋",
+            iconHTML: "",
             label: i18n("documentReminderManagement"),
             click: () => {
                 if (documentId) {
@@ -2653,7 +2653,7 @@ export default class ReminderPlugin extends Plugin {
             const blockId = blockElement.getAttribute("data-node-id");
             if (blockId && blockElement.hasAttribute("custom-bind-reminders")) {
                 detail.menu.addItem({
-                    iconHTML: "📋",
+                    iconHTML: "",
                     label: "查看绑定任务",
                     click: async () => {
                         const { BlockRemindersDialog } = await import("./components/BlockRemindersDialog");
@@ -4501,7 +4501,7 @@ export default class ReminderPlugin extends Plugin {
             width: 22px;
             height: 22px;
         `;
-        btn.innerHTML = `<span style="font-size:14px;line-height:1">📋</span>`;
+        btn.innerHTML = `<span style="font-size:14px;line-height:1"></span>`;
         btn.dataset.blockId = blockId;
         btn.setAttribute('data-plugin-added', 'reminder-plugin');
         btn.title = '查看绑定任务';
@@ -4903,6 +4903,12 @@ export default class ReminderPlugin extends Plugin {
         if (settings.removeDateAfterDetection === true) return 'all';
         if (settings.removeDateAfterDetection === false) return 'none';
         return settings.removeDateAfterDetection || 'all';
+    }
+
+    // 获取识别后是否移除日期（简化版，返回布尔值）
+    async getRemoveDateAfterDetectionEnabled(): Promise<boolean> {
+        const mode = await this.getRemoveDateAfterDetectionMode();
+        return mode !== 'none';
     }
 
     /**

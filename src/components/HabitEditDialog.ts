@@ -743,7 +743,7 @@ export class HabitEditDialog {
             categoryId: formData.get('categoryId') as string === 'none' ? undefined : formData.get('categoryId') as string,
             groupId: formData.get('groupId') as string === 'none' ? undefined : formData.get('groupId') as string,
             checkInEmojis: this.habit?.checkInEmojis || [
-                { emoji: '✅', meaning: i18n("checkInSuccess") || '完成', promptNote: false },
+                { emoji: '', meaning: i18n("checkInSuccess") || '完成', promptNote: false },
                 { emoji: '❌', meaning: i18n("checkInFailed") || '未完成', promptNote: false },
                 { emoji: '⭕️', meaning: '部分完成', promptNote: false }
             ],

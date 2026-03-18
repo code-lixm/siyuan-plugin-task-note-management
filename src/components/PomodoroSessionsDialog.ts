@@ -39,7 +39,7 @@ export class PomodoroSessionsDialog {
         await this.loadSessions();
 
         this.dialog = new Dialog({
-            title: "🍅 " + (i18n("pomodoros") || "番茄钟记录"),
+            title: " " + (i18n("pomodoros") || "番茄钟记录"),
             content: `
                 <div class="pomodoro-sessions-dialog" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 80vh;">
                     <div id="pomodoroSessionsList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 100px;">
@@ -183,14 +183,14 @@ export class PomodoroSessionsDialog {
             const count = this.recordManager.calculateSessionCount(session);
 
             if (session.isCountUp) {
-                extraBadges += `<span style="background: var(--b3-theme-secondary); color: var(--b3-theme-on-secondary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;">⏱️ 正计时</span>`;
+                extraBadges += `<span style="background: var(--b3-theme-secondary); color: var(--b3-theme-on-secondary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;"> 正计时</span>`;
                 if (count > 0) {
-                    extraBadges += `<span style="background: var(--b3-theme-primary-light); color: var(--b3-theme-primary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;">🍅 x${count}</span>`;
+                    extraBadges += `<span style="background: var(--b3-theme-primary-light); color: var(--b3-theme-primary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;"> x${count}</span>`;
                 }
             } else {
-                extraBadges += `<span style="background: var(--b3-theme-primary); color: var(--b3-theme-on-primary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;">⏳ 倒计时</span>`;
+                extraBadges += `<span style="background: var(--b3-theme-primary); color: var(--b3-theme-on-primary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;"> 倒计时</span>`;
                 if (count > 0) {
-                    extraBadges += `<span style="background: var(--b3-theme-primary-light); color: var(--b3-theme-primary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;">🍅 x${count}</span>`;
+                    extraBadges += `<span style="background: var(--b3-theme-primary-light); color: var(--b3-theme-primary); padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;"> x${count}</span>`;
                 }
             }
         }
@@ -215,7 +215,7 @@ export class PomodoroSessionsDialog {
                     <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); display: flex; gap: 12px;">
                         <span>📅 ${dateStr}</span>
                         <span>🕐 ${startTimeStr} - ${endTimeStr}</span>
-                        <span>⏱️ ${session.duration} 分钟</span>
+                        <span> ${session.duration} 分钟</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 4px;">
@@ -233,13 +233,13 @@ export class PomodoroSessionsDialog {
     private getTypeIcon(type: 'work' | 'shortBreak' | 'longBreak'): string {
         switch (type) {
             case 'work':
-                return '🍅';
+                return '';
             case 'shortBreak':
                 return '☕';
             case 'longBreak':
                 return '🌴';
             default:
-                return '⏱️';
+                return '';
         }
     }
 
@@ -287,7 +287,7 @@ export class PomodoroSessionsDialog {
                     <div class="b3-form__group">
                         <label class="b3-form__label">${i18n("sessionType") || "会话类型"}</label>
                         <select id="sessionType" class="b3-select" style="width: 100%;">
-                            <option value="work">🍅 工作番茄</option>
+                            <option value="work"> 工作番茄</option>
                             <option value="shortBreak">☕ 短休息</option>
                             <option value="longBreak">🌴 长休息</option>
                         </select>
@@ -484,7 +484,7 @@ export class PomodoroSessionsDialog {
                 // 刷新统计索引
                 this.recordManager.refreshIndex();
 
-                showMessage("✅ " + (i18n("addPomodoroSuccess") || "补录番茄钟成功"), 3000, "info");
+                showMessage(" " + (i18n("addPomodoroSuccess") || "补录番茄钟成功"), 3000, "info");
 
                 addDialog.destroy();
                 await this.loadSessions();
@@ -515,7 +515,7 @@ export class PomodoroSessionsDialog {
                     <div class="b3-form__group">
                         <label class="b3-form__label">${i18n("sessionType") || "会话类型"}</label>
                         <select id="editSessionType" class="b3-select" style="width: 100%;">
-                            <option value="work">🍅 工作番茄</option>
+                            <option value="work"> 工作番茄</option>
                             <option value="shortBreak">☕ 短休息</option>
                             <option value="longBreak">🌴 长休息</option>
                         </select>
@@ -645,7 +645,7 @@ export class PomodoroSessionsDialog {
                 // 刷新统计索引
                 this.recordManager.refreshIndex();
 
-                showMessage("✅ " + (i18n("editPomodoroSuccess") || "修改番茄钟成功"), 3000, "info");
+                showMessage(" " + (i18n("editPomodoroSuccess") || "修改番茄钟成功"), 3000, "info");
 
                 editDialog.destroy();
                 await this.loadSessions();
@@ -684,7 +684,7 @@ export class PomodoroSessionsDialog {
                     const success = await this.recordManager.deleteSession(sessionId);
 
                     if (success) {
-                        showMessage("✅ " + (i18n("deletePomodoroSuccess") || "删除番茄钟成功"), 3000, "info");
+                        showMessage(" " + (i18n("deletePomodoroSuccess") || "删除番茄钟成功"), 3000, "info");
                         await this.loadSessions();
                         await this.syncReminderPomodoroCount();
                         this.renderSessions();

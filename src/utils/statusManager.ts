@@ -9,7 +9,7 @@ export interface Status {
 }
 
 const DEFAULT_STATUSES: Status[] = [
-    { id: 'active', name: '正在进行', icon: '⏳', isArchived: false },
+    { id: 'active', name: '正在进行', icon: '', isArchived: false },
     { id: 'someday', name: '未来也许', icon: '💭', isArchived: false },
     { id: 'archived', name: '已归档', icon: '📥', isArchived: true }
 ];
@@ -19,7 +19,7 @@ const DEFAULT_STATUSES: Status[] = [
  */
 function getLocalizedDefaultStatuses(): Status[] {
     return [
-        { id: 'active', name: i18n('active'), icon: '⏳', isArchived: false },
+        { id: 'active', name: i18n('active'), icon: '', isArchived: false },
         { id: 'someday', name: i18n('someday'), icon: '💭', isArchived: false },
         { id: 'archived', name: i18n('archived'), icon: '📥', isArchived: true }
     ];

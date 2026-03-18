@@ -38,24 +38,19 @@ export class CategoryManageDialog {
         return `
             <div class="category-manage-dialog">
                 <div class="b3-dialog__content">
-                    <div class="category-toolbar">
-                        <button class="b3-button b3-button--primary" id="addCategoryBtn">
-                            <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
-                            ${i18n("addCategory")}
-                        </button>
-                        <button class="b3-button b3-button--outline" id="resetCategoriesBtn">
-                            <svg class="b3-button__icon"><use xlink:href="#iconRefresh"></use></svg>
-                            ${i18n("resetToDefault")}
-                        </button>
-                    </div>
-                    <div class="category-drag-hint">
-                        <span>💡 ${i18n("dragHint")}</span>
-                    </div>
                     <div class="categories-list" id="categoriesList">
                         <!-- 分类列表将在这里渲染 -->
                     </div>
                 </div>
-                <div class="b3-dialog__action">
+                <div class="b3-dialog__action category-dialog-actions">
+                    <button class="b3-button b3-button--outline" id="resetCategoriesBtn">
+                        <svg class="b3-button__icon"><use xlink:href="#iconRefresh"></use></svg>
+                        ${i18n("resetToDefault")}
+                    </button>
+                    <button class="b3-button b3-button--primary" id="addCategoryBtn">
+                        <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
+                        ${i18n("addCategory")}
+                    </button>
                     <button class="b3-button b3-button--primary" id="closeBtn">${i18n("save")}</button>
                 </div>
             </div>
@@ -74,11 +69,6 @@ export class CategoryManageDialog {
                     text-align: center;
                 }
                 
-                .categories-list {
-                    max-height: 400px;
-                    overflow-y: auto;
-                }
-
                 .categories-list.drag-active .category-item:not(.dragging) {
                     transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
                 }
@@ -219,6 +209,12 @@ export class CategoryManageDialog {
                         margin-right: 8px;
                     }
                 }
+
+                .category-dialog-actions {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 8px;
+                }
             </style>
         `;
     }
@@ -266,14 +262,18 @@ export class CategoryManageDialog {
         const categoryEl = document.createElement('div');
         categoryEl.className = 'category-item';
         categoryEl.dataset.categoryId = category.id;
+
+        // 使用与生成分类标签相同的颜色生成逻辑
+        const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
+
         categoryEl.innerHTML = `
             <div class="category-drag-handle" title="${i18n("dragToSort")}" draggable="true"></div>
             <div class="category-info">
                 <div class="category-visual">
-                    <div class="category-icon" style="background-color: ${category.color};">
+                    <div class="category-icon" style="background-color: ${labelStyle.backgroundColor}; color: ${labelStyle.textColor};">
                         ${category.icon || '📁'}
                     </div>
-                    <div class="category-color-preview" style="background-color: ${category.color};"></div>
+                    <div class="category-color-preview" style="background-color: ${labelStyle.backgroundColor};"></div>
                 </div>
                 <div class="category-name">${category.name}</div>
             </div>

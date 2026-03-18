@@ -28,7 +28,7 @@ export class HabitCheckInEmojiDialog {
         // 如果没有配置,使用默认值
         if (this.emojis.length === 0) {
             this.emojis = [
-                { emoji: '✅', meaning: '完成', promptNote: false, countsAsSuccess: true },
+                { emoji: '', meaning: '完成', promptNote: false, countsAsSuccess: true },
                 { emoji: '❌', meaning: '未完成', promptNote: false, countsAsSuccess: false },
                 { emoji: '⭕️', meaning: '部分完成', promptNote: false, countsAsSuccess: true }
             ];
@@ -656,7 +656,7 @@ export class HabitCheckInEmojiDialog {
 
     private resetToDefault() {
         this.emojis = [
-            { emoji: '✅', meaning: '完成', promptNote: false, countsAsSuccess: true },
+            { emoji: '', meaning: '完成', promptNote: false, countsAsSuccess: true },
             { emoji: '❌', meaning: '未完成', promptNote: false, countsAsSuccess: false },
             { emoji: '⭕️', meaning: '部分完成', promptNote: false, countsAsSuccess: true }
         ];

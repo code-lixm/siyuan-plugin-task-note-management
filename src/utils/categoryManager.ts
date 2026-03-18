@@ -200,6 +200,31 @@ export class CategoryManager {
     }
 
     /**
+     * 获取分类标签样式（根据分类名称生成浅色背景，黑色文字）
+     */
+    public getCategoryLabelStyle(category?: Category): { backgroundColor: string; borderColor: string; textColor: string } {
+        if (!category) {
+            return {
+                backgroundColor: 'hsla(210, 10%, 85%, 0.5)',
+                borderColor: 'hsla(210, 10%, 70%, 0.5)',
+                textColor: '#000000'
+            };
+        }
+
+        const seed = category.name || category.id || 'category';
+        const hue = this.hashToHue(seed);
+        const saturation = 55;
+        const lightness = 75;
+        const borderLightness = Math.max(0, lightness - 12);
+
+        return {
+            backgroundColor: `hsla(${hue}, ${saturation}%, ${lightness}%, 0.5)`,
+            borderColor: `hsla(${hue}, ${saturation}%, ${borderLightness}%, 0.5)`,
+            textColor: '#000000'
+        };
+    }
+
+    /**
      * 加深颜色
      */
     private darkenColor(color: string, percent: number): string {
@@ -211,6 +236,17 @@ export class CategoryManager {
         return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
             (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
             (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+
+    /**
+     * 将文本稳定映射为色相（0-359）
+     */
+    private hashToHue(text: string): number {
+        let hash = 0;
+        for (let i = 0; i < text.length; i++) {
+            hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+        }
+        return hash % 360;
     }
 
     /**

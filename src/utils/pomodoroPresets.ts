@@ -95,7 +95,7 @@ export function createPomodoroStartSubmenu(options: {
 
     return [
         {
-            iconHTML: '🍅',
+            iconHTML: '',
             label: `${i18n('sortDefault') || '默认'} (${defaultDurationMinutes} ${i18n('minutes') || '分钟'})`,
             click: async () => {
                 if (!plugin || typeof plugin.loadSettings !== 'function') {

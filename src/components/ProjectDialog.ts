@@ -251,7 +251,10 @@ export class ProjectDialog {
                 const categoryEl = document.createElement('div');
                 categoryEl.className = 'category-option';
                 categoryEl.setAttribute('data-category', category.id);
-                categoryEl.style.backgroundColor = category.color;
+                const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
+                categoryEl.style.backgroundColor = labelStyle.backgroundColor;
+                categoryEl.style.color = labelStyle.textColor;
+                categoryEl.style.borderColor = labelStyle.borderColor;
 
                 categoryEl.innerHTML = `<span>${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
 

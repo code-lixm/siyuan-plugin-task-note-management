@@ -975,7 +975,7 @@ export async function updateBindBlockAtrrs(blockId: string, plugin: any): Promis
         const allCompleted = blockReminders.length > 0 && blockReminders.every((reminder: any) => reminder.completed);
 
         if (allCompleted) {
-            attrs['bookmark'] = '✅';
+            attrs['bookmark'] = '';
             attrs['custom-task-done'] = formatDate(new Date());
         } else if (hasIncompleteReminders) {
             attrs['bookmark'] = '⏰';

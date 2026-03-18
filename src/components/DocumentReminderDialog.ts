@@ -653,6 +653,7 @@ export class DocumentReminderDialog {
 
                 const category = this.categoryManager.getCategoryById(id);
                 if (category) {
+                    const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                     hasValidCategory = true;
                     const categoryEl = document.createElement('div');
                     categoryEl.className = 'doc-reminder-category-tag';
@@ -661,11 +662,11 @@ export class DocumentReminderDialog {
                         align-items: center;
                         gap: 2px;
                         padding: 2px 6px;
-                        background-color: ${category.color};
-                        border: 1px solid ${category.color}40;
+                        background-color: ${labelStyle.backgroundColor};
+                        border: 1px solid ${labelStyle.borderColor};
                         border-radius: 5px;
                         font-size: 11px;
-                        color: #fff;
+                        color: ${labelStyle.textColor};
                         margin-right: 4px;
                         margin-bottom: 2px;
                     `;
@@ -738,7 +739,7 @@ export class DocumentReminderDialog {
                     focusMinutes = pomodoroManager.getEventFocusTime(targetReminder.id);
                 }
                 if ((count && count > 0) || (focusMinutes && focusMinutes > 0)) {
-                    const tomatoEmojis = `🍅 ${count}`;
+                    const tomatoEmojis = ` ${count}`;
                     const extraCount = '';
                     const focusText = focusMinutes > 0 ? ` ⏱ ${pomodoroManager.formatTime(focusMinutes)}` : '';
                     pomodoroDisplay.innerHTML = `
@@ -781,7 +782,7 @@ export class DocumentReminderDialog {
                 `;
 
                 const completedIcon = document.createElement('span');
-                completedIcon.textContent = '✅';
+                completedIcon.textContent = '';
                 completedIcon.style.cssText = 'font-size: 10px;';
 
                 const completedText = document.createElement('span');

@@ -33,7 +33,7 @@ if (missingInEn.length > 0) {
         console.log(`  + ${k}: ${JSON.stringify(zh[k]).substring(0, 60)}`);
     });
 } else {
-    console.log('✅ en_US has no missing keys.');
+    console.log(' en_US has no missing keys.');
 }
 
 if (missingInZh.length > 0) {
@@ -43,7 +43,7 @@ if (missingInZh.length > 0) {
         console.log(`  + ${k}: ${JSON.stringify(en[k]).substring(0, 60)}`);
     });
 } else {
-    console.log('✅ zh_CN has no missing keys.');
+    console.log(' zh_CN has no missing keys.');
 }
 
 // Always reorder en_US to match zh_CN key order
@@ -61,7 +61,7 @@ const zhFinalKeys = Object.keys(JSON.parse(fs.readFileSync(ZH_PATH, 'utf8')));
 const enFinalKeys = Object.keys(JSON.parse(fs.readFileSync(EN_PATH, 'utf8')));
 const orderOk = zhFinalKeys.length === enFinalKeys.length && zhFinalKeys.every((k, i) => k === enFinalKeys[i]);
 console.log(orderOk
-    ? '\n✅ Key order is identical in both files.'
+    ? '\n Key order is identical in both files.'
     : '\n❌ Key order still differs!');
 
 // Report en_US values that still contain Chinese characters (need translation)
@@ -74,7 +74,7 @@ if (needsTranslation.length > 0) {
     console.log(`\n⚠️  en_US entries still containing Chinese (need manual translation):`);
     needsTranslation.forEach(k => console.log(`  ${k}: ${String(enData[k]).substring(0, 80)}`));
 } else {
-    console.log('✅ No Chinese characters found in en_US values.');
+    console.log(' No Chinese characters found in en_US values.');
 }
 
 console.log(`\nFinal: zh_CN ${zhFinalKeys.length} keys, en_US ${enFinalKeys.length} keys\n`);

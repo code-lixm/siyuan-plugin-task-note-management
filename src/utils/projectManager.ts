@@ -527,7 +527,7 @@ export class ProjectManager {
                 id: 'doing',
                 name: i18n('doing'),
                 color: '#e74c3c',
-                icon: '⏳',
+                icon: '',
                 isFixed: true,
                 sort: 0
             },
@@ -535,7 +535,7 @@ export class ProjectManager {
                 id: 'short_term',
                 name: i18n('shortTerm'),
                 color: '#3498db',
-                icon: '📋',
+                icon: '',
                 isFixed: false,
                 sort: 10
             },
@@ -543,7 +543,7 @@ export class ProjectManager {
                 id: 'long_term',
                 name: i18n('longTerm'),
                 color: '#9b59b6',
-                icon: '🤔',
+                icon: '',
                 isFixed: false,
                 sort: 20
             },
@@ -551,7 +551,7 @@ export class ProjectManager {
                 id: 'completed',
                 name: i18n('completed'),
                 color: '#27ae60',
-                icon: '✅',
+                icon: '',
                 isFixed: true,
                 sort: 100
             }

@@ -1107,7 +1107,7 @@ export class ProjectKanbanView {
                         </div>
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n('statusIcon') || '状态图标'} <span style="font-weight: normal; color: var(--b3-theme-on-surface-light);">(${i18n('optional') || '可选'})</span></label>
-                            <input type="text" id="editStatusIcon" class="b3-text-field" value="${status.icon || ''}" placeholder="${i18n('emojiIconExample') || '例如: 📋'}" style="width: 100%;">
+                            <input type="text" id="editStatusIcon" class="b3-text-field" value="${status.icon || ''}" placeholder="${i18n('emojiIconExample') || '例如: '}" style="width: 100%;">
                             <div class="b3-label__text" style="color: var(--b3-theme-on-surface-light); font-size: 12px; margin-top: 4px;">${i18n('statusIconHint') || '使用 emoji 作为状态图标，留空则不显示图标'}</div>
                         </div>
                         <div class="b3-form__group">
@@ -1179,7 +1179,7 @@ export class ProjectKanbanView {
                         </div>
                         <div class="b3-form__group">
                             <label class="b3-form__label">${i18n('statusIcon') || '状态图标'} <span style="font-weight: normal; color: var(--b3-theme-on-surface-light);">(${i18n('optional') || '可选'})</span></label>
-                            <input type="text" id="newStatusIcon" class="b3-text-field" placeholder="${i18n('emojiIconExample') || '例如: 📋'}" style="width: 100%;">
+                            <input type="text" id="newStatusIcon" class="b3-text-field" placeholder="${i18n('emojiIconExample') || '例如: '}" style="width: 100%;">
                             <div class="b3-label__text" style="color: var(--b3-theme-on-surface-light); font-size: 12px; margin-top: 4px;">${i18n('statusIconHint') || '使用 emoji 作为状态图标，留空则不显示图标'}</div>
                         </div>
                         <div class="b3-form__group">
@@ -2295,7 +2295,7 @@ export class ProjectKanbanView {
                 if (task.completed && task.completedTime) {
                     const completedTimeEl = document.createElement('div');
                     completedTimeEl.className = 'kanban-task-completed-time';
-                    completedTimeEl.innerHTML = `<span>✅</span><span>${i18n('completedAtLabel')}${getLocalDateTimeString(new Date(task.completedTime))}</span>`;
+                    completedTimeEl.innerHTML = `<span></span><span>${i18n('completedAtLabel')}${getLocalDateTimeString(new Date(task.completedTime))}</span>`;
                     completedTimeEl.style.cssText = `
                         font-size: 12px;
                         color: var(--b3-theme-on-surface);
@@ -2915,7 +2915,7 @@ export class ProjectKanbanView {
                 });
 
                 const groupIcon = document.createElement('span');
-                groupIcon.textContent = group.icon || '📋';
+                groupIcon.textContent = group.icon || '';
                 groupIcon.style.cssText = `
                     font-size: 18px;
                     flex-shrink: 0;
@@ -3199,7 +3199,7 @@ export class ProjectKanbanView {
                             const groupIconEl = document.createElement('span');
                             groupIconEl.className = 'custom-group-header-icon';
                             groupIconEl.style.cssText = `margin-right:6px;`;
-                            groupIconEl.textContent = icon || '📋';
+                            groupIconEl.textContent = icon || '';
                             titleContainer.appendChild(groupIconEl);
 
                             // 重建标题
@@ -6571,7 +6571,7 @@ export class ProjectKanbanView {
                 id: 'ungrouped',
                 name: '未分组',
                 color: '#95a5a6',
-                icon: '📋',
+                icon: '',
                 milestones: defaultMilestones
             };
             this.renderCustomGroupColumnWithStatuses(ungroupedGroup, ungroupedStatusTasks);
@@ -6960,16 +6960,16 @@ export class ProjectKanbanView {
 
         // 默认图标映射（当 kanbanStatuses 中没有设置图标时使用）
         const defaultIcons: { [key: string]: string } = {
-            'doing': '⏳',
-            'short_term': '📋',
-            'long_term': '🤔',
-            'completed': '✅'
+            'doing': '',
+            'short_term': '',
+            'long_term': '',
+            'completed': ''
         };
 
         return [{
             status: statusId,
             label: status.name,
-            icon: status.icon || defaultIcons[statusId] || '📋'
+            icon: status.icon || defaultIcons[statusId] || ''
         }];
     }
 
@@ -7165,7 +7165,7 @@ export class ProjectKanbanView {
                     id: 'ungrouped',
                     name: '未分组',
                     color: '#95a5a6',
-                    icon: '📋'
+                    icon: ''
                 };
                 const ungroupedContainer = this.createCustomGroupInStatusColumn(ungroupedGroup, ungroupedTasks, isCollapsedDefault, status);
                 groupsSubContainer.appendChild(ungroupedContainer);
@@ -7203,7 +7203,7 @@ export class ProjectKanbanView {
                 opacity: 0.6;
                 width: 100%;
             ">
-                <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
+                <div style="font-size: 48px; margin-bottom: 16px;"></div>
                 <div style="font-size: 16px; margin-bottom: 8px;">暂无自定义分组</div>
                 <div style="font-size: 14px;">请在项目设置中添加自定义分组</div>
             </div>
@@ -7372,7 +7372,7 @@ export class ProjectKanbanView {
         }
 
         if (showUngrouped) {
-            const ungroupedGroup = { id: 'ungrouped', name: i18n('ungrouped') || '未分组', color: '#95a5a6', icon: '📋' };
+            const ungroupedGroup = { id: 'ungrouped', name: i18n('ungrouped') || '未分组', color: '#95a5a6', icon: '' };
             await this.renderListModeGroupColumn(container, ungroupedGroup, ungroupedTasks);
             renderedGroupIds.add('custom-group-ungrouped');
         }
@@ -8030,7 +8030,7 @@ export class ProjectKanbanView {
         const groupIconEl = document.createElement('span');
         groupIconEl.className = 'custom-group-header-icon';
         groupIconEl.style.cssText = `margin-right:6px;`;
-        groupIconEl.textContent = group.icon || '📋';
+        groupIconEl.textContent = group.icon || '';
         titleContainer.appendChild(groupIconEl);
 
         titleEl.textContent = group.name;
@@ -8160,7 +8160,7 @@ export class ProjectKanbanView {
             id: 'ungrouped',
             name: '未分组',
             color: '#95a5a6',
-            icon: '📋'
+            icon: ''
         };
         this.renderCustomGroupColumn(ungroupedGroup, tasks);
     }
@@ -8305,14 +8305,14 @@ export class ProjectKanbanView {
         const groupIcon = document.createElement('span');
         // 对于自定义分组下的状态子分组，使用不同的固定图标
         const defaultIcons: { [key: string]: string } = {
-            'doing': '⏳',
-            'short_term': '📋',
-            'long_term': '🤔',
-            'completed': '✅',
+            'doing': '',
+            'short_term': '',
+            'long_term': '',
+            'completed': '',
             'incomplete': '🗓'
         };
         // 优先使用 kanbanStatuses 中设置的图标，其次使用默认图标
-        groupIcon.textContent = statusConfig?.icon || defaultIcons[status] || '📋';
+        groupIcon.textContent = statusConfig?.icon || defaultIcons[status] || '';
         groupTitle.appendChild(groupIcon);
 
         const groupName = document.createElement('span');
@@ -8531,7 +8531,7 @@ export class ProjectKanbanView {
                 id: 'ungrouped',
                 name: '未分组',
                 color: '#95a5a6',
-                icon: '📋'
+                icon: ''
             };
             const ungroupedContainer = this.createCustomGroupInStatusColumn(ungroupedGroup, ungroupedTasks, false, '');
             groupsContainer.appendChild(ungroupedContainer);
@@ -8581,7 +8581,7 @@ export class ProjectKanbanView {
         `;
 
         const groupIcon = document.createElement('span');
-        groupIcon.textContent = group.icon || '📋';
+        groupIcon.textContent = group.icon || '';
         groupTitle.appendChild(groupIcon);
 
         const groupName = document.createElement('span');
@@ -9103,7 +9103,7 @@ export class ProjectKanbanView {
         if (task.completed && task.completedTime) {
             const completedTimeEl = document.createElement('div');
             completedTimeEl.className = 'kanban-task-completed-time';
-            completedTimeEl.innerHTML = `<span>✅</span><span>完成于: ${getLocalDateTimeString(new Date(task.completedTime))}</span>`;
+            completedTimeEl.innerHTML = `<span></span><span>完成于: ${getLocalDateTimeString(new Date(task.completedTime))}</span>`;
             completedTimeEl.style.cssText = `
                 font-size: 12px;
                 color: var(--b3-theme-on-surface);
@@ -9273,6 +9273,7 @@ export class ProjectKanbanView {
 
                 const category = this.categoryManager.getCategoryById(id);
                 if (category) {
+                    const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                     hasValidCategory = true;
                     const categoryEl = document.createElement('div');
                     categoryEl.className = 'kanban-task-category';
@@ -9281,10 +9282,11 @@ export class ProjectKanbanView {
                         align-items: center;
                         gap: 4px;
                         padding: 2px 6px;
-                        background-color: ${category.color};
+                        background-color: ${labelStyle.backgroundColor};
+                        border: 1px solid ${labelStyle.borderColor};
                         border-radius: 4px;
                         font-size: 11px;
-                        color: white;
+                        color: ${labelStyle.textColor};
                         font-weight: 500;
                     `;
 
@@ -9508,7 +9510,7 @@ export class ProjectKanbanView {
                 margin-top: 4px;
                 width: fit-content;
             `;
-            const tomatoEmojis = `🍅 ${task.pomodoroCount || 0}`;
+            const tomatoEmojis = ` ${task.pomodoroCount || 0}`;
             const focusMinutes = task.focusTime || 0;
             const formatMinutesToString = (minutes: number) => {
                 const hours = Math.floor(minutes / 60);
@@ -9534,11 +9536,11 @@ export class ProjectKanbanView {
 
                 actualLine = `<div style="margin-top:${estimatedLine ? '6px' : '0'}">
                     <div title="系列累计番茄钟: ${repeatingTotal}">
-                        <span>系列: 🍅 ${repeatingTotal}</span>
+                        <span>系列:  ${repeatingTotal}</span>
                         <span style="margin-left:8px; opacity:0.9;">${repeatingFocusText}</span>
                     </div>
                     <div title="本实例番茄钟: ${instanceCount}" style="margin-top:4px; opacity:0.95;">
-                        <span>本次: 🍅 ${instanceCount}</span>
+                        <span>本次:  ${instanceCount}</span>
                         <span style="margin-left:8px; opacity:0.9;">${instanceFocusText}</span>
                     </div>
                  </div>`;
@@ -10250,7 +10252,7 @@ export class ProjectKanbanView {
                 click: () => this.openBlockTab(targetId)
             });
             menu.addItem({
-                iconHTML: "📋",
+                iconHTML: "",
                 label: i18n("copyBlockRef") || "复制块引用",
                 click: () => this.copyBlockRef(task)
             });
@@ -10260,12 +10262,12 @@ export class ProjectKanbanView {
 
         // 生产力工具
         menu.addItem({
-            iconHTML: "🍅",
+            iconHTML: "",
             label: i18n("startPomodoro") || "开始番茄钟",
             submenu: this.createPomodoroStartSubmenu(task)
         });
         menu.addItem({
-            iconHTML: "⏱️",
+            iconHTML: "",
             label: i18n("startCountUp") || "开始正向计时",
             click: () => this.startPomodoroCountUp(task)
         });
@@ -10283,7 +10285,7 @@ export class ProjectKanbanView {
         const menu = new Menu("kanbanBatchContextMenu");
         // 设置已完成
         menu.addItem({
-            iconHTML: "✅",
+            iconHTML: "",
             label: i18n('setCompleted') || '设置已完成',
             click: () => this.batchSetCompleted()
         });
@@ -10399,7 +10401,7 @@ export class ProjectKanbanView {
             // 绑定块功能
             if (task.blockId || task.docId) {
                 menu.addItem({
-                    iconHTML: "📋",
+                    iconHTML: "",
                     label: i18n('copyBlockRef'),
                     click: () => this.copyBlockRef(task)
                 });
@@ -10437,7 +10439,7 @@ export class ProjectKanbanView {
         // 粘贴新建子任务（高级功能）
         if (this.showAdvancedFeatures) {
             menu.addItem({
-                iconHTML: "📋",
+                iconHTML: "",
                 label: i18n('pasteCreateSubtask'),
                 click: () => this.showPasteTaskDialog(task)
             });
@@ -10454,7 +10456,7 @@ export class ProjectKanbanView {
         // 复制子任务为多级 Markdown 列表
         if (childTasks.length > 0) {
             menu.addItem({
-                iconHTML: "📋",
+                iconHTML: "",
                 label: i18n('copySubtasksAsList'),
                 click: async () => {
                     const childLines = this.buildMarkdownListFromChildren(task.id);
@@ -10670,7 +10672,7 @@ export class ProjectKanbanView {
                 // 添加所有未归档分组选项
                 activeGroups.forEach((group: any) => {
                     groupMenuItems.push({
-                        iconHTML: group.icon || "📋",
+                        iconHTML: group.icon || "",
                         label: group.name,
                         current: currentGroupId === group.id,
                         // 传入 task 对象（setTaskCustomGroup 期望第一个参数为 task 对象）
@@ -10796,13 +10798,13 @@ export class ProjectKanbanView {
 
         // 番茄钟
         menu.addItem({
-            iconHTML: "🍅",
+            iconHTML: "",
             label: i18n('startPomodoro'),
             submenu: this.createPomodoroStartSubmenu(task)
         });
 
         menu.addItem({
-            iconHTML: "⏱️",
+            iconHTML: "",
             label: i18n('startStopwatch'),
             click: () => this.startPomodoroCountUp(task)
         });
@@ -11594,7 +11596,7 @@ export class ProjectKanbanView {
             { id: 'other_date', name: i18n('otherDate'), icon: '📆' },
 
             { id: 'no_date', name: i18n('noDateReminders') || '无日期', icon: '' },
-            { id: 'completed_today', name: i18n('todayCompletedReminders') || '今日完成', icon: '✅' }
+            { id: 'completed_today', name: i18n('todayCompletedReminders') || '今日完成', icon: '' }
         ];
 
         dateFilters.forEach(f => {
@@ -13417,7 +13419,10 @@ export class ProjectKanbanView {
             const categoryEl = document.createElement('div');
             categoryEl.className = 'category-option';
             categoryEl.setAttribute('data-category', category.id);
-            categoryEl.style.backgroundColor = category.color;
+            const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
+            categoryEl.style.backgroundColor = labelStyle.backgroundColor;
+            categoryEl.style.color = labelStyle.textColor;
+            categoryEl.style.borderColor = labelStyle.borderColor;
             categoryEl.innerHTML = `<span>${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
             if (category.id === defaultCategoryId) {
                 categoryEl.classList.add('selected');
@@ -15861,7 +15866,7 @@ export class ProjectKanbanView {
                         `;
                         infoEl.insertBefore(completedTimeEl, infoEl.firstChild);
                     }
-                    completedTimeEl.innerHTML = `<span>✅</span><span>完成于: ${getLocalDateTimeString(new Date(task.completedTime))}</span>`;
+                    completedTimeEl.innerHTML = `<span></span><span>完成于: ${getLocalDateTimeString(new Date(task.completedTime))}</span>`;
                 } else if (completedTimeEl) {
                     completedTimeEl.remove();
                 }
@@ -17488,7 +17493,7 @@ export class ProjectKanbanView {
 
             const groupOptions = [
                 `<option value="">${i18n('noGroup') || '无分组'}</option>`,
-                ...activeGroups.map(g => `<option value="${g.id}">${g.icon || '📋'} ${g.name}</option>`)
+                ...activeGroups.map(g => `<option value="${g.id}">${g.icon || ''} ${g.name}</option>`)
             ].join('');
 
             const dialog = new Dialog({

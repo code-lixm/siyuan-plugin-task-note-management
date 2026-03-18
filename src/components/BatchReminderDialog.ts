@@ -395,7 +395,7 @@ class SmartBatchDialog {
 
         const listHtml = await Promise.all(this.autoDetectedData.map(async data => {
             const setting = this.blockSettings.get(data.blockId);
-            const dateStatus = data.date ? '✅' : '❌';
+            const dateStatus = data.date ? '' : '❌';
             const dateDisplay = setting?.date ? new Date(setting.date + 'T00:00:00').toLocaleDateString(getLocaleTag()) : '未设置';
             const timeDisplay = setting?.hasTime && setting.time ? setting.time : '全天';
 
@@ -473,7 +473,8 @@ class SmartBatchDialog {
             const badges = categoryIds.map(id => {
                 const category = categories.find(c => c.id === id);
                 if (category) {
-                    return `<span style="background-color: ${category.color}20; border: 1px solid ${category.color}40; color: ${category.color}; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 2px; display: inline-flex; align-items: center;">${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
+                    const labelStyle = this.plugin.categoryManager.getCategoryLabelStyle(category);
+                    return `<span style="background-color: ${labelStyle.backgroundColor}; border: 1px solid ${labelStyle.borderColor}; color: ${labelStyle.textColor}; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 2px; display: inline-flex; align-items: center;">${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
                 }
                 return '';
             }).filter(Boolean);
@@ -993,7 +994,10 @@ class SmartBatchDialog {
                 const categoryEl = document.createElement('div');
                 categoryEl.className = 'category-option-compact';
                 categoryEl.setAttribute('data-category', category.id);
-                categoryEl.style.backgroundColor = category.color;
+                const labelStyle = this.plugin.categoryManager.getCategoryLabelStyle(category);
+                categoryEl.style.backgroundColor = labelStyle.backgroundColor;
+                categoryEl.style.color = labelStyle.textColor;
+                categoryEl.style.borderColor = labelStyle.borderColor;
                 categoryEl.innerHTML = `<span>${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
                 categorySelector.appendChild(categoryEl);
             });
@@ -1555,7 +1559,10 @@ class BlockEditDialog {
                 const isSelected = currentCategoryIds.includes(category.id);
                 categoryEl.className = `category-option ${isSelected ? 'selected' : ''}`;
                 categoryEl.setAttribute('data-category', category.id);
-                categoryEl.style.backgroundColor = category.color;
+                const labelStyle = this.plugin.categoryManager.getCategoryLabelStyle(category);
+                categoryEl.style.backgroundColor = labelStyle.backgroundColor;
+                categoryEl.style.color = labelStyle.textColor;
+                categoryEl.style.borderColor = labelStyle.borderColor;
                 categoryEl.innerHTML = `<span>${category.icon ? category.icon + ' ' : ''}${category.name}</span>`;
                 categorySelector.appendChild(categoryEl);
             });
@@ -1669,7 +1676,7 @@ class BlockEditDialog {
                     }
                 }
 
-                nlPreview.innerHTML = `<span style="color: var(--b3-theme-primary);">✅ ${previewText}</span>`;
+                nlPreview.innerHTML = `<span style="color: var(--b3-theme-primary);"> ${previewText}</span>`;
                 nlConfirmBtn.disabled = false;
             } else {
                 nlPreview.innerHTML = '<span style="color: var(--b3-theme-error);">❌ 无法识别，请尝试其他表达方式</span>';

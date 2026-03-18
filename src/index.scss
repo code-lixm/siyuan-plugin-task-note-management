@@ -211,8 +211,8 @@
 
         // 有颜色的分类选项
         &[data-category]:not([data-category=""]) {
-            color: white;
-            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+            color: #000000;
+            text-shadow: none;
             border-color: rgba(255, 255, 255, 0.3);
 
             &:hover {
@@ -1694,17 +1694,17 @@
     position: relative;
 }
 
-.category-option:hover {
-    background: var(--b3-theme-surface-light);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    border-color: var(--b3-theme-primary-light);
-}
+// .category-option:hover {
+//     background: var(--b3-theme-surface-light);
+//     transform: translateY(-1px);
+//     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+//     border-color: var(--b3-theme-primary-light);
+// }
 
 .category-option.selected {
-    border: 3px solid var(--b3-theme-primary) !important;
-    box-shadow: 0 0 0 2px var(--b3-theme-primary-light), 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-    transform: scale(1.05) !important;
+    // border: 3px solid var(--b3-theme-primary) !important;
+    // box-shadow: 0 0 0 2px var(--b3-theme-primary-light), 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    // transform: scale(1.05) !important;
     z-index: 2;
 }
 
@@ -1757,7 +1757,7 @@
 
 // 有颜色的分类选项样式
 .category-option[data-category]:not([data-category=""]) {
-    color: var(--b3-theme-background, white);
+    color: var(--b3-theme-on-background) !important;
     border-color: rgba(255, 255, 255, 0.3);
     border-width: 2px;
 }
@@ -1836,14 +1836,12 @@
 .category-toolbar {
     display: flex;
     gap: 8px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--b3-border-color);
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--b3-border-color);
 }
 
 .categories-list {
-    max-height: 400px;
-    overflow-y: auto;
     padding: 8px;
 }
 
@@ -2064,21 +2062,21 @@
         cursor: pointer;
         transition: all 0.2s ease;
         font-size: 12px;
-        color: white;
+        color: var(--b3-theme-on-background);
         background-color: var(--b3-theme-surface-lighter);
 
-        &:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
+        // &:hover {
+        //     transform: translateY(-1px);
+        //     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        // }
 
-        &.selected {
-            border-color: var(--b3-theme-primary);
-            box-shadow: 0 0 0 2px rgba(var(--b3-theme-primary-rgb), 0.2);
-        }
+        // &.selected {
+        //     border-color: var(--b3-theme-primary);
+        //     box-shadow: 0 0 0 2px rgba(var(--b3-theme-primary-rgb), 0.2);
+        // }
 
         span {
-            color: white;
+            color: var(--b3-theme-on-background);
         }
     }
 
@@ -2221,6 +2219,8 @@
     white-space: nowrap;
     cursor: default;
     border: 1px solid transparent;
+    color: #000000;
+    /* 默认黑色文字 */
 
     /* 图标样式 */
     span:first-child {
@@ -2514,17 +2514,14 @@
     --fc-month-day-min-rows: 5;
     --fc-month-day-header-height: 26px;
     --fc-month-day-event-line-height: 1.4;
-    --fc-month-day-min-height: calc(
-        var(--fc-month-day-min-rows) * var(--fc-month-day-event-line-height) * 1em +
-            var(--fc-month-day-header-height)
-    );
+    --fc-month-day-min-height: calc(var(--fc-month-day-min-rows) * var(--fc-month-day-event-line-height) * 1em + var(--fc-month-day-header-height));
 }
 
 .fc-dayGridMonth-view .fc-daygrid-day-frame {
     min-height: var(--fc-month-day-min-height);
-    height: var(--fc-month-day-min-height);
-    display: flex;
-    flex-direction: column;
+    height: auto;
+    display: block;
+    overflow: visible;
 }
 
 .fc-dayGridMonth-view .fc-daygrid-day-top {
@@ -2533,36 +2530,20 @@
 }
 
 .fc-dayGridMonth-view .fc-daygrid-day-events {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: visible;
     line-height: var(--fc-month-day-event-line-height);
-    scrollbar-width: thin;
-    scrollbar-color: var(--b3-theme-surface-lighter) transparent;
-    -webkit-overflow-scrolling: touch;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+    display: block;
 }
 
 .fc-dayGridMonth-view .fc-daygrid-event-harness {
-    width: 100%;
+    width: auto;
 }
 
 .fc-dayGridMonth-view .fc-daygrid-event {
-    width: 100%;
     box-sizing: border-box;
 }
 
-.fc-dayGridMonth-view .fc-daygrid-day-events::-webkit-scrollbar {
-    width: 4px;
-}
 
-.fc-dayGridMonth-view .fc-daygrid-day-events::-webkit-scrollbar-thumb {
-    background-color: var(--b3-theme-surface-lighter);
-    border-radius: 2px;
-}
 
 /* 隐藏 FullCalendar 许可证提示 */
 .fc-license-message {

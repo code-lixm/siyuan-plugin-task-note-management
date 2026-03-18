@@ -252,7 +252,7 @@ export class BlockRemindersDialog {
         if (isCompleted && reminder.completedAt) {
             const completedEl = document.createElement('div');
             completedEl.className = 'reminder-item__completed-time';
-            completedEl.textContent = `✅ ${this.formatCompletedTime(reminder.completedAt)}`;
+            completedEl.textContent = ` ${this.formatCompletedTime(reminder.completedAt)}`;
             completedEl.style.fontSize = '12px';
             completedEl.style.marginTop = '4px';
             completedEl.style.opacity = '0.95';
@@ -328,6 +328,7 @@ export class BlockRemindersDialog {
 
                 const category = this.categoryManager.getCategoryById(id);
                 if (category) {
+                    const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                     hasValidCategory = true;
                     const categoryTag = document.createElement('div');
                     categoryTag.className = 'reminder-item__category';
@@ -336,9 +337,9 @@ export class BlockRemindersDialog {
                         align-items: center;
                         gap: 2px;
                         font-size: 11px;
-                        background-color: ${category.color}20;
-                        color: ${category.color};
-                        border: 1px solid ${category.color}40;
+                        background-color: ${labelStyle.backgroundColor};
+                        color: ${labelStyle.textColor};
+                        border: 1px solid ${labelStyle.borderColor};
                         border-radius: 12px;
                         padding: 2px 8px;
                         font-weight: 500;
@@ -539,7 +540,7 @@ export class BlockRemindersDialog {
             const isEndSameDay = endDate === date;
             let endDateStr = isEndToday ? (i18n("today") || '今天') : endDate;
             const endTimeStr = endTime || '';
-            
+
             // 同一天只显示结束时间，跨日期显示结束日期+时间
             if (isEndSameDay) {
                 return `${dateStr} ${timeStr} - ${endTimeStr}`.trim();

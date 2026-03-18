@@ -1080,7 +1080,7 @@ export class PasteTaskDialog {
 
         projectGroups.forEach((group: any) => {
             const selected = group.id === defaultGroupId ? 'selected' : '';
-            groupOptionsHtml += `<option value="${group.id}" ${selected}>${group.icon || '📋'} ${group.name}</option>`;
+            groupOptionsHtml += `<option value="${group.id}" ${selected}>${group.icon || ''} ${group.name}</option>`;
         });
 
         return `
