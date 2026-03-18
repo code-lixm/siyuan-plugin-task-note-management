@@ -2541,6 +2541,18 @@
     scrollbar-width: thin;
     scrollbar-color: var(--b3-theme-surface-lighter) transparent;
     -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event-harness {
+    width: 100%;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .fc-dayGridMonth-view .fc-daygrid-day-events::-webkit-scrollbar {

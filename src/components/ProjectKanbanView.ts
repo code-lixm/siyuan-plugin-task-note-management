@@ -3469,31 +3469,37 @@ export class ProjectKanbanView {
         const controlsGroup = document.createElement('div');
         controlsGroup.className = 'project-kanban-controls';
 
+        const primaryGroup = document.createElement('div');
+        primaryGroup.className = 'kanban-control-group kanban-control-group--primary';
+
+        const iconGroup = document.createElement('div');
+        iconGroup.className = 'kanban-control-group kanban-control-group--icons';
+
         // 新建任务按钮
         const addTaskBtn = document.createElement('button');
-        addTaskBtn.className = 'b3-button b3-button--primary';
+        addTaskBtn.className = 'b3-button b3-button--primary kanban-text-btn';
         addTaskBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg> ${i18n('newTask')}`;
         addTaskBtn.addEventListener('click', () => this.showCreateTaskDialog());
-        controlsGroup.appendChild(addTaskBtn);
+        primaryGroup.appendChild(addTaskBtn);
 
         if (this.showAdvancedFeatures) {
             const pasteTaskBtn = document.createElement('button');
-            pasteTaskBtn.className = 'b3-button';
-            pasteTaskBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconPaste"></use></svg> ${i18n('pasteNew')}`;
+            pasteTaskBtn.className = 'b3-button kanban-text-btn';
+            pasteTaskBtn.textContent = i18n('pasteNew');
             pasteTaskBtn.addEventListener('click', () => this.showPasteTaskDialog(undefined, undefined, undefined, true));
-            controlsGroup.appendChild(pasteTaskBtn);
+            primaryGroup.appendChild(pasteTaskBtn);
         }
 
         // 排序按钮
         this.sortButton = document.createElement('button');
-        this.sortButton.className = 'b3-button b3-button--outline';
+        this.sortButton.className = 'b3-button b3-button--outline kanban-icon-btn';
         this.sortButton.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconSort"></use></svg>';
         this.sortButton.addEventListener('click', (e) => this.showSortMenu(e));
-        controlsGroup.appendChild(this.sortButton);
+        iconGroup.appendChild(this.sortButton);
 
         // 筛选按钮
         this.filterButton = document.createElement('button');
-        this.filterButton.className = 'b3-button b3-button--outline';
+        this.filterButton.className = 'b3-button b3-button--outline kanban-icon-btn';
         this.filterButton.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconFilter"></use></svg>';
         this.filterButton.addEventListener('click', (e) => this.showFilterMenu(e));
         // 如果有激活的筛选，高亮按钮
@@ -3501,7 +3507,7 @@ export class ProjectKanbanView {
             this.filterButton.classList.add('b3-button--primary');
             this.filterButton.classList.remove('b3-button--outline');
         }
-        controlsGroup.appendChild(this.filterButton);
+        iconGroup.appendChild(this.filterButton);
 
         // 显示设置按钮
         const displaySettingsContainer = document.createElement('div');
@@ -3510,8 +3516,7 @@ export class ProjectKanbanView {
         displaySettingsContainer.style.display = 'inline-block';
 
         const displaySettingsButton = document.createElement('button');
-        displaySettingsButton.className = 'b3-button b3-button--outline';
-        displaySettingsButton.style.padding = '6px';
+        displaySettingsButton.className = 'b3-button b3-button--outline kanban-icon-btn';
         displaySettingsButton.innerHTML = '<svg class="b3-button__icon" style="margin-right: 0;"><use xlink:href="#iconEye"></use></svg>';
         displaySettingsButton.title = i18n("displaySettings") || "显示设置";
         displaySettingsContainer.appendChild(displaySettingsButton);
@@ -3558,7 +3563,7 @@ export class ProjectKanbanView {
         }));
 
         displaySettingsContainer.appendChild(displaySettingsDropdown);
-        controlsGroup.appendChild(displaySettingsContainer);
+        iconGroup.appendChild(displaySettingsContainer);
 
         // 点击按钮切换下拉菜单显示
         displaySettingsButton.addEventListener('click', (e) => {
@@ -3603,7 +3608,7 @@ export class ProjectKanbanView {
         this.searchInput = searchInput;
 
         const searchBtn = document.createElement('button');
-        searchBtn.className = 'b3-button b3-button--outline search-btn';
+        searchBtn.className = 'b3-button b3-button--outline search-btn kanban-icon-btn';
         searchBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconSearch"></use></svg>';
         searchBtn.title = i18n('searchReminders');
 
@@ -3646,11 +3651,11 @@ export class ProjectKanbanView {
 
         searchContainer.appendChild(searchInput);
         searchContainer.appendChild(searchBtn);
-        controlsGroup.appendChild(searchContainer);
+        iconGroup.appendChild(searchContainer);
 
         // 刷新按钮
         const refreshBtn = document.createElement('button');
-        refreshBtn.className = 'b3-button b3-button--outline';
+        refreshBtn.className = 'b3-button b3-button--outline kanban-icon-btn';
         refreshBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconRefresh"></use></svg>';
         refreshBtn.title = i18n('refresh');
         refreshBtn.addEventListener('click', async () => {
@@ -3662,14 +3667,14 @@ export class ProjectKanbanView {
             this._lastRenderedProjectId = null;
             this.queueLoadTasks();
         });
-        controlsGroup.appendChild(refreshBtn);
+        iconGroup.appendChild(refreshBtn);
 
         const calendarBtn = document.createElement('button');
-        calendarBtn.className = 'b3-button b3-button--outline';
+        calendarBtn.className = 'b3-button b3-button--outline kanban-icon-btn';
         calendarBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconCalendar"></use></svg>';
         calendarBtn.title = i18n('openCalendarView');
         calendarBtn.addEventListener('click', () => this.openCalendarForProject());
-        controlsGroup.appendChild(calendarBtn);
+        iconGroup.appendChild(calendarBtn);
 
         // 看板模式选择下拉框
         const modeSelectContainer = document.createElement('div');
@@ -3680,7 +3685,7 @@ export class ProjectKanbanView {
         `;
 
         const modeSelect = document.createElement('select');
-        modeSelect.className = 'b3-select kanban-mode-select';
+        modeSelect.className = 'b3-select kanban-mode-select kanban-mode-select--button';
         modeSelect.style.cssText = `
             background: var(--b3-theme-surface);
             border: 1px solid var(--b3-theme-border);
@@ -3727,11 +3732,11 @@ export class ProjectKanbanView {
         });
 
         modeSelectContainer.appendChild(modeSelect);
-        controlsGroup.appendChild(modeSelectContainer);
+        primaryGroup.appendChild(modeSelectContainer);
 
         // 更多设置按钮
         const moreBtn = document.createElement('button');
-        moreBtn.className = 'b3-button b3-button--outline';
+        moreBtn.className = 'b3-button b3-button--outline kanban-icon-btn';
         moreBtn.title = i18n('more');
         moreBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconMore"></use></svg>';
         moreBtn.addEventListener('click', async (e) => {
@@ -3812,18 +3817,21 @@ export class ProjectKanbanView {
                 });
             }
         });
-        controlsGroup.appendChild(moreBtn);
+        iconGroup.appendChild(moreBtn);
 
         // 多选模式按钮（高级功能）
         if (this.showAdvancedFeatures) {
             const multiSelectBtn = document.createElement('button');
-            multiSelectBtn.className = 'b3-button b3-button--outline';
+            multiSelectBtn.className = 'b3-button b3-button--outline kanban-text-btn';
             multiSelectBtn.id = 'multiSelectBtn';
-            multiSelectBtn.innerHTML = `<svg class="b3-button__icon"><use xlink:href="#iconCheck"></use></svg> ${i18n('batchSelect')}`;
+            multiSelectBtn.textContent = i18n('batchSelect');
             multiSelectBtn.title = i18n('batchSelectMode');
             multiSelectBtn.addEventListener('click', () => this.toggleMultiSelectMode());
-            controlsGroup.appendChild(multiSelectBtn);
+            primaryGroup.appendChild(multiSelectBtn);
         }
+
+        controlsGroup.appendChild(primaryGroup);
+        controlsGroup.appendChild(iconGroup);
 
         toolbar.appendChild(controlsGroup);
 
@@ -11431,17 +11439,32 @@ export class ProjectKanbanView {
         const rect = (event.target as HTMLElement).getBoundingClientRect();
 
         // --- Helper to render section title ---
-        const renderSectionTitle = (title: string) => {
-            const div = document.createElement('div');
-            div.style.cssText = `
+        const renderSectionHeader = (title: string, actions?: HTMLElement) => {
+            const header = document.createElement('div');
+            header.style.cssText = `
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin: 8px 4px 4px 4px;
+                flex-wrap: nowrap;
+            `;
+
+            const titleEl = document.createElement('div');
+            titleEl.style.cssText = `
                 font-size: 12px;
                 font-weight: 600;
                 color: var(--b3-theme-on-surface-light);
-                margin: 8px 0 4px 0;
-                padding-left: 4px;
+                flex: 1;
             `;
-            div.textContent = title;
-            menu.appendChild(div);
+            titleEl.textContent = title;
+            header.appendChild(titleEl);
+
+            if (actions) {
+                header.appendChild(actions);
+            }
+
+            menu.appendChild(header);
         };
 
         // --- Helper to render checkbox item ---
@@ -11494,15 +11517,13 @@ export class ProjectKanbanView {
         };
 
         // --- Date Section ---
-        renderSectionTitle(i18n('date'));
-
         // Date Action Buttons
         const dateActions = document.createElement('div');
-        dateActions.style.cssText = 'display: flex; gap: 8px; margin: 4px 8px 8px 8px;';
+        dateActions.style.cssText = 'display: inline-flex; gap: 8px; align-items: center;';
 
         const selectAllDatesBtn = document.createElement('button');
         selectAllDatesBtn.className = 'b3-button b3-button--text';
-        selectAllDatesBtn.style.cssText = 'flex: 1; justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0;';
+        selectAllDatesBtn.style.cssText = 'justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0 6px;';
         selectAllDatesBtn.textContent = i18n('selectAll') || '全选';
         selectAllDatesBtn.addEventListener('click', () => {
             // Select all specific date filters
@@ -11521,7 +11542,7 @@ export class ProjectKanbanView {
 
         const clearDatesBtn = document.createElement('button');
         clearDatesBtn.className = 'b3-button b3-button--text';
-        clearDatesBtn.style.cssText = 'flex: 1; justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0;';
+        clearDatesBtn.style.cssText = 'justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0 6px;';
         clearDatesBtn.textContent = i18n('clearSelection');
         clearDatesBtn.addEventListener('click', () => {
             this.selectedDateFilters.clear();
@@ -11540,7 +11561,7 @@ export class ProjectKanbanView {
 
         dateActions.appendChild(selectAllDatesBtn);
         dateActions.appendChild(clearDatesBtn);
-        menu.appendChild(dateActions);
+        renderSectionHeader(i18n('date'), dateActions);
 
         // All Dates
         renderItem('all', i18n('allDates'), 'date', undefined, '📅', this.selectedDateFilters.size === 0 || this.selectedDateFilters.has('all'), (checked) => {
@@ -11602,15 +11623,13 @@ export class ProjectKanbanView {
         menu.appendChild(divider);
 
         // --- Tags Section ---
-        renderSectionTitle(i18n('tags') || '标签');
-
         // Tags Action Buttons
         const tagsActions = document.createElement('div');
-        tagsActions.style.cssText = 'display: flex; gap: 8px; margin: 4px 8px 8px 8px;';
+        tagsActions.style.cssText = 'display: inline-flex; gap: 8px; align-items: center;';
 
         const selectAllTagsBtn = document.createElement('button');
         selectAllTagsBtn.className = 'b3-button b3-button--text';
-        selectAllTagsBtn.style.cssText = 'flex: 1; justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0;';
+        selectAllTagsBtn.style.cssText = 'justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0 6px;';
         selectAllTagsBtn.textContent = i18n('selectAll') || '全选';
         selectAllTagsBtn.addEventListener('click', () => {
             allTagIds.forEach(id => this.selectedFilterTags.add(id));
@@ -11622,7 +11641,7 @@ export class ProjectKanbanView {
 
         const clearTagsBtn = document.createElement('button');
         clearTagsBtn.className = 'b3-button b3-button--text';
-        clearTagsBtn.style.cssText = 'flex: 1; justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0;';
+        clearTagsBtn.style.cssText = 'justify-content: center; font-size: 12px; height: 24px; line-height: 24px; padding: 0 6px;';
         clearTagsBtn.textContent = i18n('clearSelection');
         clearTagsBtn.addEventListener('click', () => {
             this.selectedFilterTags.clear();
@@ -11634,7 +11653,7 @@ export class ProjectKanbanView {
 
         tagsActions.appendChild(selectAllTagsBtn);
         tagsActions.appendChild(clearTagsBtn);
-        menu.appendChild(tagsActions);
+        renderSectionHeader(i18n('tags') || '标签', tagsActions);
 
         renderItem('__no_tag__', i18n('noTag'), 'tag', undefined, '');
         tags.forEach(tag => {
@@ -12418,29 +12437,54 @@ export class ProjectKanbanView {
             }
 
             .project-kanban-toolbar {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-start;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: start;
+                column-gap: 16px;
+                row-gap: 8px;
                 padding: 16px 24px;
                 border-bottom: 1px solid var(--b3-theme-border);
                 background: var(--b3-theme-background);
-                gap: 12px;
             }
 
             .project-kanban-title {
-                width: 100%;
-                border-bottom: 1px solid var(--b3-theme-border);
-                padding-bottom: 8px;
+                min-width: 0;
             }
 
             .project-kanban-controls {
                 display: flex;
-                gap: 8px;
+                gap: 12px;
                 align-items: center;
                 flex-wrap: wrap;
-                margin-left: auto;
-                width: 100%;
                 justify-content: flex-end;
+                justify-self: end;
+                align-self: start;
+            }
+
+            .project-kanban-controls .kanban-control-group {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .project-kanban-controls .kanban-control-group + .kanban-control-group {
+                position: relative;
+                padding-left: 12px;
+            }
+
+            .project-kanban-controls .kanban-control-group + .kanban-control-group::before {
+                content: '';
+                position: absolute;
+                left: 2px;
+                top: 6px;
+                bottom: 6px;
+                width: 1px;
+                background: var(--b3-border-color);
+                opacity: 0.7;
+            }
+
+            .project-kanban-controls .kanban-control-group--icons {
+                gap: 6px;
             }
 
             .project-kanban-controls .b3-button,
@@ -12460,10 +12504,30 @@ export class ProjectKanbanView {
                 margin-right: 4px;
             }
 
+            .project-kanban-controls .kanban-text-btn {
+                padding: 0 12px;
+                height: 36px;
+            }
+
+            .project-kanban-controls .kanban-icon-btn {
+                width: 36px;
+                padding: 0;
+                justify-content: center;
+            }
+
+            .project-kanban-controls .kanban-icon-btn .b3-button__icon {
+                margin-right: 0;
+            }
+
             .project-kanban-controls .kanban-mode-select {
                 min-width: 140px;
                 line-height: 1;
                 padding: 0 10px;
+            }
+
+            .project-kanban-controls .kanban-mode-select--button {
+                height: 36px;
+                padding: 0 12px;
             }
 
             .project-kanban-controls .kanban-search-container {
@@ -12475,6 +12539,7 @@ export class ProjectKanbanView {
             /* 响应式布局 - 窄屏优化 */
             @media (max-width: 600px) {
                 .project-kanban-toolbar {
+                    display: flex;
                     flex-direction: column;
                     align-items: stretch;
                     gap: 12px;
@@ -12489,7 +12554,15 @@ export class ProjectKanbanView {
                     width: 100%;
                     justify-content: flex-start;
                     margin-left: 0;
-                    gap: 6px;
+                    gap: 8px;
+                }
+
+                .project-kanban-controls .kanban-control-group + .kanban-control-group {
+                    padding-left: 0;
+                }
+
+                .project-kanban-controls .kanban-control-group + .kanban-control-group::before {
+                    display: none;
                 }
 
                 .project-kanban-controls .b3-button {
@@ -12497,6 +12570,11 @@ export class ProjectKanbanView {
                     min-width: auto;
                     font-size: 12px;
                     padding: 4px 8px;
+                }
+
+                .project-kanban-controls .kanban-icon-btn {
+                    padding: 0;
+                    width: 36px;
                 }
 
                 .project-kanban-controls .kanban-mode-select {
