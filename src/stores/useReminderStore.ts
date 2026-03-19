@@ -12,6 +12,7 @@ export interface Reminder {
   categoryId?: string;
   projectId?: string;
   blockId?: string;
+  parentId?: string;
   repeat?: {
     type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
     interval?: number;
@@ -43,10 +44,14 @@ interface ReminderState {
   deleteSubtask: (parentId: string, subtaskId: string) => void;
   duplicateReminder: (id: string) => void;
   
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
+  // Batch operations
+  batchToggleComplete: (ids: string[], completed: boolean) => void;
+  batchSetPriority: (ids: string[], priority: 'high' | 'medium' | 'low' | null) => void;
+  batchSetCategory: (ids: string[], categoryId: string | null) => void;
+  batchSetDate: (ids: string[], date: string | null) => void;
+  batchDelete: (ids: string[]) => void;
   
-  // Async actions (to be implemented with API)
+  // Async actions
   loadReminders: () => Promise<void>;
   saveReminders: () => Promise<void>;
 }
@@ -188,6 +193,53 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
   
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+  
+  // Batch operations
+  batchToggleComplete: (ids, completed) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        ids.includes(r.id)
+          ? { ...r, completed, updatedAt: new Date().toISOString() }
+          : r
+      ),
+    }));
+  },
+  
+  batchSetPriority: (ids, priority) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        ids.includes(r.id)
+          ? { ...r, priority: priority ?? undefined, updatedAt: new Date().toISOString() }
+          : r
+      ),
+    }));
+  },
+  
+  batchSetCategory: (ids, categoryId) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        ids.includes(r.id)
+          ? { ...r, categoryId: categoryId ?? undefined, updatedAt: new Date().toISOString() }
+          : r
+      ),
+    }));
+  },
+  
+  batchSetDate: (ids, date) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        ids.includes(r.id)
+          ? { ...r, date: date ?? undefined, updatedAt: new Date().toISOString() }
+          : r
+      ),
+    }));
+  },
+  
+  batchDelete: (ids) => {
+    set((state) => ({
+      reminders: state.reminders.filter((r) => !ids.includes(r.id)),
+    }));
+  },
   
   // These will be implemented with actual API calls
   loadReminders: async () => {

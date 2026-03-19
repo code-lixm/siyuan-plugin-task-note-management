@@ -11,6 +11,7 @@ import { mountDockComponent, mountTabComponent } from "./bridge";
 import { ReminderPanel } from "./components/layout/ReminderPanel";
 import { ProjectPanel } from "./components/layout/ProjectPanel";
 import { HabitPanel } from "./components/layout/HabitPanel";
+import CalendarView from "./components/views/CalendarView";
 
 export const SETTINGS_FILE = "reminder-settings.json";
 export const PROJECT_DATA_FILE = "project.json";
@@ -56,6 +57,7 @@ export default class ReminderPlugin extends Plugin {
     private reminderPanelDestroy: (() => void) | null = null;
     private projectPanelDestroy: (() => void) | null = null;
     private habitPanelDestroy: (() => void) | null = null;
+    private calendarViewDestroy: (() => void) | null = null;
 
     async onload() {
         console.log("[Task Daily] Plugin loading...");
@@ -96,6 +98,10 @@ export default class ReminderPlugin extends Plugin {
         if (this.habitPanelDestroy) {
             this.habitPanelDestroy();
             this.habitPanelDestroy = null;
+        }
+        if (this.calendarViewDestroy) {
+            this.calendarViewDestroy();
+            this.calendarViewDestroy = null;
         }
         
         console.log("[Task Daily] Plugin unloaded");
@@ -253,11 +259,27 @@ export default class ReminderPlugin extends Plugin {
         // Calendar View Tab
         this.addTab({
             type: TAB_TYPE,
-            init: () => {
-                // Will implement CalendarView component
-                showMessage("Calendar view - coming soon in React version");
+            init: (tab) => {
+                // Create container for React component
+                const container = document.createElement('div');
+                container.id = 'calendar-view-root';
+                container.style.height = '100%';
+                tab.element.appendChild(container);
+                
+                // Mount CalendarView React component
+                const instance = mountTabComponent(
+                    container,
+                    CalendarView,
+                    this as any
+                );
+                this.calendarViewDestroy = instance.destroy;
             },
-            destroy: () => {},
+            destroy: () => {
+                if (this.calendarViewDestroy) {
+                    this.calendarViewDestroy();
+                    this.calendarViewDestroy = null;
+                }
+            },
         });
 
         // Eisenhower Matrix Tab
