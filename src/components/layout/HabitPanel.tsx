@@ -33,11 +33,11 @@ import {
   SortAsc,
   SortDesc
 } from 'lucide-react';
-import { HabitEditDialog } from './HabitEditDialog';
-import { HabitStatsDialog } from './HabitStatsDialog';
-import { HabitGroupManageDialog } from './HabitGroupManageDialog';
-import { HabitCheckInMenu } from './HabitCheckInMenu';
-import { HabitContextMenu } from './HabitContextMenu';
+import { HabitEditDialog } from '@/components/dialogs/HabitEditDialog';
+import { HabitStatsDialog } from '../HabitStatsDialog';
+import { HabitGroupManageDialog } from '../HabitGroupManageDialog';
+import { HabitCheckInMenu } from '../HabitCheckInMenu';
+import { HabitContextMenu } from '../HabitContextMenu';
 import { HabitGroupManager } from '@/utils/habitGroupManager';
 import { i18n } from '@/pluginInstance';
 import { cn } from '@/lib/utils';
