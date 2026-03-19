@@ -34,6 +34,15 @@ interface ReminderState {
   updateReminder: (id: string, updates: Partial<Reminder>) => void;
   deleteReminder: (id: string) => void;
   toggleComplete: (id: string) => void;
+  
+  // New actions
+  setReminderPriority: (id: string, priority: 'high' | 'medium' | 'low' | null) => void;
+  setReminderCategory: (id: string, categoryId: string | null) => void;
+  setReminderDate: (id: string, date: string | null) => void;
+  addSubtask: (parentId: string, title: string) => void;
+  deleteSubtask: (parentId: string, subtaskId: string) => void;
+  duplicateReminder: (id: string) => void;
+  
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   
@@ -82,6 +91,98 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
           ? { ...r, completed: !r.completed, updatedAt: new Date().toISOString() }
           : r
       ),
+    }));
+  },
+  
+  // New actions
+  setReminderPriority: (id, priority) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        r.id === id
+          ? { ...r, priority: priority ?? undefined, updatedAt: new Date().toISOString() }
+          : r
+      ),
+    }));
+  },
+  
+  setReminderCategory: (id, categoryId) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        r.id === id
+          ? { ...r, categoryId: categoryId ?? undefined, updatedAt: new Date().toISOString() }
+          : r
+      ),
+    }));
+  },
+  
+  setReminderDate: (id, date) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        r.id === id
+          ? { ...r, date: date ?? undefined, updatedAt: new Date().toISOString() }
+          : r
+      ),
+    }));
+  },
+  
+  addSubtask: (parentId, title) => {
+    const newSubtask: Reminder = {
+      id: `subtask_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title,
+      completed: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        r.id === parentId
+          ? { 
+              ...r, 
+              subtasks: [...(r.subtasks || []), newSubtask],
+              updatedAt: new Date().toISOString()
+            }
+          : r
+      ),
+    }));
+  },
+  
+  deleteSubtask: (parentId, subtaskId) => {
+    set((state) => ({
+      reminders: state.reminders.map((r) =>
+        r.id === parentId
+          ? { 
+              ...r, 
+              subtasks: r.subtasks?.filter((st) => st.id !== subtaskId) || [],
+              updatedAt: new Date().toISOString()
+            }
+          : r
+      ),
+    }));
+  },
+  
+  duplicateReminder: (id) => {
+    const { reminders } = get();
+    const originalReminder = reminders.find((r) => r.id === id);
+    if (!originalReminder) return;
+    
+    const duplicatedReminder: Reminder = {
+      ...originalReminder,
+      id: `reminder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: `${originalReminder.title} (Copy)`,
+      completed: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      subtasks: originalReminder.subtasks?.map((st) => ({
+        ...st,
+        id: `subtask_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${Math.random().toString(36).substr(2, 5)}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })),
+    };
+    
+    set((state) => ({
+      reminders: [...state.reminders, duplicatedReminder],
     }));
   },
   
