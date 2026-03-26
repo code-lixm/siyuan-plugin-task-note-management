@@ -7,7 +7,6 @@
  * @Description  : Kits about dialogs
  */
 import { Dialog } from "siyuan";
-import { type SvelteComponent } from "svelte";
 
 export const inputDialog = (args: {
     title: string, placeholder?: string, defaultText?: string,
@@ -143,7 +142,7 @@ export const simpleDialog = (args: {
 
 
 export const svelteDialog = (args: {
-    title: string, constructor: (container: HTMLElement) => SvelteComponent,
+    title: string, constructor: (container: HTMLElement) => DestroyableComponent,
     width?: string, height?: string,
     callback?: () => void;
 }) => {
@@ -161,4 +160,7 @@ export const svelteDialog = (args: {
         dialog,
         close
     }
+}
+interface DestroyableComponent {
+    $destroy: () => void;
 }

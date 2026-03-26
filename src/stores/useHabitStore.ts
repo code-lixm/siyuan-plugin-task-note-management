@@ -1,4 +1,12 @@
 import { create } from 'zustand';
+import { getPluginInstance } from '@/pluginInstance';
+import { HistoryAction, useHistoryStore } from './historyStore';
+import { ConflictResolver, VersionedData } from '@/utils/conflictResolver';
+
+interface HabitStorePlugin {
+  loadHabitData: () => Promise<Record<string, any>>;
+  saveHabitData: (data: Record<string, any>) => Promise<void>;
+}
 
 // 打卡Emoji配置
 export interface HabitCheckInEmoji {
@@ -47,6 +55,9 @@ export interface Habit {
   totalCheckIns: number;
   createdAt: string;
   updatedAt: string;
+  version?: number;
+  timestamp?: number;
+  deviceId?: string;
   hideCheckedToday?: boolean;
   sort?: number;
 }
@@ -63,6 +74,7 @@ export interface HabitGroup {
 }
 
 interface HabitState {
+  plugin: HabitStorePlugin | null;
   habits: Habit[];
   groups: HabitGroup[];
   isLoading: boolean;
@@ -75,6 +87,7 @@ interface HabitState {
   collapsedGroups: Set<string>;
 
   // Actions
+  setPlugin: (plugin: HabitStorePlugin | null) => void;
   setHabits: (habits: Habit[]) => void;
   setGroups: (groups: HabitGroup[]) => void;
   addHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'updatedAt' | 'checkIns' | 'totalCheckIns'>) => void;
@@ -91,6 +104,8 @@ interface HabitState {
   setCollapsedGroups: (groups: Set<string>) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  loadHabits: () => Promise<void>;
+  saveHabits: () => Promise<void>;
   
   // Computed helpers
   getFilteredHabits: () => Habit[];
@@ -133,7 +148,76 @@ const getLocalDateTimeString = (date: Date): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
+const cloneHabitSnapshot = (habits: Habit[]): Habit[] =>
+  JSON.parse(JSON.stringify(habits)) as Habit[];
+
+const hasHabitChanges = (previousState: Habit[], nextState: Habit[]): boolean =>
+  JSON.stringify(previousState) !== JSON.stringify(nextState);
+
+const recordHabitHistory = (
+  action: HistoryAction['action'],
+  description: string,
+  itemId: string,
+  previousState: Habit[],
+  nextState: Habit[]
+): void => {
+  const historyStore = useHistoryStore.getState();
+  if (historyStore.isReplaying || !hasHabitChanges(previousState, nextState)) {
+    return;
+  }
+
+  historyStore.addAction({
+    type: 'habit',
+    action,
+    description,
+    undoData: {
+      previousState,
+      itemId,
+    },
+    redoData: {
+      newState: nextState,
+      itemId,
+    },
+  });
+};
+
+const toTimestamp = (updatedAt?: string, createdAt?: string): number => {
+  const parsed = Date.parse(updatedAt || createdAt || '');
+  return Number.isNaN(parsed) ? Date.now() : parsed;
+};
+
+const normalizeHabit = (habit: Habit): Habit => ({
+  ...habit,
+  version: typeof habit.version === 'number' && habit.version > 0 ? habit.version : 1,
+  timestamp: typeof habit.timestamp === 'number' && habit.timestamp > 0 ? habit.timestamp : toTimestamp(habit.updatedAt, habit.createdAt),
+  deviceId: habit.deviceId || 'unknown',
+});
+
+const touchHabit = (habit: Habit, updates: Partial<Habit> = {}): Habit => {
+  const now = getLocalDateTimeString(new Date());
+  const wrapped = ConflictResolver.wrapWithVersion(habit);
+  return normalizeHabit({
+    ...habit,
+    ...updates,
+    updatedAt: updates.updatedAt || now,
+    version: wrapped.version,
+    timestamp: wrapped.timestamp,
+    deviceId: wrapped.deviceId,
+  });
+};
+
+const toVersionedHabit = (habit: Habit): VersionedData<Habit> => {
+  const normalized = normalizeHabit(habit);
+  return {
+    data: normalized,
+    version: normalized.version || 1,
+    timestamp: normalized.timestamp || Date.now(),
+    deviceId: normalized.deviceId || 'unknown',
+  };
+};
+
 export const useHabitStore = create<HabitState>((set, get) => ({
+  plugin: null,
   habits: [],
   groups: [],
   isLoading: false,
@@ -145,12 +229,14 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   sortOrder: 'desc',
   collapsedGroups: new Set(),
 
-  setHabits: (habits) => set({ habits }),
+  setPlugin: (plugin) => set({ plugin }),
+  setHabits: (habits) => set({ habits: habits.map((item) => normalizeHabit(item)) }),
   setGroups: (groups) => set({ groups }),
 
   addHabit: (habitData) => {
+    const previousState = cloneHabitSnapshot(get().habits);
     const now = getLocalDateTimeString(new Date());
-    const newHabit: Habit = {
+    const baseHabit: Habit = {
       ...habitData as any,
       id: `habit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       checkIns: {},
@@ -158,28 +244,37 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       createdAt: now,
       updatedAt: now,
     };
+    const newHabit = touchHabit(baseHabit);
     set((state) => ({
       habits: [...state.habits, newHabit],
     }));
+    const nextState = cloneHabitSnapshot(get().habits);
+    recordHabitHistory('create', `Create habit: ${newHabit.title}`, newHabit.id, previousState, nextState);
     return newHabit;
   },
 
   updateHabit: (id, updates) => {
-    const now = getLocalDateTimeString(new Date());
+    const previousState = cloneHabitSnapshot(get().habits);
     set((state) => ({
       habits: state.habits.map((h) =>
-        h.id === id ? { ...h, ...updates, updatedAt: now } : h
+        h.id === id ? touchHabit(h, updates) : h
       ),
     }));
+    const nextState = cloneHabitSnapshot(get().habits);
+    recordHabitHistory('update', `Update habit: ${id}`, id, previousState, nextState);
   },
 
   deleteHabit: (id) => {
+    const previousState = cloneHabitSnapshot(get().habits);
     set((state) => ({
       habits: state.habits.filter((h) => h.id !== id),
     }));
+    const nextState = cloneHabitSnapshot(get().habits);
+    recordHabitHistory('delete', `Delete habit: ${id}`, id, previousState, nextState);
   },
 
   checkIn: (habitId, date, emojiConfig, note, customTimestamp) => {
+    const previousState = cloneHabitSnapshot(get().habits);
     const now = customTimestamp || getLocalDateTimeString(new Date());
     set((state) => ({
       habits: state.habits.map((h) => {
@@ -203,27 +298,31 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         checkIn.timestamp = now;
 
         return {
-          ...h,
-          checkIns,
-          totalCheckIns: (h.totalCheckIns || 0) + 1,
-          updatedAt: now,
+          ...touchHabit(h, {
+            checkIns,
+            totalCheckIns: (h.totalCheckIns || 0) + 1,
+            updatedAt: now,
+          }),
         };
       }),
     }));
+    const nextState = cloneHabitSnapshot(get().habits);
+    recordHabitHistory('update', `Check in habit: ${habitId}`, habitId, previousState, nextState);
   },
 
   uncheck: (habitId, date) => {
+    const previousState = cloneHabitSnapshot(get().habits);
     set((state) => ({
       habits: state.habits.map((h) => {
         if (h.id !== habitId) return h;
         const { [date]: _, ...rest } = h.checkIns;
-        return {
-          ...h,
+        return touchHabit(h, {
           checkIns: rest,
-          updatedAt: getLocalDateTimeString(new Date()),
-        };
+        });
       }),
     }));
+    const nextState = cloneHabitSnapshot(get().habits);
+    recordHabitHistory('update', `Uncheck habit date: ${habitId}/${date}`, habitId, previousState, nextState);
   },
 
   setSelectedDate: (date) => set({ selectedDate: date }),
@@ -247,6 +346,99 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   setCollapsedGroups: (groups) => set({ collapsedGroups: groups }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+
+  loadHabits: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const plugin = get().plugin || (getPluginInstance() as HabitStorePlugin | null);
+      if (!plugin?.loadHabitData) {
+        set({ isLoading: false, error: 'Habit plugin instance not available' });
+        return;
+      }
+
+      const data = await plugin.loadHabitData();
+      const localHabits = get().habits.map((item) => normalizeHabit(item));
+      const remoteHabits = (Array.isArray(data?.habits) ? data.habits as Habit[] : []).map((item) => normalizeHabit(item));
+      const groups = Array.isArray(data?.groups) ? data.groups as HabitGroup[] : [];
+
+      const localMap = new Map(localHabits.map((item) => [item.id, item]));
+      const mergedHabits: Habit[] = [];
+      let hasConflict = false;
+
+      for (const remoteHabit of remoteHabits) {
+        const localHabit = localMap.get(remoteHabit.id);
+        if (!localHabit) {
+          mergedHabits.push(remoteHabit);
+          continue;
+        }
+
+        const conflict = ConflictResolver.detectConflicts(
+          toVersionedHabit(localHabit),
+          toVersionedHabit(remoteHabit)
+        );
+
+        if (conflict) {
+          conflict.type = 'habit';
+          conflict.id = remoteHabit.id;
+          hasConflict = true;
+          mergedHabits.push(normalizeHabit(ConflictResolver.autoResolve(conflict)));
+          console.warn('[HabitStore] conflict detected:', conflict);
+        } else {
+          const useLocal = (localHabit.version || 1) > (remoteHabit.version || 1)
+            || ((localHabit.version || 1) === (remoteHabit.version || 1)
+              && (localHabit.timestamp || 0) >= (remoteHabit.timestamp || 0));
+          mergedHabits.push(useLocal ? localHabit : remoteHabit);
+        }
+
+        localMap.delete(remoteHabit.id);
+      }
+
+      if (localMap.size > 0) {
+        for (const habit of localMap.values()) {
+          mergedHabits.push(habit);
+        }
+        hasConflict = true;
+      }
+
+      const normalizedMergedHabits = mergedHabits.map((item) => normalizeHabit(item));
+      set({ habits: normalizedMergedHabits, groups, isLoading: false, error: null });
+
+      if (hasConflict) {
+        await plugin.saveHabitData({
+          habits: normalizedMergedHabits,
+          groups,
+        });
+      }
+    } catch (error) {
+      set({
+        habits: [],
+        groups: [],
+        error: error instanceof Error ? error.message : String(error),
+        isLoading: false,
+      });
+    }
+  },
+
+  saveHabits: async () => {
+    try {
+      const state = get();
+      const plugin = state.plugin || (getPluginInstance() as HabitStorePlugin | null);
+      if (!plugin?.saveHabitData) {
+        set({ error: 'Habit plugin instance not available' });
+        return;
+      }
+
+      await plugin.saveHabitData({
+        habits: state.habits.map((item) => normalizeHabit(item)),
+        groups: state.groups,
+      });
+      if (get().error) {
+        set({ error: null });
+      }
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
+  },
 
   // 判断是否在某天完成
   isCompletedOnDate: (habit, date) => {
@@ -333,7 +525,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   // 获取筛选后的习惯
   getFilteredHabits: () => {
     const state = get();
-    const { habits, currentTab, selectedGroups, selectedDate } = state;
+    const { habits, currentTab, selectedGroups } = state;
     const today = getLogicalDateString();
     const tomorrow = getRelativeDateString(1);
     const yesterday = getRelativeDateString(-1);
@@ -489,3 +681,35 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     return bestStreak;
   },
 }));
+
+useHistoryStore.getState().registerExecutor('habit', (action, direction) => {
+  const snapshot = direction === 'undo' ? action.undoData.previousState : action.redoData.newState;
+  if (!Array.isArray(snapshot)) {
+    return;
+  }
+
+  useHabitStore.setState({ habits: cloneHabitSnapshot(snapshot) });
+});
+
+let saveHabitsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+useHabitStore.subscribe((current, previous) => {
+    if (!current.plugin?.saveHabitData) {
+      return;
+    }
+
+    if (
+      current.habits === previous.habits &&
+      current.groups === previous.groups
+    ) {
+      return;
+    }
+
+    if (saveHabitsDebounceTimer) {
+      clearTimeout(saveHabitsDebounceTimer);
+    }
+
+    saveHabitsDebounceTimer = setTimeout(() => {
+      void useHabitStore.getState().saveHabits();
+    }, 300);
+  });

@@ -11,7 +11,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
-import type { EventClickArg, EventDropArg, EventResizeDoneArg } from '@fullcalendar/core';
+import type { EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { EventInput } from '@fullcalendar/core';
 
 import { useSiYuanPlugin } from '@/bridge';
@@ -74,7 +74,7 @@ export function CalendarView() {
   const plugin = useSiYuanPlugin();
   const categoryManager = useMemo(() => CategoryManager.getInstance(plugin), [plugin]);
   
-  const { reminders, loadReminders, updateReminder, addReminder } = useReminderStore();
+  const { reminders, setPlugin, loadReminders, updateReminder, addReminder } = useReminderStore();
   const { projects, loadProjects } = useProjectStore();
   
   // Local state
@@ -88,7 +88,6 @@ export function CalendarView() {
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedReminder, setSelectedReminder] = useState<CalendarReminder | null>(null);
   
   // Form state for create/edit
@@ -100,12 +99,13 @@ export function CalendarView() {
 
   // Load data on mount
   useEffect(() => {
+    setPlugin(plugin as any);
     loadReminders();
     loadProjects();
     categoryManager.initialize().then(() => {
       setCategories(categoryManager.getCategories());
     });
-  }, [loadReminders, loadProjects, categoryManager]);
+  }, [plugin, setPlugin, loadReminders, loadProjects, categoryManager]);
 
   // Convert reminders to calendar events
   const calendarEvents: EventInput[] = useMemo(() => {
@@ -189,7 +189,6 @@ export function CalendarView() {
   // Handle date click (create new task)
   const handleDateClick = useCallback((arg: DateClickArg) => {
     const dateStr = arg.dateStr;
-    setSelectedDate(dateStr);
     setFormDate(dateStr);
     setFormTitle('');
     setFormTime('');
@@ -225,7 +224,7 @@ export function CalendarView() {
   }, [updateReminder]);
 
   // Handle event resize (change duration)
-  const handleEventResize = useCallback((arg: EventResizeDoneArg) => {
+  const handleEventResize = useCallback((arg: any) => {
     // Store the new end time in the reminder
     const reminderId = arg.event.id;
     const endTime = arg.event.end 

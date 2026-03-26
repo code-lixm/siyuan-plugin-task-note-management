@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useHabitStore, Habit, HabitGroup } from '@/stores/useHabitStore';
+import { useHabitStore, Habit } from '@/stores/useHabitStore';
+import { useSiYuanPlugin } from '@/bridge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
   Select,
@@ -21,12 +21,8 @@ import {
   Plus, 
   Check, 
   Flame, 
-  MoreHorizontal, 
   ChevronDown, 
   ChevronRight,
-  Calendar,
-  BarChart3,
-  Settings,
   RefreshCw,
   Filter,
   Tags,
@@ -34,11 +30,9 @@ import {
   SortDesc
 } from 'lucide-react';
 import { HabitEditDialog } from '@/components/dialogs/HabitEditDialog';
-import { HabitStatsDialog } from '../HabitStatsDialog';
-import { HabitGroupManageDialog } from '../HabitGroupManageDialog';
+import { HabitGroupManageDialog } from '@/components/HabitGroupManageDialog';
 import { HabitCheckInMenu } from '../HabitCheckInMenu';
 import { HabitContextMenu } from '../HabitContextMenu';
-import { HabitGroupManager } from '@/utils/habitGroupManager';
 import { i18n } from '@/pluginInstance';
 import { cn } from '@/lib/utils';
 
@@ -86,28 +80,21 @@ const getPriorityIcon = (priority?: string) => {
   }
 };
 
-// 获取优先级文本
-const getPriorityText = (priority?: string) => {
-  switch (priority) {
-    case 'high': return i18n('highPriority') || '高';
-    case 'medium': return i18n('mediumPriority') || '中';
-    case 'low': return i18n('lowPriority') || '低';
-    default: return i18n('noPriority') || '无';
-  }
-};
-
 export function HabitPanel() {
+  const plugin = useSiYuanPlugin();
   const {
     habits,
     groups,
+    isLoading,
+    error,
     selectedDate,
     currentTab,
     selectedGroups,
     sortKey,
     sortOrder,
     collapsedGroups,
-    setHabits,
-    setGroups,
+    setPlugin,
+    loadHabits,
     setCurrentTab,
     setSelectedGroups,
     setSortKey,
@@ -125,30 +112,12 @@ export function HabitPanel() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isGroupManageOpen, setIsGroupManageOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-  const [viewingStatsHabit, setViewingStatsHabit] = useState<Habit | null>(null);
-  const [isStatsDialogOpen, setIsStatsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const groupManager = HabitGroupManager.getInstance();
 
   // 初始化数据
   useEffect(() => {
-    const initialize = async () => {
-      setIsLoading(true);
-      try {
-        await groupManager.initialize();
-        setGroups(groupManager.getAllGroups());
-        // 这里应该从插件加载实际数据
-        // 暂时使用空数组
-        setHabits([]);
-      } catch (error) {
-        console.error('Failed to initialize habit panel:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    initialize();
-  }, [setGroups, setHabits]);
+    setPlugin(plugin as any);
+    void loadHabits();
+  }, [plugin, setPlugin, loadHabits]);
 
   // 获取筛选后的习惯
   const filteredHabits = useMemo(() => getFilteredHabits(), [getFilteredHabits, habits, currentTab, selectedGroups]);
@@ -172,12 +141,6 @@ export function HabitPanel() {
   const handleEditHabit = (habit: Habit) => {
     setEditingHabit(habit);
     setIsEditDialogOpen(true);
-  };
-
-  // 处理查看统计
-  const handleViewStats = (habit: Habit) => {
-    setViewingStatsHabit(habit);
-    setIsStatsDialogOpen(true);
   };
 
   // 处理删除习惯
@@ -260,7 +223,6 @@ export function HabitPanel() {
         habit={habit}
         onEdit={() => handleEditHabit(habit)}
         onDelete={() => handleDeleteHabit(habit.id)}
-        onViewStats={() => handleViewStats(habit)}
       >
         <Card
           className={cn(
@@ -379,9 +341,9 @@ export function HabitPanel() {
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
           <span className="font-semibold">{groupName}</span>
-          <Badge variant="secondary" className="text-xs">
-            {groupHabits.length}
-          </Badge>
+                  <Badge variant="secondary">
+                    {groupHabits.length}
+                  </Badge>
         </button>
 
         {/* 分组内容 */}
@@ -398,6 +360,14 @@ export function HabitPanel() {
     return (
       <div className="h-full flex items-center justify-center">
         <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center text-sm text-destructive px-4 text-center">
+        {error}
       </div>
     );
   }
@@ -531,7 +501,7 @@ export function HabitPanel() {
                     <span className="font-semibold text-muted-foreground">
                       {i18n('todayCompleted') || '今日已完成'}
                     </span>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary">
                       {todayCompletedHabits.length}
                     </Badge>
                   </button>
@@ -553,15 +523,6 @@ export function HabitPanel() {
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />
-
-      {/* 统计对话框 */}
-      {viewingStatsHabit && (
-        <HabitStatsDialog
-          habit={viewingStatsHabit}
-          open={isStatsDialogOpen}
-          onOpenChange={setIsStatsDialogOpen}
-        />
-      )}
 
       {/* 分组管理对话框 */}
       <HabitGroupManageDialog

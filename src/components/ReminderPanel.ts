@@ -20,6 +20,7 @@ import { getAllReminders, saveReminders } from "../utils/icsSubscription";
 import { isEventPast } from "../utils/icsImport";
 import { PasteTaskDialog } from "./PasteTaskDialog";
 import { createPomodoroStartSubmenu as createSharedPomodoroStartSubmenu } from "@/utils/pomodoroPresets";
+import { mountDialogComponent } from "../bridge/mountReact";
 
 export class ReminderPanel {
     private container: HTMLElement;
@@ -932,35 +933,51 @@ export class ReminderPanel {
     }
 
     private showFilterManagement() {
+        let unmount: (() => void) | null = null;
+
         const dialog = new Dialog({
             title: i18n("filterManagement") || "过滤器管理",
             // use full-height content wrapper and prevent the wrapper itself from scrolling
             content: `<div id="filterManagementContent" style="height: 100%; display:flex; overflow:hidden;"></div>`,
             width: "900px",
-            height: "700px"
+            height: "700px",
+            destroyCallback: () => {
+                if (unmount) {
+                    unmount();
+                    unmount = null;
+                }
+            }
         });
 
         // mark the dialog so we can override dialog-level scrolling for this instance
         dialog.element.classList.add('filter-management-dialog');
 
-        // 动态导入 Svelte 组件
-        import('./FilterManagement.svelte').then((module) => {
+        // 动态导入 React 组件
+        import('./FilterManagement').then((module) => {
             const FilterManagement = module.default;
-            new FilterManagement({
-                target: dialog.element.querySelector('#filterManagementContent'),
-                props: {
+            const target = dialog.element.querySelector('#filterManagementContent') as HTMLElement | null;
+            if (!target) {
+                showMessage('加载过滤器管理组件失败');
+                dialog.destroy();
+                return;
+            }
+
+            const mounted = mountDialogComponent(
+                target,
+                FilterManagement,
+                this.plugin,
+                {
                     plugin: this.plugin,
                     onFilterApplied: async (filter: any) => {
-                        // 应用过滤器逻辑
                         console.log('应用过滤器:', filter);
                         showMessage(i18n("filterApplied") || "过滤器已应用");
-                        // 更新filterSelect（包含重新加载配置缓存）
                         await this.updateFilterSelect();
-                        // 重新加载任务以显示修改后的过滤结果
                         this.loadReminders();
                     }
                 }
-            });
+            );
+
+            unmount = mounted.destroy;
         }).catch((error) => {
             console.error('加载过滤器管理组件失败:', error);
             showMessage('加载过滤器管理组件失败');

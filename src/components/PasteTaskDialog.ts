@@ -3,7 +3,8 @@ import { i18n } from "../pluginInstance";
 import { autoDetectDateTimeFromTitle, getLocalDateTimeString } from "../utils/dateUtils";
 import { getBlockByID, updateBindBlockAtrrs, addBlockProjectId } from "../api";
 import { getAllReminders, saveReminders } from "../utils/icsSubscription";
-import LoadingDialog from './LoadingDialog.svelte';
+import { mountDialogComponent } from "../bridge/mountReact";
+import LoadingDialog from "./LoadingDialog";
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
@@ -61,6 +62,7 @@ export interface PasteTaskDialogConfig {
 export class PasteTaskDialog {
     private config: PasteTaskDialogConfig;
     private loadingDialog: Dialog | null = null;
+    private loadingDialogUnmount: (() => void) | null = null;
     private editor?: Editor;
     private taskListContent: string = '';
 
@@ -648,27 +650,47 @@ export class PasteTaskDialog {
     }
 
     private showLoadingDialog(message: string) {
+        if (this.loadingDialogUnmount) {
+            this.loadingDialogUnmount();
+            this.loadingDialogUnmount = null;
+        }
+
         if (this.loadingDialog) {
             this.loadingDialog.destroy();
         }
+
         this.loadingDialog = new Dialog({
             title: i18n("processing") || "Processing",
             content: `<div id="loadingDialogContent"></div>`,
             width: "350px",
             height: "230px",
             disableClose: true,
-            destroyCallback: null
-        });
-
-        new LoadingDialog({
-            target: this.loadingDialog.element.querySelector('#loadingDialogContent'),
-            props: {
-                message: message
+            destroyCallback: () => {
+                if (this.loadingDialogUnmount) {
+                    this.loadingDialogUnmount();
+                    this.loadingDialogUnmount = null;
+                }
             }
         });
+
+        const container = this.loadingDialog.element.querySelector('#loadingDialogContent') as HTMLElement | null;
+        if (!container) return;
+
+        const { destroy } = mountDialogComponent(
+            container,
+            LoadingDialog,
+            this.config.plugin,
+            { message }
+        );
+        this.loadingDialogUnmount = destroy;
     }
 
     private closeLoadingDialog() {
+        if (this.loadingDialogUnmount) {
+            this.loadingDialogUnmount();
+            this.loadingDialogUnmount = null;
+        }
+
         if (this.loadingDialog) {
             this.loadingDialog.destroy();
             this.loadingDialog = null;

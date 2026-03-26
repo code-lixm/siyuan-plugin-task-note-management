@@ -12,6 +12,8 @@ import { ReminderPanel } from "./components/layout/ReminderPanel";
 import { ProjectPanel } from "./components/layout/ProjectPanel";
 import { HabitPanel } from "./components/layout/HabitPanel";
 import CalendarView from "./components/views/CalendarView";
+import { EisenhowerMatrixView } from "./components/views/EisenhowerMatrixView";
+import { DataMigration } from "./utils/migration";
 
 export const SETTINGS_FILE = "reminder-settings.json";
 export const PROJECT_DATA_FILE = "project.json";
@@ -58,6 +60,7 @@ export default class ReminderPlugin extends Plugin {
     private projectPanelDestroy: (() => void) | null = null;
     private habitPanelDestroy: (() => void) | null = null;
     private calendarViewDestroy: (() => void) | null = null;
+    private eisenhowerViewDestroy: (() => void) | null = null;
 
     async onload() {
         console.log("[Task Daily] Plugin loading...");
@@ -67,6 +70,9 @@ export default class ReminderPlugin extends Plugin {
         
         // Initialize data storage
         await this.initDataStorage();
+
+        // Auto migrate legacy data
+        await this.autoMigrateLegacyData();
         
         // Register docks (using React components)
         this.registerDocks();
@@ -103,6 +109,10 @@ export default class ReminderPlugin extends Plugin {
             this.calendarViewDestroy();
             this.calendarViewDestroy = null;
         }
+        if (this.eisenhowerViewDestroy) {
+            this.eisenhowerViewDestroy();
+            this.eisenhowerViewDestroy = null;
+        }
         
         console.log("[Task Daily] Plugin unloaded");
     }
@@ -116,6 +126,38 @@ export default class ReminderPlugin extends Plugin {
             if (data === null || data === undefined) {
                 await this.saveData(filename, {});
             }
+        }
+    }
+
+    private async autoMigrateLegacyData(): Promise<void> {
+        try {
+            const hasLegacyData = await DataMigration.detectLegacyData(this);
+            if (!hasLegacyData) {
+                return;
+            }
+
+            showMessage(i18n("legacyDataDetected") || "检测到旧版数据，开始迁移...");
+            const migrationResult = await DataMigration.migrate(this);
+
+            if (migrationResult.success) {
+                showMessage(
+                    i18n("legacyMigrationSuccess", {
+                        count: String(migrationResult.migratedCount),
+                    }) || `旧版数据迁移成功，共迁移 ${migrationResult.migratedCount} 条数据`
+                );
+            } else {
+                console.error("[Task Daily] legacy migration failed:", migrationResult.errors);
+                showMessage(
+                    i18n("legacyMigrationFailed", {
+                        count: String(migrationResult.errors.length),
+                    }) || `旧版数据迁移失败，错误数：${migrationResult.errors.length}`,
+                    7000,
+                    "error"
+                );
+            }
+        } catch (error) {
+            console.error("[Task Daily] autoMigrateLegacyData failed:", error);
+            showMessage(i18n("legacyMigrationException") || "旧版数据迁移异常，请查看控制台日志", 7000, "error");
         }
     }
 
@@ -285,10 +327,25 @@ export default class ReminderPlugin extends Plugin {
         // Eisenhower Matrix Tab
         this.addTab({
             type: EISENHOWER_TAB_TYPE,
-            init: () => {
-                showMessage("Eisenhower Matrix - coming soon in React version");
+            init: (tab) => {
+                const container = document.createElement('div');
+                container.id = 'eisenhower-view-root';
+                container.style.height = '100%';
+                tab.element.appendChild(container);
+                
+                const instance = mountTabComponent(
+                    container,
+                    EisenhowerMatrixView,
+                    this as any
+                );
+                this.eisenhowerViewDestroy = instance.destroy;
             },
-            destroy: () => {},
+            destroy: () => {
+                if (this.eisenhowerViewDestroy) {
+                    this.eisenhowerViewDestroy();
+                    this.eisenhowerViewDestroy = null;
+                }
+            },
         });
     }
 

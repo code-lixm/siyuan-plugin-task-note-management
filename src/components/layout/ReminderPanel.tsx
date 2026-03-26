@@ -79,6 +79,7 @@ export function ReminderPanel({ initialTab = 'today' }: ReminderPanelProps) {
   const {
     reminders,
     isLoading,
+    setPlugin,
     loadReminders,
     addReminder,
     updateReminder,
@@ -112,11 +113,12 @@ export function ReminderPanel({ initialTab = 'today' }: ReminderPanelProps) {
 
   // Load reminders on mount and categories
   useEffect(() => {
+    setPlugin(plugin as any);
     loadReminders();
     categoryManager.initialize().then(() => {
       setCategories(categoryManager.getCategories());
     });
-  }, [loadReminders, categoryManager]);
+  }, [plugin, setPlugin, loadReminders, categoryManager]);
 
   // Filter reminders based on active tab and search
   const filteredReminders = useMemo(() => {

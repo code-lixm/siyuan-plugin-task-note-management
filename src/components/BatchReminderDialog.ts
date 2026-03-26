@@ -1,13 +1,14 @@
 import { Dialog, showMessage } from "siyuan";
 import { i18n } from "../pluginInstance";
-import { updateBindBlockAtrrs, getBlockByID } from "../api";
+import { updateBindBlockAtrrs } from "../api";
 import { getRepeatDescription } from "../utils/repeatUtils";
 import { getLogicalDateString, parseNaturalDateTime, autoDetectDateTimeFromTitle, getLocaleTag } from "../utils/dateUtils";
 import { RepeatConfig, RepeatSettingsDialog } from "./RepeatSettingsDialog";
 import { QuickReminderDialog } from "./QuickReminderDialog";
 import { CategoryManager } from "../utils/categoryManager";
 import { ProjectManager } from "../utils/projectManager";
-import LoadingDialog from './LoadingDialog.svelte';
+import { mountDialogComponent } from "../bridge/mountReact";
+import LoadingDialog from "./LoadingDialog";
 
 export interface BlockDetail {
     blockId: string;
@@ -206,6 +207,8 @@ export class BatchReminderDialog {
 
 class SmartBatchDialog {
     private plugin: any;
+    private loadingDialog: Dialog | null = null;
+    private loadingDialogUnmount: (() => void) | null = null;
     private blockIds: string[];
     private autoDetectedData: AutoDetectResult[];
     private blockSettings: Map<string, BlockSetting> = new Map();
@@ -583,8 +586,6 @@ class SmartBatchDialog {
     private bindSmartBatchEvents(dialog: Dialog) {
         const cancelBtn = dialog.element.querySelector('#smartBatchCancelBtn') as HTMLButtonElement;
         const confirmBtn = dialog.element.querySelector('#smartBatchConfirmBtn') as HTMLButtonElement;
-        const container = dialog.element.querySelector('#blockListContainer') as HTMLElement;
-
         // 批量操作相关元素
         const batchToggleBtn = dialog.element.querySelector('#batchToggleBtn') as HTMLButtonElement;
         const batchOperationsContent = dialog.element.querySelector('#batchOperationsContent') as HTMLElement;
@@ -1353,24 +1354,44 @@ class SmartBatchDialog {
         if (this.loadingDialog) {
             this.loadingDialog.destroy();
         }
+
+        if (this.loadingDialogUnmount) {
+            this.loadingDialogUnmount();
+            this.loadingDialogUnmount = null;
+        }
+
         this.loadingDialog = new Dialog({
             title: "Processing",
             content: `<div id="loadingDialogContent"></div>`,
             width: "350px",
             height: "auto",
             disableClose: true,
-            destroyCallback: null
-        });
-
-        const loadingComponent = new LoadingDialog({
-            target: this.loadingDialog.element.querySelector('#loadingDialogContent'),
-            props: {
-                message: message
+            destroyCallback: () => {
+                if (this.loadingDialogUnmount) {
+                    this.loadingDialogUnmount();
+                    this.loadingDialogUnmount = null;
+                }
             }
         });
+
+        const container = this.loadingDialog.element.querySelector('#loadingDialogContent') as HTMLElement | null;
+        if (!container) return;
+
+        const { destroy } = mountDialogComponent(
+            container,
+            LoadingDialog,
+            this.plugin,
+            { message }
+        );
+        this.loadingDialogUnmount = destroy;
     }
 
     private closeLoadingDialog() {
+        if (this.loadingDialogUnmount) {
+            this.loadingDialogUnmount();
+            this.loadingDialogUnmount = null;
+        }
+
         if (this.loadingDialog) {
             this.loadingDialog.destroy();
             this.loadingDialog = null;
@@ -1559,7 +1580,7 @@ interface BlockSetting {
     repeatConfig: RepeatConfig;
 }
 
-class BlockEditDialog {
+export class BlockEditDialog {
     private plugin: any;
     private setting: BlockSetting;
     private onSave: (setting: BlockSetting) => void;
@@ -1927,7 +1948,6 @@ class BlockEditDialog {
         const cancelBtn = dialog.element.querySelector('#editCancelBtn') as HTMLButtonElement;
         const saveBtn = dialog.element.querySelector('#editSaveBtn') as HTMLButtonElement;
         const noTimeCheckbox = dialog.element.querySelector('#editNoSpecificTime') as HTMLInputElement;
-        const noteInput = dialog.element.querySelector('#editReminderNote') as HTMLTextAreaElement;
         const prioritySelector = dialog.element.querySelector('#editPrioritySelector') as HTMLElement;
         const categorySelector = dialog.element.querySelector('#editCategorySelector') as HTMLElement;
         const repeatSettingsBtn = dialog.element.querySelector('#editRepeatSettingsBtn') as HTMLButtonElement;

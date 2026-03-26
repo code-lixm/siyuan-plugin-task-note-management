@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectStore, type Project, type Milestone as MilestoneType } from '@/stores/useProjectStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,15 +63,22 @@ type SortOrder = 'asc' | 'desc';
 export function ProjectPanel() {
   const {
     projects,
+    isLoading,
+    error,
     addProject,
     updateProject,
     deleteProject,
+    loadProjects,
     selectedProjectId,
     selectProject,
     addMilestone,
     updateMilestone,
     deleteMilestone,
   } = useProjectStore();
+
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
 
   // 本地状态
   const [isCreating, setIsCreating] = useState(false);
@@ -394,6 +401,12 @@ export function ProjectPanel() {
 
       {/* 项目列表 */}
       <div className="flex-1 overflow-auto p-4">
+        {isLoading && (
+          <div className="text-center text-sm text-muted-foreground mb-3">{i18n("loading") || 'Loading...'}</div>
+        )}
+        {error && (
+          <div className="text-center text-sm text-destructive mb-3">{error}</div>
+        )}
         <div className="space-y-2">
           {sortedProjects.map((project) => {
             const stats = getProjectStats(project.id);
