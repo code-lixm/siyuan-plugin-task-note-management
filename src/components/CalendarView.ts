@@ -65,6 +65,8 @@ export class CalendarView {
     private dropIndicator: HTMLElement | null = null; // 拖放放置指示器
     private externalReminderUpdatedHandler: ((e: Event) => void) | null = null;
     private settingUpdateHandler: ((e: Event) => void) | null = null;
+    private projectUpdatedHandler: (() => void) | null = null;
+    private projectColorUpdatedHandler: (() => void) | null = null;
     private hideTooltipTimeout: number | null = null;
     private tooltipShowTimeout: number | null = null;
     private refreshTimeout: number | null = null;
@@ -1744,7 +1746,8 @@ export class CalendarView {
             datesSet: () => {
                 this.refreshEvents();
                 this.refreshDailyNoteDates();
-            }
+            },
+            height: 'parent'  // 让日历撑满父容器高度，内部的 table 自己滚动
         });
 
         this.calendar.render();
@@ -2066,11 +2069,19 @@ export class CalendarView {
         };
         window.addEventListener('reminderSettingsUpdated', this.settingUpdateHandler);
 
-        // 监听项目颜色更新事件
-        window.addEventListener('projectColorUpdated', () => {
+        this.projectUpdatedHandler = async () => {
+            await this.projectManager.loadProjects();
             this.colorCache.clear();
             this.refreshEvents();
-        });
+        };
+        window.addEventListener('projectUpdated', this.projectUpdatedHandler);
+
+        // 监听项目颜色更新事件
+        this.projectColorUpdatedHandler = () => {
+            this.colorCache.clear();
+            this.refreshEvents();
+        };
+        window.addEventListener('projectColorUpdated', this.projectColorUpdatedHandler);
 
         // 监听主题变化
         const themeObserver = new MutationObserver((mutations) => {
@@ -2998,8 +3009,8 @@ export class CalendarView {
             const instanceData = {
                 ...originalReminder,
                 id: calendarEvent.id,
-                date: calendarEvent.extendedProps.date,
-                endDate: calendarEvent.extendedProps.endDate,
+                date: calendarEvent.extendedProps.sourceDate || calendarEvent.extendedProps.date,
+                endDate: calendarEvent.extendedProps.sourceEndDate || calendarEvent.extendedProps.endDate,
                 time: calendarEvent.extendedProps.time,
                 endTime: calendarEvent.extendedProps.endTime,
                 // 修改备注逻辑：复用原始事件的备注，如果实例有明确的备注则优先使用
@@ -3199,7 +3210,7 @@ export class CalendarView {
             if (targetDate) {
                 dateStr = getLocalDateString(targetDate);
             } else {
-                dateStr = props.date || originalReminder.date;
+                dateStr = props.sourceDate || props.date || originalReminder.date;
             }
 
             // 构造新提醒对象
@@ -5917,6 +5928,145 @@ export class CalendarView {
         }
     }
 
+    private isWeekendDate(date: string): boolean {
+        const day = new Date(`${date}T12:00:00`).getDay();
+        return day === 0 || day === 6;
+    }
+
+    private isNonWorkingDate(date: string): boolean {
+        const holidayInfo = this.holidays[date];
+        if (holidayInfo?.type === 'workday') return false;
+        if (holidayInfo?.type === 'holiday') return true;
+        return this.isWeekendDate(date);
+    }
+
+    private shouldFilterCrossPeriodReminder(reminder: any): boolean {
+        const taskEnabled = reminder?.filterCrossPeriodOnNonWorkingDays === true;
+        const projectEnabled = reminder?.projectFilterCrossPeriodOnNonWorkingDays === true;
+        if (!taskEnabled && !projectEnabled) return false;
+        if (reminder?.repeat?.enabled) return true;
+
+        const startDate = reminder?.date || reminder?.startDate;
+        const endDate = reminder?.endDate || startDate;
+        if (!startDate || !endDate) return false;
+
+        return getDaysDifference(startDate, endDate) > 0;
+    }
+
+    private getVisibleDateRanges(reminder: any, startDate: string, endDate?: string): Array<{ startDate: string; endDate: string }> {
+        if (!startDate) return [];
+
+        const actualEndDate = endDate || startDate;
+        if (!this.shouldFilterCrossPeriodReminder(reminder)) {
+            return [{ startDate, endDate: actualEndDate }];
+        }
+
+        const visibleRanges: Array<{ startDate: string; endDate: string }> = [];
+        let rangeStart: string | null = null;
+        let currentDate = startDate;
+
+        while (compareDateStrings(currentDate, actualEndDate) <= 0) {
+            if (!this.isNonWorkingDate(currentDate)) {
+                if (!rangeStart) {
+                    rangeStart = currentDate;
+                }
+            } else if (rangeStart) {
+                visibleRanges.push({
+                    startDate: rangeStart,
+                    endDate: addDaysToDate(currentDate, -1)
+                });
+                rangeStart = null;
+            }
+
+            currentDate = addDaysToDate(currentDate, 1);
+        }
+
+        if (rangeStart) {
+            visibleRanges.push({ startDate: rangeStart, endDate: actualEndDate });
+        }
+
+        return visibleRanges;
+    }
+
+    private applyEventDateRange(eventObj: any, reminder: any, segmentStartDate: string, segmentEndDate: string, originalStartDate: string, originalEndDate: string | undefined, viewType?: string) {
+        if (originalEndDate && originalStartDate !== originalEndDate) {
+            if (reminder.time && reminder.endTime) {
+                const isDayGridView = viewType ? (viewType.startsWith('dayGrid') || viewType === 'multiMonthYear') : false;
+                if (isDayGridView) {
+                    eventObj.start = segmentStartDate;
+                    eventObj.end = addDaysToDate(segmentEndDate, 1);
+                    eventObj.allDay = true;
+                    eventObj.title = `${reminder.title || i18n("unnamedNote")} (${reminder.time}~${reminder.endTime})`;
+                } else {
+                    const segmentStartTime = segmentStartDate === originalStartDate ? reminder.time : '00:00';
+                    const segmentEndsAtOriginalEnd = segmentEndDate === originalEndDate;
+                    const segmentEndDateValue = segmentEndsAtOriginalEnd ? segmentEndDate : addDaysToDate(segmentEndDate, 1);
+                    const segmentEndTime = segmentEndsAtOriginalEnd ? reminder.endTime : '00:00';
+
+                    eventObj.start = `${segmentStartDate}T${segmentStartTime}:00`;
+                    eventObj.end = `${segmentEndDateValue}T${segmentEndTime}:00`;
+                    eventObj.allDay = false;
+                }
+            } else {
+                eventObj.start = segmentStartDate;
+                eventObj.end = addDaysToDate(segmentEndDate, 1);
+                eventObj.allDay = true;
+
+                if (reminder.time) {
+                    eventObj.title = `${reminder.title || i18n("unnamedNote")} (${reminder.time})`;
+                }
+            }
+            return;
+        }
+
+        if (originalEndDate && !reminder.date) {
+            if (reminder.endTime) {
+                const endTimeDate = new Date(`${segmentEndDate}T${reminder.endTime}:00`);
+                const startTimeDate = new Date(endTimeDate);
+                startTimeDate.setMinutes(startTimeDate.getMinutes() - 30);
+
+                if (startTimeDate.getDate() !== endTimeDate.getDate()) {
+                    startTimeDate.setDate(endTimeDate.getDate());
+                    startTimeDate.setHours(0, 0, 0, 0);
+                }
+
+                const startTimeStr = startTimeDate.toTimeString().substring(0, 5);
+                eventObj.start = `${segmentEndDate}T${startTimeStr}:00`;
+                eventObj.end = `${segmentEndDate}T${reminder.endTime}:00`;
+                eventObj.allDay = false;
+            } else {
+                eventObj.start = segmentEndDate;
+                eventObj.allDay = true;
+                eventObj.display = 'block';
+            }
+            return;
+        }
+
+        if (reminder.time) {
+            eventObj.start = `${segmentStartDate}T${reminder.time}:00`;
+            if (reminder.endTime) {
+                eventObj.end = `${segmentStartDate}T${reminder.endTime}:00`;
+            } else {
+                const startTime = new Date(`${segmentStartDate}T${reminder.time}:00`);
+                const endTime = new Date(startTime);
+                endTime.setMinutes(endTime.getMinutes() + 30);
+
+                if (endTime.getDate() !== startTime.getDate()) {
+                    endTime.setDate(startTime.getDate());
+                    endTime.setHours(23, 59, 0, 0);
+                }
+
+                const endTimeStr = endTime.toTimeString().substring(0, 5);
+                eventObj.end = `${segmentStartDate}T${endTimeStr}:00`;
+            }
+            eventObj.allDay = false;
+        } else {
+            eventObj.start = segmentStartDate;
+            eventObj.allDay = true;
+            eventObj.display = 'block';
+        }
+    }
+
     private async getEvents(force: boolean = false) {
         try {
             // 加载订阅日历排序
@@ -6021,6 +6171,11 @@ export class CalendarView {
                     reminder.parentTitle = parentInfo.title;
                 }
 
+                const projectFilterCrossPeriodOnNonWorkingDays = reminder?.projectId
+                    ? projectData?.[reminder.projectId]?.filterCrossPeriodOnNonWorkingDays === true
+                    : false;
+                reminder.projectFilterCrossPeriodOnNonWorkingDays = projectFilterCrossPeriodOnNonWorkingDays;
+
                 // If repeat settings exist, do not display the original event (only display instances); otherwise, display the original event
                 if (!reminder.repeat?.enabled) {
                     this.addEventToList(events, reminder, reminder.id, false, undefined, this.calendar?.view?.type);
@@ -6059,6 +6214,7 @@ export class CalendarView {
                         const instanceReminder = {
                             ...reminder,
                             ...instance,
+                            projectFilterCrossPeriodOnNonWorkingDays,
                             completed: isInstanceCompleted
                         };
 
@@ -6128,6 +6284,7 @@ export class CalendarView {
                                 kanbanStatus: mod.kanbanStatus !== undefined ? mod.kanbanStatus : reminder.kanbanStatus,
                                 tagIds: mod.tagIds !== undefined ? mod.tagIds : reminder.tagIds,
                                 milestoneId: mod.milestoneId !== undefined ? mod.milestoneId : reminder.milestoneId,
+                                projectFilterCrossPeriodOnNonWorkingDays: (mod.projectId !== undefined ? projectData?.[mod.projectId]?.filterCrossPeriodOnNonWorkingDays === true : projectFilterCrossPeriodOnNonWorkingDays),
                                 sort: (mod && typeof mod.sort === 'number') ? mod.sort : (reminder.sort || 0)
                             };
 
@@ -6849,7 +7006,7 @@ export class CalendarView {
         classNames += (!reminder.blockId) ? ' no-block-binding' : ' has-block-binding';
 
         // 构建事件对象（优化：直接使用colors.backgroundColor和colors.borderColor）
-        const eventObj: any = {
+        const baseEventObj: any = {
             id: eventId,
             title: reminder.title || i18n("unnamedNote"),
             backgroundColor: colors.backgroundColor,
@@ -6865,6 +7022,8 @@ export class CalendarView {
                 note: reminder.note || '',
                 date: reminder.date || reminder.startDate || reminder.endDate,
                 endDate: reminder.endDate || null,
+                sourceDate: reminder.date || reminder.startDate || reminder.endDate,
+                sourceEndDate: reminder.endDate || null,
                 time: reminder.time || null,
                 endTime: reminder.endTime || null,
                 priority: priority,
@@ -6883,100 +7042,52 @@ export class CalendarView {
                 repeat: reminder.repeat,
                 isSubscribed: reminder.isSubscribed || false,
                 subscriptionId: reminder.subscriptionId,
-                showNoteInCalendar: reminder.showNoteInCalendar
+                showNoteInCalendar: reminder.showNoteInCalendar,
+                isDisplaySegment: false,
+                displayStartDate: reminder.date || reminder.startDate || reminder.endDate,
+                displayEndDate: reminder.endDate || reminder.date || reminder.startDate || null
             }
         };
 
         // 处理日期逻辑：优先使用 date 作为开始日期，如果没有 date 则使用 endDate
         const startDate = reminder.date || reminder.startDate || reminder.endDate;
-        const endDate = reminder.endDate;
+        const endDate = reminder.endDate || startDate;
+        const visibleRanges = this.getVisibleDateRanges(reminder, startDate, endDate);
 
-        // 处理跨天事件
-        if (endDate && startDate !== endDate) {
-            // 既有开始日期又有结束日期，且不相同，是跨天事件
-            if (reminder.time && reminder.endTime) {
-                const isDayGridView = viewType ? (viewType.startsWith('dayGrid') || viewType === 'multiMonthYear') : false;
-                if (isDayGridView) {
-                    eventObj.start = startDate;
-                    const endDateObj = new Date(endDate);
-                    endDateObj.setDate(endDateObj.getDate() + 1);
-                    eventObj.end = getLocalDateString(endDateObj);
-                    eventObj.allDay = true;
-                    eventObj.title = `${reminder.title || i18n("unnamedNote")} (${reminder.time}~${reminder.endTime})`;
-                } else {
-                    eventObj.start = `${startDate}T${reminder.time}:00`;
-                    eventObj.end = `${endDate}T${reminder.endTime}:00`;
-                    eventObj.allDay = false;
-                }
-            } else {
-                eventObj.start = startDate;
-                const endDateObj = new Date(endDate);
-                endDateObj.setDate(endDateObj.getDate() + 1);
-                eventObj.end = getLocalDateString(endDateObj);
-                eventObj.allDay = true;
-
-                if (reminder.time) {
-                    eventObj.title = `${reminder.title || i18n("unnamedNote")} (${reminder.time})`;
-                }
-            }
-        } else if (endDate && !reminder.date) {
-            // 只有结束日期，没有开始日期：在结束日期当天显示为单日事件
-            if (reminder.endTime) {
-                // 有结束时间，设置为定时事件（结束时间前30分钟开始）
-                const endTimeDate = new Date(`${endDate}T${reminder.endTime}:00`);
-                const startTimeDate = new Date(endTimeDate);
-                startTimeDate.setMinutes(startTimeDate.getMinutes() - 30);
-
-                // 如果开始时间到了前一天，则从当天00:00开始
-                if (startTimeDate.getDate() !== endTimeDate.getDate()) {
-                    startTimeDate.setDate(endTimeDate.getDate());
-                    startTimeDate.setHours(0, 0, 0, 0);
-                }
-
-                const startTimeStr = startTimeDate.toTimeString().substring(0, 5);
-                eventObj.start = `${endDate}T${startTimeStr}:00`;
-                eventObj.end = `${endDate}T${reminder.endTime}:00`;
-                eventObj.allDay = false;
-            } else {
-                // 没有结束时间，作为全天事件显示在结束日期
-                eventObj.start = endDate;
-                eventObj.allDay = true;
-                eventObj.display = 'block';
-            }
-        } else {
-            // 只有开始日期（或开始和结束日期相同）
-            if (reminder.time) {
-                eventObj.start = `${startDate}T${reminder.time}:00`;
-                if (reminder.endTime) {
-                    eventObj.end = `${startDate}T${reminder.endTime}:00`;
-                } else {
-                    // 对于只有开始时间的提醒，设置30分钟的默认持续时间，但确保不跨天
-                    const startTime = new Date(`${startDate}T${reminder.time}:00`);
-                    const endTime = new Date(startTime);
-                    endTime.setMinutes(endTime.getMinutes() + 30);
-
-                    // 检查是否跨天，如果跨天则设置为当天23:59
-                    if (endTime.getDate() !== startTime.getDate()) {
-                        endTime.setDate(startTime.getDate());
-                        endTime.setHours(23, 59, 0, 0);
-                    }
-
-                    const endTimeStr = endTime.toTimeString().substring(0, 5);
-                    eventObj.end = `${startDate}T${endTimeStr}:00`;
-                }
-                eventObj.allDay = false;
-            } else {
-                eventObj.start = startDate;
-                eventObj.allDay = true;
-                eventObj.display = 'block';
-            }
+        if (visibleRanges.length === 0) {
+            return;
         }
 
-        if (!eventObj.allDay) {
-            eventObj.display = 'block';
-        }
+        for (const range of visibleRanges) {
+            const eventObj: any = {
+                ...baseEventObj,
+                extendedProps: { ...baseEventObj.extendedProps }
+            };
 
-        events.push(eventObj);
+            const isFilteredSegment = this.shouldFilterCrossPeriodReminder(reminder) && (
+                visibleRanges.length > 1 ||
+                range.startDate !== startDate ||
+                range.endDate !== endDate
+            );
+
+            if (isFilteredSegment) {
+                eventObj.editable = false;
+                eventObj.startEditable = false;
+                eventObj.durationEditable = false;
+            }
+
+            eventObj.extendedProps.isDisplaySegment = isFilteredSegment;
+            eventObj.extendedProps.displayStartDate = range.startDate;
+            eventObj.extendedProps.displayEndDate = range.startDate === range.endDate ? null : range.endDate;
+
+            this.applyEventDateRange(eventObj, reminder, range.startDate, range.endDate, startDate, reminder.endDate, viewType);
+
+            if (!eventObj.allDay) {
+                eventObj.display = 'block';
+            }
+
+            events.push(eventObj);
+        }
     }
 
     private async showEventTooltip(event: MouseEvent, calendarEvent: any) {
@@ -7371,7 +7482,8 @@ export class CalendarView {
                         // 重复事件实例的完成时间
                         const originalReminder = reminderData[reminder.originalId];
                         if (originalReminder?.repeat?.completedTimes) {
-                            completedTime = originalReminder.repeat.completedTimes[reminder.date];
+                            const repeatedInstanceDate = calendarEvent.id?.split('_').pop() || reminder.sourceDate || reminder.date;
+                            completedTime = originalReminder.repeat.completedTimes[repeatedInstanceDate];
                         }
                     } else {
                         // 普通事件的完成时间
@@ -7625,10 +7737,18 @@ export class CalendarView {
             window.removeEventListener('reminderUpdated', this.externalReminderUpdatedHandler);
             this.externalReminderUpdatedHandler = null;
         }
-        window.removeEventListener('projectColorUpdated', () => {
-            this.colorCache.clear();
-            this.refreshEvents();
-        });
+        if (this.settingUpdateHandler) {
+            window.removeEventListener('reminderSettingsUpdated', this.settingUpdateHandler);
+            this.settingUpdateHandler = null;
+        }
+        if (this.projectUpdatedHandler) {
+            window.removeEventListener('projectUpdated', this.projectUpdatedHandler);
+            this.projectUpdatedHandler = null;
+        }
+        if (this.projectColorUpdatedHandler) {
+            window.removeEventListener('projectColorUpdated', this.projectColorUpdatedHandler);
+            this.projectColorUpdatedHandler = null;
+        }
 
         // 销毁日历实例
         if (this.calendar) {
@@ -8673,7 +8793,7 @@ export class CalendarView {
 
         // 判断是否是重复任务实例
         const isInstanceEdit = calendarEvent.extendedProps?.isRepeated || false;
-        const instanceDate = calendarEvent.extendedProps?.date;
+        const instanceDate = calendarEvent.extendedProps?.sourceDate || calendarEvent.extendedProps?.date;
 
         const parentDialog = new QuickReminderDialog(
             isInstanceEdit ? instanceDate : parentTask.date,

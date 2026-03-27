@@ -41,6 +41,7 @@ export interface Project {
     startDate?: string;
     createdTime?: string;
     categoryId?: string;
+    filterCrossPeriodOnNonWorkingDays?: boolean;
 }
 
 /**
@@ -149,7 +150,8 @@ export class ProjectManager {
                         sort: project.sort || 0,
                         startDate: project.startDate,
                         createdTime: project.createdTime,
-                        categoryId: project.categoryId
+                        categoryId: project.categoryId,
+                        filterCrossPeriodOnNonWorkingDays: project.filterCrossPeriodOnNonWorkingDays === true
                     }));
 
                 // 从项目中提取颜色到 projectColors

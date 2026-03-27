@@ -44,7 +44,7 @@ export class ProjectDialog {
                 title: existingProject ? (i18n("edit") + i18n("project")) : (this.blockId ? (i18n("setAsProjectNote") || "设置为项目笔记") : (i18n("createProject") || "创建项目")),
                 content: this.generateDialogHTML(existingProject?.title || blockContent, existingProject),
                 width: "500px",
-                height: "630px"
+                height: "680px"
             });
 
             this.bindEvents();
@@ -123,11 +123,19 @@ export class ProjectDialog {
                         <input type="date" id="projectStartDate" class="b3-text-field" value="${existingProject?.startDate || today}" max="9999-12-31">
                     </div>
                     
+                     <div class="form-group">
+                         <label>${i18n("endDate") || "截止日期"}:</label>
+                         <input type="date" id="projectEndDate" class="b3-text-field" value="${existingProject?.endDate || ''}" max="9999-12-31">
+                     </div>
+
                     <div class="form-group">
-                        <label>${i18n("endDate") || "截止日期"}:</label>
-                        <input type="date" id="projectEndDate" class="b3-text-field" value="${existingProject?.endDate || ''}" max="9999-12-31">
+                        <label class="b3-checkbox">
+                            <input type="checkbox" class="b3-switch" id="projectFilterCrossPeriodOnNonWorkingDays" ${existingProject?.filterCrossPeriodOnNonWorkingDays ? 'checked' : ''}>
+                            <span class="b3-checkbox__graphic"></span>
+                            <span class="b3-checkbox__label">${i18n("projectFilterCrossPeriodOnNonWorkingDays")}</span>
+                        </label>
                     </div>
-                </div>
+                 </div>
                 
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="cancelBtn">${i18n("cancel") || "取消"}</button>
@@ -330,6 +338,7 @@ export class ProjectDialog {
             const colorEl = this.dialog.element.querySelector('#projectColor') as HTMLInputElement;
             const startDateEl = this.dialog.element.querySelector('#projectStartDate') as HTMLInputElement;
             const endDateEl = this.dialog.element.querySelector('#projectEndDate') as HTMLInputElement;
+            const filterCrossPeriodEl = this.dialog.element.querySelector('#projectFilterCrossPeriodOnNonWorkingDays') as HTMLInputElement;
 
             const title = titleEl.value.trim();
             if (!title) {
@@ -369,6 +378,7 @@ export class ProjectDialog {
                 color: colorEl.value,
                 startDate: startDate,
                 endDate: endDate || null,
+                filterCrossPeriodOnNonWorkingDays: filterCrossPeriodEl?.checked === true,
                 // 保持向后兼容
                 archived: statusEl.value === 'archived',
                 updatedTime: new Date().toISOString(),

@@ -250,6 +250,11 @@ export default class ReminderPlugin extends Plugin {
     private projectPanel: ProjectPanel;
     private projectDockElement: HTMLElement;
     private taskNoteDOM: TaskNoteDOMManager;
+    private processingBlockButtons: Set<string> = new Set();
+    private outlinePrefixCache: Map<string, string> = new Map();
+    private protyleObservers: WeakMap<Element, MutationObserver> = new WeakMap();
+    private protyleDebounceTimers: WeakMap<Element, number> = new WeakMap();
+    private currentHeadingIds: Set<string> = new Set();
 
     // ICS 云端同步相关
     // ICS 订阅同步相关

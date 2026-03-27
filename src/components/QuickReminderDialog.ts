@@ -739,6 +739,11 @@ export class QuickReminderDialog {
             hideInCalendarCheckbox.checked = true;
         }
 
+        const filterCrossPeriodCheckbox = this.dialog.element.querySelector('#quickFilterCrossPeriodOnNonWorkingDays') as HTMLInputElement;
+        if (filterCrossPeriodCheckbox && this.reminder.filterCrossPeriodOnNonWorkingDays) {
+            filterCrossPeriodCheckbox.checked = true;
+        }
+
         // 填充标题
         if (titleInput && this.reminder.title) {
             titleInput.value = this.reminder.title;
@@ -1834,6 +1839,14 @@ export class QuickReminderDialog {
                                     <span class="b3-checkbox__graphic"></span>
                                     <span class="b3-checkbox__label">${i18n("hideInCalendar")}</span>
                                 </label>
+                                <label class="b3-checkbox">
+                                    <input type="checkbox" class="b3-switch" id="quickFilterCrossPeriodOnNonWorkingDays">
+                                    <span class="b3-checkbox__graphic"></span>
+                                    <span class="b3-checkbox__label">${i18n("filterCrossPeriodOnNonWorkingDays")}</span>
+                                </label>
+                                <div id="quickFilterCrossPeriodInheritedHint" class="b3-form__help" style="display: none; margin: 4px 0 0 28px; font-size: 12px; color: var(--b3-theme-on-surface-light);">
+                                    ${i18n("filterCrossPeriodOnNonWorkingDaysInheritedFromProject")}
+                                </div>
                             </div>
                         </div>
                         </div>
@@ -2718,6 +2731,8 @@ export class QuickReminderDialog {
         const advancedDisplaySection = this.dialog.element.querySelector('#quickAdvancedDisplaySection') as HTMLElement;
         const customReminderGroup = this.dialog.element.querySelector('#quickCustomReminderGroup') as HTMLElement;
         const repeatSettingsGroup = this.dialog.element.querySelector('#repeatSettingsGroup') as HTMLElement;
+        const filterCrossPeriodCheckbox = this.dialog.element.querySelector('#quickFilterCrossPeriodOnNonWorkingDays') as HTMLInputElement;
+        const projectSelector = this.dialog.element.querySelector('#quickProjectSelector') as HTMLInputElement;
 
         // 更新标题为绑定块内容
         syncBlockTitleBtn?.addEventListener('click', () => {
@@ -2861,6 +2876,10 @@ export class QuickReminderDialog {
         // 有些浏览器的步进按钮触发 keydown(ArrowUp/Down)，延迟执行以读取最新值
         durationInput?.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') setTimeout(normalizeDuration, 0);
+        });
+
+        filterCrossPeriodCheckbox?.addEventListener('change', async () => {
+            await this.updateCrossPeriodFilterInheritedHint(projectSelector?.value || undefined);
         });
 
         const normalizeEstimatedPomodoroDuration = () => {
@@ -3746,6 +3765,8 @@ export class QuickReminderDialog {
             this.updateKanbanStatusSelector();
         }
 
+        await this.updateCrossPeriodFilterInheritedHint(projectId || undefined);
+
         // 更新标签选择器
         await this.renderTagsSelector();
     }
@@ -3766,6 +3787,29 @@ export class QuickReminderDialog {
         }
 
         return undefined;
+    }
+
+    private async isProjectCrossPeriodFilterEnabled(projectId?: string): Promise<boolean> {
+        if (!projectId || !this.plugin?.loadProjectData) {
+            return false;
+        }
+
+        try {
+            const projectData = await this.plugin.loadProjectData();
+            return projectData?.[projectId]?.filterCrossPeriodOnNonWorkingDays === true;
+        } catch (error) {
+            console.warn('读取项目跨周期过滤配置失败:', error);
+            return false;
+        }
+    }
+
+    private async updateCrossPeriodFilterInheritedHint(projectId?: string) {
+        const hintEl = this.dialog.element.querySelector('#quickFilterCrossPeriodInheritedHint') as HTMLElement;
+        const checkbox = this.dialog.element.querySelector('#quickFilterCrossPeriodOnNonWorkingDays') as HTMLInputElement;
+        if (!hintEl || !checkbox) return;
+
+        const projectEnabled = await this.isProjectCrossPeriodFilterEnabled(projectId);
+        hintEl.style.display = projectEnabled && checkbox.checked !== true ? 'block' : 'none';
     }
 
     /**
@@ -4135,6 +4179,7 @@ export class QuickReminderDialog {
 
         // 不在日历视图显示
         const hideInCalendar = (this.dialog.element.querySelector('#quickHideInCalendar') as HTMLInputElement)?.checked || false;
+        const filterCrossPeriodOnNonWorkingDays = (this.dialog.element.querySelector('#quickFilterCrossPeriodOnNonWorkingDays') as HTMLInputElement)?.checked || false;
 
 
         // 获取选中的标签ID（使用 selectedTagIds 属性）
@@ -4207,7 +4252,8 @@ export class QuickReminderDialog {
                 estimatedPomodoroDuration: estimatedPomodoroDuration,
                 isAvailableToday: isAvailableToday,
                 availableStartDate: availableStartDate,
-                hideInCalendar: hideInCalendar
+                hideInCalendar: hideInCalendar,
+                filterCrossPeriodOnNonWorkingDays: filterCrossPeriodOnNonWorkingDays
             };
 
             // 如果有绑定块，尝试获取并设置 docId
@@ -4289,6 +4335,7 @@ export class QuickReminderDialog {
             optimisticReminder.isAvailableToday = isAvailableToday;
             optimisticReminder.availableStartDate = availableStartDate;
             optimisticReminder.hideInCalendar = hideInCalendar;
+            optimisticReminder.filterCrossPeriodOnNonWorkingDays = filterCrossPeriodOnNonWorkingDays;
 
             // 同步 docId 用于 UI 显示
             optimisticReminder.docId = optimisticDocId !== null ? optimisticDocId : (this.reminder?.docId || undefined);
@@ -4448,6 +4495,7 @@ export class QuickReminderDialog {
                         reminder.isAvailableToday = isAvailableToday;
                         reminder.availableStartDate = availableStartDate;
                         reminder.hideInCalendar = hideInCalendar;
+                        reminder.filterCrossPeriodOnNonWorkingDays = filterCrossPeriodOnNonWorkingDays;
 
                         // 设置或删除 documentId
                         if (inputId) {
@@ -4670,6 +4718,7 @@ export class QuickReminderDialog {
                         isAvailableToday: isAvailableToday,
                         availableStartDate: availableStartDate,
                         hideInCalendar: hideInCalendar,
+                        filterCrossPeriodOnNonWorkingDays: filterCrossPeriodOnNonWorkingDays,
                         // 旧字段 `customReminderTime` 不再写入，新提醒统一保存到 `reminderTimes`
                         reminderTimes: this.customTimes.length > 0 ? [...this.customTimes] : undefined,
                         estimatedPomodoroDuration: estimatedPomodoroDuration
