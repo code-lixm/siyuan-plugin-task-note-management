@@ -1072,7 +1072,7 @@ export class PomodoroTimer {
                             padding: 10px 24px;
                             font-size: 14px;
                             border: none;
-                            border-radius: 4px;
+                            border-radius: var(--task-radius-xs);
                             cursor: pointer;
                             font-family: inherit;
                             transition: background-color 0.2s;
@@ -2132,7 +2132,7 @@ export class PomodoroTimer {
                 width: 240px;
                 background: var(--b3-theme-background);
                 border: 1px solid var(--b3-table-border-color);
-                border-radius: 12px;
+                border-radius: var(--task-radius-xl);
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
                 z-index: 10000;
                 user-select: none;
@@ -2151,7 +2151,7 @@ export class PomodoroTimer {
         header.style.cssText = `
             padding: 6px;
             background: var(--b3-theme-surface);
-            border-radius: 12px 12px 0 0;
+            border-radius: var(--task-radius-xl) 12px 0 0;
             border-bottom: 1px solid var(--b3-table-border-color);
             display: flex;
             justify-content: space-between;
@@ -2178,7 +2178,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface);
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 16px;
             line-height: 1;
             transition: all 0.2s;
@@ -2223,7 +2223,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface);
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 14px;
             line-height: 1;
             opacity: 0.7;
@@ -2245,7 +2245,7 @@ export class PomodoroTimer {
             right: 0;
             background: var(--b3-theme-surface);
             border: 1px solid var(--b3-theme-border);
-            border-radius: 8px;
+            border-radius: var(--task-radius-md);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(8px);
             z-index: 1000;
@@ -2352,7 +2352,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface);
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 14px;
             line-height: 1;
             opacity: 0.7;
@@ -2378,7 +2378,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface);
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 14px;
             line-height: 1;
             opacity: 0.7;
@@ -2405,7 +2405,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface);
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 16px;
             line-height: 1;
             opacity: 0.7;
@@ -2428,7 +2428,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface);
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 14px;
             line-height: 1;
             opacity: 0.7;
@@ -2481,7 +2481,7 @@ export class PomodoroTimer {
             font-weight: 600;
             color: var(--b3-theme-on-surface);
             text-align: center;
-            border-radius: 6px;
+            border-radius: var(--task-radius-sm);
             border: 1px solid var(--b3-theme-border);
             white-space: nowrap;
             overflow: hidden;
@@ -2743,7 +2743,7 @@ export class PomodoroTimer {
             line-height: 1.2;
             cursor: pointer;
             user-select: none;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             padding: 2px 4px;
             transition: background-color 0.2s;
         `;
@@ -2840,7 +2840,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface-variant);
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 14px;
             line-height: 1;
             opacity: 0.7;
@@ -2889,7 +2889,7 @@ export class PomodoroTimer {
             justify-content: space-between;
             padding: 12px;
             background: var(--b3-theme-surface);
-            border-radius: 8px;
+            border-radius: var(--task-radius-md);
             transition: all 0.3s ease;
             width: 100%;
             box-sizing: border-box;
@@ -3117,7 +3117,7 @@ export class PomodoroTimer {
                 justify-content: space-between;
                 padding: clamp(8px, 1vh, 16px) clamp(12px, 2vw, 24px);
                 background: var(--b3-theme-surface);
-                border-radius: 8px;
+                border-radius: var(--task-radius-md);
                 transition: all 0.3s ease;
                 width: 100%;
                 max-width: 100%;
@@ -3165,7 +3165,7 @@ export class PomodoroTimer {
             transform: translateY(-50%);
             background: var(--b3-theme-surface);
             border: 1px solid var(--b3-theme-border);
-            border-radius: 20px;
+            border-radius: var(--task-radius-cta);
             padding: 8px 12px;
             display: none;
             align-items: center;
@@ -3197,7 +3197,7 @@ export class PomodoroTimer {
             flex: 1;
             height: 4px;
             background: var(--b3-theme-surface-lighter);
-            border-radius: 2px;
+            border-radius: var(--task-radius-xs);
             outline: none;
             cursor: pointer;
             -webkit-appearance: none;
@@ -3694,7 +3694,7 @@ export class PomodoroTimer {
             color: var(--b3-theme-on-surface);
             cursor: pointer;
             padding: 8px 12px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: 12px;
             line-height: 1;
             transition: all 0.2s;
@@ -5622,7 +5622,7 @@ export class PomodoroTimer {
                 color: var(--b3-theme-on-surface);
                 background: transparent;
                 border: 2px solid var(--b3-theme-primary);
-                border-radius: 8px;
+                border-radius: var(--task-radius-md);
                 padding: 2vh 1vw;
                 width: 60vw;
                 text-align: center;
@@ -5639,7 +5639,7 @@ export class PomodoroTimer {
                 color: var(--b3-theme-on-surface);
                 background: var(--b3-theme-surface);
                 border: 2px solid var(--b3-theme-primary);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 padding: 2px 4px;
                 width: 80px;
                 max-width: 200px;
@@ -5824,7 +5824,7 @@ export class PomodoroTimer {
                     color: var(--b3-theme-on-surface);
                     background: var(--b3-theme-surface);
                     border: 2px solid var(--b3-theme-primary);
-                    border-radius: 4px;
+                    border-radius: var(--task-radius-xs);
                     padding: 2px 4px;
                     width: clamp(80px, 30vw, 1000px);
                     text-align: center;
@@ -7596,7 +7596,7 @@ document.body.classList.remove('docked-mode');
             color: ${textColor};
             cursor: pointer;
             padding: 4px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: clamp(12px, 3vmin, 2.4vh);
             opacity: 0.7;
             transition: all 0.2s;
@@ -7611,7 +7611,7 @@ document.body.classList.remove('docked-mode');
             left: 0;
             background: ${surfaceColor};
             border: 1px solid ${borderColor};
-            border-radius: 8px;
+            border-radius: var(--task-radius-md);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 1000;
             display: none;
@@ -7627,7 +7627,7 @@ document.body.classList.remove('docked-mode');
             color: ${textColor};
             cursor: pointer;
             padding: 8px 12px;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             font-size: clamp(11px, 2.8vmin, 1.3vh);
             text-align: left;
             transition: background 0.2s;
@@ -7643,7 +7643,7 @@ document.body.classList.remove('docked-mode');
             font-size: clamp(12px, 3vmin, 5vh);
             font-weight: 600;
             text-align: center;
-            border-radius: 6px;
+            border-radius: var(--task-radius-sm);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -7735,7 +7735,7 @@ document.body.classList.remove('docked-mode');
             font-variant-numeric: tabular-nums;
             line-height: 1.2;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             padding: 2px 4px;
             transition: background 0.2s;
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -7756,7 +7756,7 @@ document.body.classList.remove('docked-mode');
             justify-content: space-between;
             padding: 12px;
             background: ${surfaceColor};
-            border-radius: 8px;
+            border-radius: var(--task-radius-md);
         }
         .stat-item { flex: 1; text-align: center; padding: 0 8px; }
         .stat-item:first-child { border-right: 1px solid ${borderColor}; }

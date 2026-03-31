@@ -1,5 +1,57 @@
 import { i18n } from '../pluginInstance';
 
+/**
+ * 分类标签柔和色板
+ * ============================================================
+ * 两套精心搭配的柔和色板（饱和度 30-50%，亮度 70-80%）
+ * 清新系：蓝/青/绿/紫 — 专业沉静
+ * 暖色系：桃/珊瑚/橙/棕 — 温暖柔和
+ * ============================================================
+ *
+ * 使用方式：
+ *   const color = CATEGORY_PALETTE[hash % CATEGORY_PALETTE.length];
+ *   backgroundColor: color.bg     // 如 hsla(200, 35%, 78%, 0.45)
+ *   borderColor:   color.border  // 如 hsla(200, 30%, 68%, 0.45)
+ *   textColor:     color.text    // 如 #2d3436
+ */
+export const CATEGORY_PALETTE: Array<{ bg: string; border: string; text: string }> = [
+    // ── 清新系（Cool）— 增加饱和度/亮度差异以提高区分度 ──────────
+    // 静蓝（饱和度高，亮度低 → 深色背景）
+    { bg: 'hsla(210, 50%, 72%, 0.50)', border: 'hsla(210, 45%, 62%, 0.50)', text: '#1a2d3d' },
+    // 薄荷绿（高饱和，亮色）
+    { bg: 'hsla(160, 48%, 70%, 0.48)', border: 'hsla(160, 42%, 60%, 0.48)', text: '#1a3830' },
+    // 薰衣草紫（中饱和，亮色）
+    { bg: 'hsla(260, 40%, 75%, 0.48)', border: 'hsla(260, 35%, 65%, 0.48)', text: '#2d2040' },
+    // 青绿（高饱和，亮色）
+    { bg: 'hsla(175, 52%, 68%, 0.50)', border: 'hsla(175, 46%, 58%, 0.50)', text: '#1e3a3a' },
+    // 雾霾蓝（低饱和，中亮度 → 灰色调但带蓝）
+    { bg: 'hsla(215, 28%, 78%, 0.45)', border: 'hsla(215, 24%, 68%, 0.45)', text: '#2a3040' },
+    // 翠绿（高饱和，亮色）
+    { bg: 'hsla(145, 50%, 65%, 0.50)', border: 'hsla(145, 45%, 55%, 0.50)', text: '#1e3a2e' },
+    // 冰川蓝（中饱和，中亮度）
+    { bg: 'hsla(195, 38%, 72%, 0.48)', border: 'hsla(195, 32%, 62%, 0.48)', text: '#1a2e3d' },
+    // 灰紫（低饱和，暗色）
+    { bg: 'hsla(270, 22%, 65%, 0.50)', border: 'hsla(270, 18%, 55%, 0.50)', text: '#2d2040' },
+
+    // ── 暖色系（Warm）— 增加饱和度/亮度差异 ─────────────────────
+    // 珊瑚红（高饱和，亮色）
+    { bg: 'hsla(12, 55%, 72%, 0.50)', border: 'hsla(12, 50%, 62%, 0.50)', text: '#3d2018' },
+    // 琥珀橙（高饱和，亮色）
+    { bg: 'hsla(35, 55%, 70%, 0.50)', border: 'hsla(35, 50%, 60%, 0.50)', text: '#3d2e18' },
+    // 杏色（中饱和，亮色）
+    { bg: 'hsla(25, 45%, 78%, 0.48)', border: 'hsla(25, 40%, 68%, 0.48)', text: '#3d2c20' },
+    // 玫瑰粉（中高饱和，亮色）
+    { bg: 'hsla(345, 42%, 75%, 0.48)', border: 'hsla(345, 38%, 65%, 0.48)', text: '#3a2030' },
+    // 焦糖棕（低饱和，暗色）
+    { bg: 'hsla(25, 35%, 58%, 0.52)', border: 'hsla(25, 30%, 48%, 0.52)', text: '#3d2c18' },
+    // 日落橙（高饱和，亮色）
+    { bg: 'hsla(18, 52%, 68%, 0.50)', border: 'hsla(18, 47%, 58%, 0.50)', text: '#3d2a20' },
+    // 暖灰棕（中饱和，中亮度）
+    { bg: 'hsla(30, 28%, 68%, 0.50)', border: 'hsla(30, 24%, 58%, 0.50)', text: '#3d3028' },
+    // 奶茶色（低饱和，亮色）
+    { bg: 'hsla(35, 32%, 80%, 0.45)', border: 'hsla(35, 28%, 70%, 0.45)', text: '#3d3020' },
+];
+
 export interface Category {
     id: string;
     name: string;
@@ -196,6 +248,10 @@ export class CategoryManager {
 
     /**
      * 获取分类标签样式（根据分类名称生成浅色背景，黑色文字）
+     * 使用两套精心搭配的柔和色板，避免随机 hash 产生脏色
+     *
+     * 清新系：蓝/青/绿/紫 → 专业沉静
+     * 暖色系：桃/珊瑚/橙/棕 → 温暖柔和
      */
     public getCategoryLabelStyle(category?: Category): { backgroundColor: string; borderColor: string; textColor: string } {
         if (!category) {
@@ -207,15 +263,13 @@ export class CategoryManager {
         }
 
         const seed = category.name || category.id || 'category';
-        const hue = this.hashToHue(seed);
-        const saturation = 55;
-        const lightness = 75;
-        const borderLightness = Math.max(0, lightness - 12);
+        const colorIndex = this.hashToPaletteIndex(seed);
+        const { bg, border, text } = CATEGORY_PALETTE[colorIndex];
 
         return {
-            backgroundColor: `hsla(${hue}, ${saturation}%, ${lightness}%, 0.5)`,
-            borderColor: `hsla(${hue}, ${saturation}%, ${borderLightness}%, 0.5)`,
-            textColor: '#000000'
+            backgroundColor: bg,
+            borderColor: border,
+            textColor: text
         };
     }
 
@@ -234,14 +288,14 @@ export class CategoryManager {
     }
 
     /**
-     * 将文本稳定映射为色相（0-359）
+     * 将文本稳定映射为色板索引（0-15），使用两套柔和色板
      */
-    private hashToHue(text: string): number {
+    private hashToPaletteIndex(text: string): number {
         let hash = 0;
         for (let i = 0; i < text.length; i++) {
             hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
         }
-        return hash % 360;
+        return hash % CATEGORY_PALETTE.length;
     }
 
     /**

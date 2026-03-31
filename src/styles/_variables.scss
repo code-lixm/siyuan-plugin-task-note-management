@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2024 by [Author]. All Rights Reserved.
+ * @Author: [Author]
+ * @Date: 2026-03-31
+ * @FilePath: /src/styles/_variables.scss
+ * @Description: 设计令牌 (Design Tokens) - 插件样式规范核心
+ */
+
+/*
+ * ============================================================
+ * 设计令牌说明
+ * ============================================================
+ * 
+ * 所有插件样式变量在此定义。
+ * 基于SiYuan主题变量 + Pinch设计语言。
+ * 
+ * 使用方式：
+ *   background: var(--task-surface-soft);
+ *   border: 1px solid var(--task-border-default);
+ *   box-shadow: var(--task-shadow-card);
+ * 
+ * ============================================================
+ */
+
+:root {
+    /* === 表面色 (Surface Colors) ===
+     * 使用SiYuan主题变量，确保暗色模式兼容
+     */
+    --task-surface-muted:     var(--b3-theme-background);
+    --task-surface-soft:      var(--b3-theme-surface);
+    --task-surface-elevated:  var(--b3-theme-surface-lighter);
+    --task-surface-hover:      var(--b3-list-hover);
+    
+    /* === 边框色 ===
+     * 中性边框，用于分隔和容器边界
+     */
+    --task-border-default:    var(--b3-border-color);
+    --task-border-focus:      var(--b3-theme-primary);
+    
+    /* === 成功/完成态 accent ===
+     * 仅在真正需要强调的场景使用
+     */
+    --task-accent-soft:       var(--b3-theme-primary);
+    --task-accent-success:    var(--b3-theme-success);
+    --task-accent-warning:    var(--b3-theme-warning);
+    --task-accent-danger:     var(--b3-theme-error);
+
+    /* === 优先级透明度 ===
+     * Pinch精髓：用opacity灰度表示层级，不用彩色
+     * 
+     * 使用方式：
+     *   .priority-high { opacity: var(--task-priority-high-opacity); }
+     */
+    --task-priority-high-opacity:    0.85;
+    --task-priority-medium-opacity:   0.70;
+    --task-priority-low-opacity:     0.55;
+    --task-priority-none-opacity:    0.40;
+
+    /* === 优先级背景色 ===
+     * 用于优先级标签背景、优先级圆点等
+     */
+    --task-priority-bg-high:    rgba(0, 0, 0, 0.06);
+    --task-priority-bg-medium:   rgba(0, 0, 0, 0.05);
+    --task-priority-bg-low:      rgba(0, 0, 0, 0.04);
+    --task-priority-bg-none:     rgba(0, 0, 0, 0.03);
+    --task-priority-dot-high:    rgba(0, 0, 0, 0.15);
+    --task-priority-dot-medium:  rgba(0, 0, 0, 0.10);
+    --task-priority-dot-low:     rgba(0, 0, 0, 0.07);
+
+    /* === 中性背景色 ===
+     * 用于备注、hover等场景
+     */
+    --task-bg-note:      rgba(0, 0, 0, 0.04);
+    --task-bg-hover:    rgba(0, 0, 0, 0.06);
+    --task-bg-active:   rgba(0, 0, 0, 0.08);
+    --task-bg-subtle:   rgba(0, 0, 0, 0.02);
+
+    /* === 圆角 (Border Radius) ===
+     * 从小到大，轻盈圆润
+     */
+    --task-radius-tiny:  2px;     /* 极小元素、指示器 */
+    --task-radius-xxs:   3px;     /* 指示器、标签 */
+    --task-radius-xs:    4px;     /* 微小元素 */
+    --task-radius-sm:    6px;     /* 按钮、输入框 */
+    --task-radius-md:    8px;     /* 卡片、列表项 */
+    --task-radius-lg:    10px;    /* 大卡片 */
+    --task-radius-xl:    15px;    /* 面板、对话框 */
+    --task-radius-cta:   20px;    /* CTA按钮 */
+    --task-radius-sheet:  24px;    /* 底部抽屉 */
+    --task-radius-pill:   999px;   /* 药丸形、标签 */
+
+    /* === 阴影 (Shadows) ===
+     * Pinch精髓：如羽毛般不扰人
+     * rgba黑色从6%到12%，由轻到重
+     */
+    --task-shadow-card:     rgba(0, 0, 0, 0.06) 0 1px 5px;     /* 卡片默认 */
+    --task-shadow-hover:    rgba(0, 0, 0, 0.09) 0 2px 8px;     /* 悬停 */
+    --task-shadow-popover:  rgba(0, 0, 0, 0.10) 0 4px 12px;    /* 弹出层 */
+    --task-shadow-panel:    rgba(0, 0, 0, 0.12) 0 8px 20px;     /* 面板 */
+    --task-shadow-sheet:    rgba(0, 0, 0, 0.10) 0 -4px 12px;    /* 底部抽屉 */
+
+    /* === 间距 (Spacing) ===
+     * 4px为基准单位
+     */
+    --task-space-1:   4px;
+    --task-space-2:   6px;
+    --task-space-3:   8px;
+    --task-space-4:   12px;
+    --task-space-5:   16px;
+    --task-space-6:   20px;
+
+    /* === 字号 (Typography) ===
+     * 保持简洁，避免过多层级
+     */
+    --task-font-xs:   12px;
+    --task-font-sm:   13px;
+    --task-font-md:   14px;
+    --task-font-lg:   16px;
+    --task-font-xl:   18px;
+
+    /* === 动效 (Motion) ===
+     * 快速响应，轻盈流畅
+     */
+    --task-motion-fast:    0.2s ease;
+    --task-motion-normal:   0.3s ease;
+    --task-motion-slide:    0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* === 工具栏尺寸 === */
+    --task-toolbar-height: 32px;
+    --task-toolbar-icon-size: 32px;
+    --task-toolbar-padding-x: 10px;
+
+    /* === 文字透明度 ===
+     * 用于次要文字和禁用状态
+     */
+    --task-text-secondary:  0.6;
+    --task-text-disabled:   0.35;
+    --task-text-active:      0.9;
+
+    /* === Z-Index层级 ===
+     * 组件内部层级
+     */
+    --task-z-dropdown:   100;
+    --task-z-sticky:     200;
+    --task-z-overlay:    300;
+    --task-z-modal:      400;
+    --task-z-toast:      500;
+}

@@ -115,7 +115,7 @@
     padding: 12px 16px;
     margin-bottom: 8px;
     border: 1px solid var(--b3-theme-surface-lighter);
-    border-radius: var(--b3-border-radius, 8px);
+    border-radius: var(--task-radius-md);
     background: var(--b3-theme-surface);
     transition: var(--b3-transition, all 0.2s ease);
     position: relative;
@@ -137,9 +137,9 @@
         background: var(--b3-theme-error-lighter);
     }
 
-    // 跨天事件状态
+    // 跨天事件状态 - pinch 精髓：去掉彩色左边框
     &--spanning {
-        border-left: 3px solid var(--b3-theme-primary);
+        border-left: 2px solid var(--b3-border-color);
     }
 
     // 复选框
@@ -153,7 +153,7 @@
         padding: 8px 12px;
         gap: 8px;
         margin-bottom: 6px;
-        border-radius: 6px;
+        border-radius: var(--task-radius-sm);
 
         input[type="checkbox"] {
             margin: 2px 0 0 0;
@@ -221,22 +221,22 @@
     gap: 2px;
     font-size: 10px;
     padding: 1px 4px;
-    border-radius: 2px;
+    border-radius: var(--task-radius-xs);
     font-weight: 500;
 
     &.high {
-        background-color: var(--b3-card-error-background, rgba(231, 76, 60, 0.1));
-        color: var(--b3-card-error-color, #e74c3c);
+        background-color: var(--task-priority-bg-high);
+        opacity: var(--task-priority-high-opacity);
     }
 
     &.medium {
-        background-color: var(--b3-card-warning-background, rgba(243, 156, 18, 0.1));
-        color: var(--b3-card-warning-color, #f39c12);
+        background-color: var(--task-priority-bg-medium);
+        opacity: var(--task-priority-medium-opacity);
     }
 
     &.low {
-        background-color: var(--b3-card-info-background, rgba(52, 152, 219, 0.1));
-        color: var(--b3-card-info-color, #3498db);
+        background-color: var(--task-priority-bg-low);
+        opacity: var(--task-priority-low-opacity);
     }
 
     .priority-dot {
@@ -246,15 +246,15 @@
         flex-shrink: 0;
 
         &.high {
-            background-color: var(--b3-card-error-color, #e74c3c);
+            background-color: var(--task-priority-dot-high);
         }
 
         &.medium {
-            background-color: var(--b3-card-warning-color, #f39c12);
+            background-color: var(--task-priority-dot-medium);
         }
 
         &.low {
-            background-color: var(--b3-card-info-color, #3498db);
+            background-color: var(--task-priority-dot-low);
         }
     }
 }
@@ -265,7 +265,7 @@
     font-size: 10px;
     padding: 1px 4px;
     background: var(--b3-theme-error-lighter);
-    border-radius: 2px;
+    border-radius: var(--task-radius-xs);
 }
 
 .doc-reminder-category-tag {
@@ -274,20 +274,21 @@
 
 .doc-reminder-item__note {
     font-size: 12px;
-    color: var(--b3-card-success-color);
+    color: var(--b3-theme-on-surface);
+    opacity: 0.7;
     margin-top: 4px;
     padding: 4px 8px;
-    background: var(--b3-card-success-background);
-    border-radius: 4px;
+    background: var(--task-bg-note);
+    border-radius: var(--task-radius-xs);
     white-space: pre-wrap;
     word-break: break-word;
-    border: 1px solid var(--b3-card-success-color);
+    border: 1px solid var(--b3-border-color);
 
     @media (max-width: 768px) {
         font-size: 11px;
         margin-top: 3px;
         padding: 3px 6px;
-        border-radius: 3px;
+        border-radius: var(--task-radius-xs);
     }
 }
 
@@ -314,7 +315,7 @@
     .b3-button--small {
         padding: 4px 8px;
         font-size: 11px;
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         transition: all 0.2s ease;
 
         &:hover {
@@ -329,49 +330,42 @@
         .b3-button--small {
             padding: 3px 6px;
             font-size: 10px;
-            border-radius: 3px;
+            border-radius: var(--task-radius-xs);
         }
     }
 }
 
-// 优先级颜色样式 - 文档提醒项
+// 优先级颜色样式 - 文档提醒项 - pinch 精髓：opacity 灰度层级，无彩色
 .doc-reminder-priority-high {
-    border-left: 4px solid var(--b3-card-error-color) !important;
-    background-color: var(--b3-card-error-background) !important;
+    opacity: 0.85;
 }
 
 .doc-reminder-priority-high .doc-reminder-item__note {
-    border: 2px solid var(--b3-card-error-color) !important;
-    color: var(--b3-card-error-color) !important;
-    background-color: transparent !important;
+    opacity: 0.85;
+    border: 1px solid var(--b3-border-color);
 }
 
 .doc-reminder-priority-medium {
-    border-left: 4px solid var(--b3-card-warning-color) !important;
-    background-color: var(--b3-card-warning-background) !important;
+    opacity: 0.7;
 }
 
 .doc-reminder-priority-medium .doc-reminder-item__note {
-    color: var(--b3-card-warning-color) !important;
-    background-color: var(--b3-card-warning-background) !important;
-    border: 2px solid var(--b3-card-warning-color) !important;
+    opacity: 0.7;
+    border: 1px solid var(--b3-border-color);
 }
 
 .doc-reminder-priority-low {
-    border-left: 4px solid var(--b3-card-info-color) !important;
-    background-color: var(--b3-card-info-background) !important;
+    opacity: 0.55;
 }
 
 .doc-reminder-priority-low .doc-reminder-item__note {
-    color: var(--b3-card-info-color) !important;
-    background-color: var(--b3-card-info-background) !important;
-    border: 2px solid var(--b3-card-info-color) !important;
+    opacity: 0.55;
+    border: 1px solid var(--b3-border-color);
 }
 
 .doc-reminder-priority-none .doc-reminder-item__note {
-    color: var(--b3-theme-on-background) !important;
-    background-color: transparent !important;
-    border: 2px solid var(--b3-border-color) !important;
+    opacity: 0.4;
+    border: 1px solid var(--b3-border-color);
 }
 
 // 响应式设计

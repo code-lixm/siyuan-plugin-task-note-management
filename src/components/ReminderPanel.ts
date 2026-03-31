@@ -1434,7 +1434,7 @@ export class ReminderPanel {
      */
     private async completeAllChildTasks(parentId: string, reminderData: any, affectedBlockIds: Set<string>, instanceDate?: string): Promise<string[]> {
         const completedTaskIds: string[] = [];
-        
+
         // 1. Ghost Subtasks: Children of the original parent (recurse with instanceDate)
         const ghostChildren = (Object.values(reminderData) as any[]).filter(r => r.parentId === parentId);
 
@@ -1484,7 +1484,7 @@ export class ReminderPanel {
                 completedTaskIds.push(...childIds);
             }
         }
-        
+
         return completedTaskIds;
     }
 
@@ -2193,27 +2193,10 @@ export class ReminderPanel {
         }
 
         // 优先级背景色和边框设置
-        let backgroundColor = '';
-        let borderColor = '';
-        switch (priority) {
-            case 'high':
-                backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
-                borderColor = 'var(--b3-card-error-color)';
-                break;
-            case 'medium':
-                backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
-                borderColor = 'var(--b3-card-warning-color)';
-                break;
-            case 'low':
-                backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
-                borderColor = 'var(--b3-card-info-color)';
-                break;
-            default:
-                backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
-                borderColor = 'var(--b3-theme-surface-lighter)';
-        }
-        reminderEl.style.backgroundColor = backgroundColor;
-        reminderEl.style.border = `2px solid ${borderColor}`;
+        const bgVar = priority === 'high' ? 'var(--b3-card-error-background)' : priority === 'medium' ? 'var(--b3-card-warning-background)' : priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-background-light)';
+        const bgOpacity = priority === 'high' ? 0.5 : priority === 'medium' ? 0.5 : priority === 'low' ? 0.7 : 0.1;
+        reminderEl.style.backgroundColor = colorWithOpacity(bgVar, bgOpacity);
+        reminderEl.style.border = `2px solid var(--b3-border-color)`;
 
         reminderEl.dataset.reminderId = reminder.id;
         reminderEl.dataset.priority = priority;
@@ -6505,10 +6488,10 @@ export class ReminderPanel {
                 }
             };
 
-            items.push({ iconHTML: "📅", label: i18n("moveToToday") || "移至今天", click: () => apply(todayStr) });
-            items.push({ iconHTML: "📅", label: i18n("moveToTomorrow") || "移至明天", click: () => apply(tomorrowStr) });
-            items.push({ iconHTML: "📅", label: i18n("moveToDayAfterTomorrow") || "移至后天", click: () => apply(dayAfterStr) });
-            items.push({ iconHTML: "📅", label: i18n("moveToNextWeek") || "移至下周", click: () => apply(nextWeekStr) });
+            items.push({ iconHTML: "", label: i18n("moveToToday") || "移至今天", click: () => apply(todayStr) });
+            items.push({ iconHTML: "", label: i18n("moveToTomorrow") || "移至明天", click: () => apply(tomorrowStr) });
+            items.push({ iconHTML: "", label: i18n("moveToDayAfterTomorrow") || "移至后天", click: () => apply(dayAfterStr) });
+            items.push({ iconHTML: "", label: i18n("moveToNextWeek") || "移至下周", click: () => apply(nextWeekStr) });
             items.push({ iconHTML: "❌", label: i18n("clearDate") || "清除日期", click: () => apply(null) });
             items.push({
                 iconHTML: "✏️", label: i18n("editDate") || "编辑日期", click: () => {
@@ -7668,27 +7651,10 @@ export class ReminderPanel {
                         el.classList.add(`reminder-priority-${priority}`);
 
                         // 更新优先级背景色和边框
-                        let backgroundColor = '';
-                        let borderColor = '';
-                        switch (priority) {
-                            case 'high':
-                                backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
-                                borderColor = 'var(--b3-card-error-color)';
-                                break;
-                            case 'medium':
-                                backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
-                                borderColor = 'var(--b3-card-warning-color)';
-                                break;
-                            case 'low':
-                                backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
-                                borderColor = 'var(--b3-card-info-color)';
-                                break;
-                            default:
-                                backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
-                                borderColor = 'var(--b3-theme-surface-lighter)';
-                        }
-                        el.style.backgroundColor = backgroundColor;
-                        el.style.border = `2px solid ${borderColor}`;
+                        const bgVar = priority === 'high' ? 'var(--b3-card-error-background)' : priority === 'medium' ? 'var(--b3-card-warning-background)' : priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-background-light)';
+                        const bgOpacity = priority === 'high' ? 0.5 : priority === 'medium' ? 0.5 : priority === 'low' ? 0.7 : 0.1;
+                        el.style.backgroundColor = colorWithOpacity(bgVar, bgOpacity);
+                        el.style.border = `2px solid var(--b3-border-color)`;
                         el.dataset.priority = priority;
                     }
 
@@ -9840,10 +9806,10 @@ export class ReminderPanel {
             iconHTML: '🗓',
             label: i18n('setDate') || '设置日期',
             submenu: [
-                { iconHTML: '📅', label: i18n('moveToToday') || '移至今天', click: () => this.panelBatchSetDate(todayStr) },
-                { iconHTML: '📅', label: i18n('moveToTomorrow') || '移至明天', click: () => this.panelBatchSetDate(tomorrowStr) },
-                { iconHTML: '📅', label: i18n('moveToDayAfterTomorrow') || '移至后天', click: () => this.panelBatchSetDate(dayAfterStr) },
-                { iconHTML: '📅', label: i18n('moveToNextWeek') || '移至下周', click: () => this.panelBatchSetDate(nextWeekStr) },
+                { iconHTML: '', label: i18n('moveToToday') || '移至今天', click: () => this.panelBatchSetDate(todayStr) },
+                { iconHTML: '', label: i18n('moveToTomorrow') || '移至明天', click: () => this.panelBatchSetDate(tomorrowStr) },
+                { iconHTML: '', label: i18n('moveToDayAfterTomorrow') || '移至后天', click: () => this.panelBatchSetDate(dayAfterStr) },
+                { iconHTML: '', label: i18n('moveToNextWeek') || '移至下周', click: () => this.panelBatchSetDate(nextWeekStr) },
                 { iconHTML: '❌', label: i18n('clearDate') || '清除日期', click: () => this.panelBatchSetDate(null) },
                 { iconHTML: '🗓', label: i18n('batchSetDate') || '批量设置日期…', click: () => this.panelBatchSetDateDialog() }
             ]

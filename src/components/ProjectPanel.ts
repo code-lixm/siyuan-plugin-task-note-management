@@ -167,7 +167,7 @@ export class ProjectPanel {
 
         // 添加创建项目按钮
         const createProjectBtn = document.createElement('button');
-        createProjectBtn.className = 'b3-button b3-button--outline';
+        createProjectBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
         createProjectBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>';
         createProjectBtn.title = i18n("createProject") || "创建项目";
         createProjectBtn.addEventListener('click', () => {
@@ -177,7 +177,7 @@ export class ProjectPanel {
 
         // 添加排序按钮
         this.sortButton = document.createElement('button');
-        this.sortButton.className = 'b3-button b3-button--outline';
+        this.sortButton.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
         this.sortButton.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconSort"></use></svg>';
         this.sortButton.title = i18n("sortBy") || "排序";
         this.sortButton.addEventListener('click', (e) => {
@@ -190,7 +190,7 @@ export class ProjectPanel {
         // 添加日历视图按钮
         if (this.plugin) {
             const calendarBtn = document.createElement('button');
-            calendarBtn.className = 'b3-button b3-button--outline';
+            calendarBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
             calendarBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconCalendar"></use></svg>';
             calendarBtn.title = i18n("calendarView") || "日历视图";
             calendarBtn.addEventListener('click', () => {
@@ -201,7 +201,7 @@ export class ProjectPanel {
             if (this.showAdvancedFeatures) {
                 // 添加四象限面板按钮（放在日历按钮旁边）
                 const eisenhowerBtn = document.createElement('button');
-                eisenhowerBtn.className = 'b3-button b3-button--outline';
+                eisenhowerBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
                 eisenhowerBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconGrid"></use></svg>';
                 eisenhowerBtn.title = i18n("eisenhowerMatrix") || "四象限面板";
                 eisenhowerBtn.addEventListener('click', () => {
@@ -211,7 +211,7 @@ export class ProjectPanel {
 
                 // 添加番茄钟看板按钮
                 const pomodoroStatsBtn = document.createElement('button');
-                pomodoroStatsBtn.className = 'b3-button b3-button--outline';
+                pomodoroStatsBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon project-toolbar-btn--text-icon';
                 pomodoroStatsBtn.innerHTML = '📊';
                 pomodoroStatsBtn.title = i18n("pomodoroStats") || "番茄钟统计";
                 pomodoroStatsBtn.addEventListener('click', () => {
@@ -222,7 +222,7 @@ export class ProjectPanel {
 
             // 添加刷新按钮
             const refreshBtn = document.createElement('button');
-            refreshBtn.className = 'b3-button b3-button--outline';
+            refreshBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
             refreshBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconRefresh"></use></svg>';
             refreshBtn.title = i18n("refresh") || "刷新";
             refreshBtn.addEventListener('click', () => {
@@ -233,7 +233,7 @@ export class ProjectPanel {
 
         // 添加更多按钮（放在最右边）
         const moreBtn = document.createElement('button');
-        moreBtn.className = 'b3-button b3-button--outline';
+        moreBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
         moreBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconMore"></use></svg>';
         moreBtn.title = i18n("more") || "更多";
         moreBtn.addEventListener('click', (e) => {
@@ -249,8 +249,6 @@ export class ProjectPanel {
         // 把按钮容器移到标题下方，确保标题独占一行，按钮右对齐
         const actionRow = document.createElement('div');
         actionRow.className = 'project-header__actions-row';
-        // 使用 flex 布局使按钮靠右
-        actionRow.style.cssText = `display:flex; justify-content:flex-start; margin-bottom:8px; gap:8px;flex-wrap: wrap;`;
         // 将 actionContainer 中的按钮移动到 actionRow
         while (actionContainer.firstChild) {
             // 由于 actionContainer 可能包含样式 marginLeft:auto，我们直接把子节点移动
@@ -271,7 +269,7 @@ export class ProjectPanel {
 
         // 状态筛选
         this.filterSelect = document.createElement('select');
-        this.filterSelect.className = 'b3-select';
+        this.filterSelect.className = 'b3-select project-toolbar-select';
         this.filterSelect.style.cssText = `
             flex: 1;
             min-width: 0;
@@ -285,12 +283,11 @@ export class ProjectPanel {
 
         // 分类筛选
         this.categoryFilterButton = document.createElement('button');
-        this.categoryFilterButton.className = 'b3-button b3-button--outline';
+        this.categoryFilterButton.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--text';
         this.categoryFilterButton.style.cssText = `
             display: inline-block;
             max-width: 30%;
             box-sizing: border-box;
-            padding: 0 8px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -931,12 +928,8 @@ export class ProjectPanel {
                 categoryIds.forEach((id: string) => {
                     const category = this.categoryManager.getCategoryById(id);
                     if (category) {
-                        const labelStyle = this.categoryManager.getCategoryLabelStyle(category);
                         const categoryEl = document.createElement('div');
                         categoryEl.className = 'project-category-tag';
-                        categoryEl.style.color = labelStyle.textColor;
-                        categoryEl.style.backgroundColor = labelStyle.backgroundColor;
-                        categoryEl.style.borderColor = labelStyle.borderColor;
 
                         if (category.icon) {
                             const iconSpan = document.createElement('span');
@@ -1431,7 +1424,7 @@ export class ProjectPanel {
                 month: 'short',
                 day: 'numeric'
             });
-            timeStr = `📅 ${startStr}`;
+            timeStr = ` ${startStr}`;
         }
 
         if (endDate) {
@@ -1443,7 +1436,7 @@ export class ProjectPanel {
             timeStr += ` → ${endStr}`;
         }
 
-        return timeStr || '📅 无日期';
+        return timeStr || ' 无日期';
     }
 
     // 新增：创建已开始天数元素

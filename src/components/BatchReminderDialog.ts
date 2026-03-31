@@ -904,7 +904,7 @@ class SmartBatchDialog {
                     weekday: 'long'
                 });
 
-                let previewText = `📅 ${dateStr}`;
+                let previewText = ` ${dateStr}`;
                 if (currentParseResult.time) {
                     previewText += ` ⏰ ${currentParseResult.time}`;
                 }
@@ -914,7 +914,7 @@ class SmartBatchDialog {
                         month: 'long',
                         day: 'numeric'
                     });
-                    previewText += ` ➡️ 📅 ${endDateStr}`;
+                    previewText += ` ➡️  ${endDateStr}`;
                     if (currentParseResult.endTime) {
                         previewText += ` ⏰ ${currentParseResult.endTime}`;
                     }
@@ -1828,7 +1828,7 @@ class BlockEditDialog {
                         month: 'long',
                         day: 'numeric'
                     });
-                    previewText += ` ➡️ 📅 ${endDateStr}`;
+                    previewText += ` ➡️  ${endDateStr}`;
                     if (currentParseResult.endTime) {
                         previewText += ` ⏰ ${currentParseResult.endTime}`;
                     }

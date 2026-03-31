@@ -323,19 +323,23 @@ export class NotificationDialog {
                 overflow-y: auto;
             }
 
+            /* 通知内容优先级样式 - 使用统一边框 + 透明度表示优先级 */
             .notification-content.priority-high {
-                border-left: 4px solid var(--b3-card-error-color) !important;
-                background-color: var(--b3-card-error-background) !important;
+                border-left: 2px solid var(--b3-border-color) !important;
+                background-color: rgba(0, 0, 0, 0.05) !important;
+                opacity: 0.85;
             }
 
             .notification-content.priority-medium {
-                border-left: 4px solid var(--b3-card-warning-color) !important;
-                background-color: var(--b3-card-warning-background) !important;
+                border-left: 2px solid var(--b3-border-color) !important;
+                background-color: rgba(0, 0, 0, 0.04) !important;
+                opacity: 0.7;
             }
 
             .notification-content.priority-low {
-                border-left: 4px solid var(--b3-card-info-color) !important;
-                background-color: var(--b3-card-info-background) !important;
+                border-left: 2px solid var(--b3-border-color) !important;
+                background-color: rgba(0, 0, 0, 0.03) !important;
+                opacity: 0.55;
             }
 
             .notification-header {
@@ -433,15 +437,15 @@ export class NotificationDialog {
             }
 
             .notification-priority .priority-dot.high {
-                background-color: var(--b3-card-error-color);
+                background-color: rgba(0, 0, 0, 0.15);
             }
 
             .notification-priority .priority-dot.medium {
-                background-color: var(--b3-card-warning-color);
+                background-color: rgba(0, 0, 0, 0.1);
             }
 
             .notification-priority .priority-dot.low {
-                background-color: var(--b3-card-info-color);
+                background-color: rgba(0, 0, 0, 0.07);
             }
 
             .notification-category {
@@ -493,35 +497,34 @@ export class NotificationDialog {
                 pointer-events: auto;
             }
 
+            /* 全天提醒项优先级 - 统一边框 + 透明度 */
             .all-day-reminder-item.priority-high {
-                border-left-color: var(--b3-card-error-color) !important;
-                background-color: var(--b3-card-error-background) !important;
+                border-left-color: var(--b3-border-color) !important;
+                background-color: rgba(0, 0, 0, 0.05) !important;
+                opacity: 0.85;
             }
 
             .all-day-reminder-item.priority-medium {
-                border-left-color: var(--b3-card-warning-color) !important;
-                background-color: var(--b3-card-warning-background) !important;
+                border-left-color: var(--b3-border-color) !important;
+                background-color: rgba(0, 0, 0, 0.04) !important;
+                opacity: 0.7;
             }
 
             .all-day-reminder-item.priority-low {
-                border-left-color: var(--b3-card-info-color) !important;
-                background-color: var(--b3-card-info-background) !important;
+                border-left-color: var(--b3-border-color) !important;
+                background-color: rgba(0, 0, 0, 0.03) !important;
+                opacity: 0.55;
             }
 
             .all-day-reminder-item:hover {
                 background: var(--b3-theme-surface-light);
             }
 
-            .all-day-reminder-item.priority-high:hover {
-                background-color: rgba(var(--b3-card-error-color-rgb), 0.15) !important;
-            }
-
-            .all-day-reminder-item.priority-medium:hover {
-                background-color: rgba(var(--b3-card-warning-color-rgb), 0.15) !important;
-            }
-
+            /* 全天提醒项悬停 - 统一中性悬停背景 */
+            .all-day-reminder-item.priority-high:hover,
+            .all-day-reminder-item.priority-medium:hover,
             .all-day-reminder-item.priority-low:hover {
-                background-color: rgba(var(--b3-card-info-color-rgb), 0.15) !important;
+                background-color: rgba(0, 0, 0, 0.08) !important;
             }
 
             .item-header {
@@ -556,15 +559,15 @@ export class NotificationDialog {
             }
 
             .item-meta .priority-dot.high {
-                background-color: var(--b3-card-error-color);
+                background-color: rgba(0, 0, 0, 0.15);
             }
 
             .item-meta .priority-dot.medium {
-                background-color: var(--b3-card-warning-color);
+                background-color: rgba(0, 0, 0, 0.1);
             }
 
             .item-meta .priority-dot.low {
-                background-color: var(--b3-card-info-color);
+                background-color: rgba(0, 0, 0, 0.07);
             }
 
             .category-indicator,.priority-indicator {
@@ -600,23 +603,24 @@ export class NotificationDialog {
                 display: inline-block;
             }
 
+            /* 逾期时间样式 - 使用中性颜色 + 透明度表示严重程度 */
             .item-time.overdue-time {
-                color: var(--b3-card-error-color);
-                background: rgba(var(--b3-card-error-color-rgb), 0.1);
+                color: var(--b3-theme-on-surface);
+                background: rgba(0, 0, 0, 0.1);
+                opacity: 0.85;
             }
 
             .all-day-reminder-item.overdue {
-                // border-left-color: var(--b3-card-error-color);
-                // background: rgba(var(--b3-card-error-color-rgb), 0.05);
+                opacity: 0.85;
             }
 
             .all-day-reminder-item.overdue .item-title {
-                color: var(--b3-card-error-color);
+                opacity: 0.85;
             }
 
             .overdue-tag {
-                background: var(--b3-card-error-color);
-                color: white;
+                background: rgba(0, 0, 0, 0.15);
+                color: var(--b3-theme-on-surface);
                 font-size: 10px;
                 padding: 1px 4px;
                 border-radius: 2px;
@@ -639,20 +643,23 @@ export class NotificationDialog {
                 text-overflow: ellipsis;
             }
 
-            /* 优先级对应的备注样式 - 全天事件项 */
+            /* 优先级对应的备注样式 - 全天事件项（中性配色 + 透明度） */
             .all-day-reminder-item.priority-high .item-note {
-                color: var(--b3-card-error-color) !important;
-                background-color: rgba(var(--b3-card-error-color-rgb), 0.1) !important;
+                color: var(--b3-theme-on-surface) !important;
+                background-color: rgba(0, 0, 0, 0.06) !important;
+                opacity: 0.85;
             }
 
             .all-day-reminder-item.priority-medium .item-note {
-                color: var(--b3-card-warning-color) !important;
-                background-color: rgba(var(--b3-card-warning-color-rgb), 0.1) !important;
+                color: var(--b3-theme-on-surface) !important;
+                background-color: rgba(0, 0, 0, 0.05) !important;
+                opacity: 0.7;
             }
 
             .all-day-reminder-item.priority-low .item-note {
-                color: var(--b3-card-info-color) !important;
-                background-color: rgba(var(--b3-card-info-color-rgb), 0.1) !important;
+                color: var(--b3-theme-on-surface) !important;
+                background-color: rgba(0, 0, 0, 0.04) !important;
+                opacity: 0.55;
             }
 
             @keyframes slideInRight {

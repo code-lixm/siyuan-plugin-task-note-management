@@ -114,11 +114,6 @@ export class ProjectDialog {
                     </div>
                     
                     <div class="form-group">
-                        <label>${i18n("projectColor") || "项目颜色"}:</label>
-                        <input type="color" id="projectColor" class="b3-text-field" value="${existingProject?.color || '#3498db'}" style="width: 100%; height: 40px; cursor: pointer;">
-                    </div>
-                    
-                    <div class="form-group">
                         <label>${i18n("startDate") || "开始日期"}:</label>
                         <input type="date" id="projectStartDate" class="b3-text-field" value="${existingProject?.startDate || today}" max="9999-12-31">
                     </div>
@@ -335,7 +330,6 @@ export class ProjectDialog {
             const noteEl = this.dialog.element.querySelector('#projectNote') as HTMLTextAreaElement;
             const statusEl = this.dialog.element.querySelector('#projectStatus') as HTMLSelectElement;
             const priorityEl = this.dialog.element.querySelector('#projectPriority') as HTMLSelectElement;
-            const colorEl = this.dialog.element.querySelector('#projectColor') as HTMLInputElement;
             const startDateEl = this.dialog.element.querySelector('#projectStartDate') as HTMLInputElement;
             const endDateEl = this.dialog.element.querySelector('#projectEndDate') as HTMLInputElement;
             const filterCrossPeriodEl = this.dialog.element.querySelector('#projectFilterCrossPeriodOnNonWorkingDays') as HTMLInputElement;
@@ -375,7 +369,6 @@ export class ProjectDialog {
                 status: statusEl.value,
                 priority: priorityEl.value,
                 categoryId: this.selectedCategoryIds.join(','),
-                color: colorEl.value,
                 startDate: startDate,
                 endDate: endDate || null,
                 filterCrossPeriodOnNonWorkingDays: filterCrossPeriodEl?.checked === true,

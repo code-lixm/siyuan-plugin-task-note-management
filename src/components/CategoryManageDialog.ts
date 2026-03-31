@@ -452,17 +452,12 @@ export class CategoryManageDialog {
                             <input type="text" id="categoryName" class="b3-text-field" value="${category?.name || ''}" placeholder="请输入分类名称">
                         </div>
                         <div class="b3-form__group">
-                            <label class="b3-form__label">分类颜色</label>
-                            <input type="color" id="categoryColor" class="b3-text-field" value="${category?.color || '#3498db'}">
-                        </div>
-                        <div class="b3-form__group">
                             <label class="b3-form__label">分类图标</label>
                             <div id="categoryIcon" class="category-icon-display">${category?.icon || '📁'}</div>
                         </div>
                         <div class="b3-form__group">
                             <label class="b3-form__label">预览</label>
                             <div class="category-preview">
-                                <div class="category-dot" id="previewDot" style="background-color: ${category?.color || '#3498db'};"></div>
                                 <span id="previewIcon">${category?.icon || '📁'}</span>
                                 <span id="previewName">${category?.name || '新分类'}</span>
                             </div>
@@ -503,9 +498,7 @@ export class CategoryManageDialog {
 
         // 绑定预览更新事件
         const nameInput = editDialog.element.querySelector('#categoryName') as HTMLInputElement;
-        const colorInput = editDialog.element.querySelector('#categoryColor') as HTMLInputElement;
         const iconDisplay = editDialog.element.querySelector('#categoryIcon') as HTMLElement;
-        const previewDot = editDialog.element.querySelector('#previewDot') as HTMLElement;
         const previewIcon = editDialog.element.querySelector('#previewIcon') as HTMLElement;
         const previewName = editDialog.element.querySelector('#previewName') as HTMLElement;
 
@@ -534,16 +527,13 @@ export class CategoryManageDialog {
 
         const updatePreview = () => {
             const name = nameInput.value || '新分类';
-            const color = colorInput.value;
             const icon = iconDisplay.textContent || '📁';
 
-            previewDot.style.backgroundColor = color;
             previewIcon.textContent = icon;
             previewName.textContent = name;
         };
 
         nameInput.addEventListener('input', updatePreview);
-        colorInput.addEventListener('input', updatePreview);
         iconDisplay.addEventListener('input', updatePreview); // 虽然是div，但为了兼容
 
         // 绑定保存和取消事件
@@ -556,7 +546,7 @@ export class CategoryManageDialog {
 
         confirmBtn?.addEventListener('click', async () => {
             const name = nameInput.value.trim();
-            const color = colorInput.value;
+            const color = category?.color || '';
             const icon = iconDisplay.textContent || '';
 
             if (!name) {

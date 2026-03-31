@@ -201,11 +201,11 @@
                             <input class="b3-text-field fn__block" id="sub-daily-time" type="time" value="${subscription?.dailySyncTime || '08:00'}">
                         </div>
                         <div class="b3-label">
-                            <div class="b3-label__text">${i18n('subscriptionProject')} *</div>
+                            <div class="b3-label__text">${i18n('subscriptionProject')}</div>
                             <div class="fn__hr"></div>
                             <div style="display: flex; gap: 8px;">
-                                <select class="b3-select fn__flex-1" id="sub-project" required>
-                                    <option value="">${i18n('pleaseSelectProject')}</option>
+                                <select class="b3-select fn__flex-1" id="sub-project">
+                                    <option value="">${i18n('noProject') || '无项目'}</option>
                                     ${Object.entries(groupedProjects)
                                         .map(([statusId, statusProjects]) => {
                                             if (statusProjects.length === 0) return '';
@@ -364,10 +364,6 @@
             }
             if (!url) {
                 pushErrMsg(i18n('pleaseEnterSubscriptionUrl'));
-                return;
-            }
-            if (!projectId) {
-                pushErrMsg(i18n('pleaseSelectProject'));
                 return;
             }
 

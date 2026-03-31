@@ -10,7 +10,7 @@
             border: 1px solid var(--b3-theme-border);
             background: var(--b3-theme-background);
             color: var(--b3-theme-on-background);
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             cursor: pointer;
             font-size: 12px;
             transition: all 0.2s ease;
@@ -30,7 +30,7 @@
         border: 1px solid var(--b3-theme-border);
         background: var(--b3-theme-background);
         color: var(--b3-theme-on-background);
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         cursor: pointer;
         font-size: 12px;
         transition: all 0.2s ease;
@@ -58,7 +58,7 @@
             border: 1px solid var(--b3-theme-border);
             background: var(--b3-theme-background);
             color: var(--b3-theme-on-background);
-            border-radius: 6px;
+            border-radius: var(--task-radius-sm);
             cursor: pointer;
             font-size: 12px;
             transition: all 0.2s ease;
@@ -87,7 +87,7 @@
             border: 1px solid var(--b3-theme-border);
             background: var(--b3-theme-background);
             color: var(--b3-theme-on-background);
-            border-radius: 6px;
+            border-radius: var(--task-radius-sm);
             cursor: pointer;
             font-size: 14px;
             transition: all 0.2s ease;
@@ -124,7 +124,7 @@
         .overview-card {
             background: var(--b3-theme-surface);
             border: 1px solid var(--b3-theme-border);
-            border-radius: 12px;
+            border-radius: var(--task-radius-xl);
             padding: 24px;
             display: flex;
             align-items: center;
@@ -193,7 +193,7 @@
     .recent-trend {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--task-radius-xl);
         padding: 24px;
         margin-bottom: 20px;
 
@@ -214,7 +214,7 @@
             text-align: center;
             padding: 16px;
             background: var(--b3-theme-background);
-            border-radius: 8px;
+            border-radius: var(--task-radius-md);
             border: 1px solid var(--b3-theme-border);
 
             .progress-label {
@@ -252,7 +252,7 @@
             .trend-bar {
                 width: 100%;
                 background: linear-gradient(to top, var(--b3-theme-primary), var(--b3-theme-primary-light));
-                border-radius: var(--b3-border-radius, 4px) var(--b3-border-radius, 4px) 0 0;
+                border-radius: var(--task-radius-xs) var(--task-radius-xs) 0 0;
                 transition: var(--b3-transition, all 0.3s ease);
                 position: absolute; /* 绝对定位确保底部对齐 */
                 bottom: 50px; /* 为标签和数值预留空间 */
@@ -337,7 +337,7 @@
                 border: 1px solid var(--b3-theme-border);
                 background: var(--b3-theme-background);
                 color: var(--b3-theme-on-background);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 cursor: pointer;
                 font-size: 12px;
                 transition: all 0.2s ease;
@@ -363,7 +363,7 @@
                     border: 1px solid var(--b3-theme-border);
                     background: var(--b3-theme-background);
                     color: var(--b3-theme-on-background);
-                    border-radius: 4px;
+                    border-radius: var(--task-radius-xs);
                     cursor: pointer;
                     font-size: 12px;
                     transition: all 0.2s ease;
@@ -385,7 +385,7 @@
                 border: 1px solid var(--b3-theme-border);
                 background: var(--b3-theme-background);
                 color: var(--b3-theme-on-background);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 cursor: pointer;
                 font-size: 12px;
                 transition: all 0.2s ease;
@@ -406,7 +406,7 @@
     .category-chart {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--task-radius-xl);
         padding: 24px;
 
         @media (max-width: 768px) {
@@ -460,7 +460,7 @@
                 .legend-color {
                     width: 16px;
                     height: 16px;
-                    border-radius: var(--b3-border-radius, 4px);
+                    border-radius: var(--task-radius-xs);
                     background: var(--b3-card-error-color, #FF6B6B);
 
                     &:nth-child(2n) {
@@ -495,7 +495,7 @@
         font-size: 16px;
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--task-radius-xl);
     }
 }
 
@@ -520,7 +520,7 @@
     .records-list {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--task-radius-xl);
         overflow: hidden;
 
         .record-item {
@@ -572,7 +572,7 @@
                     .record-duration {
                         padding: 2px 6px;
                         background: var(--b3-theme-background);
-                        border-radius: 4px;
+                        border-radius: var(--task-radius-xs);
                         border: 1px solid var(--b3-theme-border);
                     }
 
@@ -650,7 +650,7 @@
     .timeline-chart {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 12px;
+        border-radius: var(--task-radius-xl);
         min-height: 300px;
     }
 
@@ -673,7 +673,7 @@
                 .chart-bar {
                     width: 100%;
                     background: linear-gradient(to top, var(--b3-theme-primary), var(--b3-theme-primary-light));
-                    border-radius: var(--b3-border-radius, 4px) var(--b3-border-radius, 4px) 0 0;
+                    border-radius: var(--task-radius-xs) var(--task-radius-xs) 0 0;
                     transition: var(--b3-transition, all 0.3s ease);
                     position: absolute; /* 绝对定位确保底部对齐 */
                     bottom: 60px; /* 为标签和数值预留空间 */
@@ -739,14 +739,14 @@
                 height: 24px;
                 position: relative;
                 background: var(--b3-theme-background);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 border: 1px solid var(--b3-theme-border);
 
                 .timeline-session {
                     position: absolute;
                     top: 2px;
                     bottom: 2px;
-                    border-radius: 2px;
+                    border-radius: var(--task-radius-xs);
                     cursor: pointer;
                     transition: all 0.2s ease;
 
@@ -774,7 +774,7 @@
     .timeline-echarts-container {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: var(--b3-border-radius-b, 12px);
+        border-radius: var(--task-radius-xl);
         margin-bottom: 16px;
 
         .echarts-timeline-chart {
@@ -825,7 +825,7 @@
                 border: 1px solid var(--b3-theme-border);
                 background: var(--b3-theme-background);
                 color: var(--b3-theme-on-background);
-                border-radius: var(--b3-border-radius, 4px);
+                border-radius: var(--task-radius-xs);
                 cursor: pointer;
                 font-size: 12px;
                 transition: var(--b3-transition, all 0.2s ease);
@@ -840,7 +840,7 @@
     .heatmap-chart {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: var(--b3-border-radius-b, 12px);
+        border-radius: var(--task-radius-xl);
         padding: 24px;
         margin-bottom: 16px;
     }
@@ -848,7 +848,7 @@
     .heatmap-echarts-container {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-border);
-        border-radius: var(--b3-border-radius-b, 12px);
+        border-radius: var(--task-radius-xl);
         padding: 24px;
         margin-bottom: 16px;
 
@@ -887,7 +887,7 @@
             .heatmap-day {
                 width: 12px;
                 height: 12px;
-                border-radius: 2px;
+                border-radius: var(--task-radius-xs);
                 cursor: pointer;
                 transition: var(--b3-transition, all 0.2s ease);
 
@@ -935,7 +935,7 @@
             .legend-color {
                 width: 12px;
                 height: 12px;
-                border-radius: 2px;
+                border-radius: var(--task-radius-xs);
 
                 &.level-0 {
                     background: var(--b3-theme-background);

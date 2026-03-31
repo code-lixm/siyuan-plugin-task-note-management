@@ -529,7 +529,7 @@ export class ProjectKanbanView {
                             </div>
                         </div>
 
-                        <div id="groupForm" class="group-form" style="display: none; padding: 16px; background: var(--b3-theme-surface-lighter); border-radius: 8px; border: 1px solid var(--b3-theme-border);">
+                        <div id="groupForm" class="group-form" style="display: none; padding: 16px; background: var(--b3-theme-surface-lighter); border-radius: var(--task-radius-md); border: 1px solid var(--b3-theme-border);">
                             <h4 id="formTitle" style="margin-top: 0;">${i18n('newGroup')}</h4>
                             <div class="b3-form__group">
                                 <label class="b3-form__label">${i18n('groupName')}</label>
@@ -736,7 +736,7 @@ export class ProjectKanbanView {
         placeholder.style.cssText = `
             height: 3px;
             background: var(--b3-theme-primary);
-            border-radius: 2px;
+            border-radius: var(--task-radius-xs);
             margin: 6px 0;
             display: none;
             transition: opacity 120ms ease;
@@ -845,7 +845,7 @@ export class ProjectKanbanView {
                     margin-bottom: 8px;
                     background: var(--b3-theme-surface-lighter);
                     border: 1px solid var(--b3-theme-border);
-                    border-radius: 8px;
+                    border-radius: var(--task-radius-md);
                     transition: all 0.2s ease;
                 `;
 
@@ -1323,7 +1323,7 @@ export class ProjectKanbanView {
                         padding: 6px 12px;
                         background: ${tag.color}20;
                         border: 1px solid ${tag.color};
-                        border-radius: 16px;
+                        border-radius: var(--task-radius-xl);
                         font-size: 14px;
                         color: var(--b3-theme-on-surface);
                         cursor: pointer;
@@ -1430,9 +1430,9 @@ export class ProjectKanbanView {
                         <div class="b3-form__group" style="margin-top: 12px;">
                             <label class="b3-form__label">${i18n('tagColor')}</label>
                             <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" id="tagColorInput" value="${defaultColor}" style="width: 60px; height: 32px; border: 1px solid var(--b3-border-color); border-radius: 4px; cursor: pointer;">
+                                <input type="color" id="tagColorInput" value="${defaultColor}" style="width: 60px; height: 32px; border: 1px solid var(--b3-border-color); border-radius: var(--task-radius-xs); cursor: pointer;">
                                 <input type="text" id="tagColorText" class="b3-text-field" value="${defaultColor}" style="flex: 1;" readonly>
-                                <div id="tagColorPreview" style="width: 80px; height: 32px; border-radius: 16px; border: 1px solid ${defaultColor}; background: ${defaultColor}20; display: flex; align-items: center; justify-content: center; font-size: 12px;">${i18n('preview')}</div>
+                                <div id="tagColorPreview" style="width: 80px; height: 32px; border-radius: var(--task-radius-xl); border: 1px solid ${defaultColor}; background: ${defaultColor}20; display: flex; align-items: center; justify-content: center; font-size: 12px;">${i18n('preview')}</div>
                             </div>
                         </div>
                     </div>
@@ -1583,7 +1583,7 @@ export class ProjectKanbanView {
         section.style.cssText = `
             margin-bottom: 24px;
             border: 1px solid var(--b3-theme-border);
-            border-radius: 8px;
+            border-radius: var(--task-radius-md);
         `;
 
         const header = document.createElement('div');
@@ -1666,7 +1666,7 @@ export class ProjectKanbanView {
                     transition: all 0.2s ease;
                     background: var(--b3-theme-surface);
                     margin: 2px 0;
-                    border-radius: 4px;
+                    border-radius: var(--task-radius-xs);
                 `;
                 if (milestones.indexOf(ms) === milestones.length - 1) {
                     item.style.borderBottom = 'none';
@@ -1712,7 +1712,7 @@ export class ProjectKanbanView {
                 if (ms.archived) {
                     const archivedTag = document.createElement('span');
                     archivedTag.textContent = i18n('milestoneArchived');
-                    archivedTag.style.cssText = `font-size: 11px; padding: 1px 4px; background: var(--b3-theme-surface); border-radius: 4px; opacity: 0.7;`;
+                    archivedTag.style.cssText = `font-size: 11px; padding: 1px 4px; background: var(--b3-theme-surface); border-radius: var(--task-radius-xs); opacity: 0.7;`;
                     info.appendChild(archivedTag);
                 }
 
@@ -2062,49 +2062,41 @@ export class ProjectKanbanView {
             sortedTasks.forEach(task => {
                 const priority = task.priority || 'none';
 
-                // 设置任务颜色（根据优先级）
-                let backgroundColor = '';
-                let borderColor = '';
+                // 设置任务颜色（根据优先级）- pinch 精髓：去彩色，用 opacity 灰度
+                let taskOpacity = '1';
                 switch (priority) {
                     case 'high':
-                        backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
-                        borderColor = 'var(--b3-card-error-color)';
+                        taskOpacity = '0.85';
                         break;
                     case 'medium':
-                        backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
-                        borderColor = 'var(--b3-card-warning-color)';
+                        taskOpacity = '0.7';
                         break;
                     case 'low':
-                        backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
-                        borderColor = 'var(--b3-card-info-color)';
+                        taskOpacity = '0.55';
                         break;
                     default:
-                        backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
-                        borderColor = 'var(--b3-theme-background-light)';
+                        taskOpacity = '1';
                 }
 
                 // 任务卡片容器 - 与看板任务卡片一致
                 const taskEl = document.createElement('div');
                 taskEl.className = 'kanban-task milestone-task-card';
-                if (priority !== 'none') {
-                    taskEl.classList.add(`kanban-task-priority-${priority}`);
-                }
                 taskEl.style.cssText = `
                     cursor: pointer;
                     transition: all 0.2s ease;
                     position: relative;
-                    background-color: ${backgroundColor};
-                    border: 1.5px solid ${borderColor};
+                    opacity: ${taskOpacity};
+                    border: 1.5px solid var(--b3-border-color);
                     margin-bottom: 8px;
                     margin-left: ${level * 20}px;
-                    border-radius: 4px;
+                    border-radius: var(--task-radius-xs);
                     padding: 8px;
                     margin: 1px 5px;
                 `;
 
                 taskEl.addEventListener('mouseenter', () => {
                     taskEl.style.transform = 'translateY(-2px)';
-                    taskEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                    taskEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
                 });
                 taskEl.addEventListener('mouseleave', () => {
                     taskEl.style.transform = '';
@@ -2257,7 +2249,7 @@ export class ProjectKanbanView {
                     }
 
                     const dateText = this.formatTaskDate(task);
-                    let dateHtml = `<span>📅${dateText}</span>`;
+                    let dateHtml = `<span>${dateText}</span>`;
 
                     if (!task.completed) {
                         const countdownInfo = this.getTaskCountdownInfo(task);
@@ -2366,8 +2358,8 @@ export class ProjectKanbanView {
                         margin-top: 8px;
                         padding: 6px 8px;
                         background: var(--b3-theme-background);
-                        border-radius: 4px;
-                        border-left: 2px solid var(--b3-theme-primary-lighter);
+                        border-radius: var(--task-radius-xs);
+                        border: 1px solid var(--b3-border-color);
                         line-height: 1.5;
                         max-height: 200px;
                         overflow-y: auto;
@@ -2852,7 +2844,7 @@ export class ProjectKanbanView {
                     margin-bottom: 8px;
                     background: var(--b3-theme-surface-lighter);
                     border: 1px solid var(--b3-theme-border);
-                    border-radius: 8px;
+                    border-radius: var(--task-radius-md);
                     transition: background-color 0.2s ease;
                     cursor: move;
                     min-height: 48px;
@@ -2878,7 +2870,7 @@ export class ProjectKanbanView {
                     cursor: move;
                     padding: 4px 6px;
                     margin-right: 8px;
-                    border-radius: 4px;
+                    border-radius: var(--task-radius-xs);
                     transition: all 0.2s ease;
                     user-select: none;
                 `;
@@ -2951,7 +2943,7 @@ export class ProjectKanbanView {
                         font-size: 11px;
                         padding: 1px 6px;
                         background: var(--b3-theme-surface);
-                        border-radius: 4px;
+                        border-radius: var(--task-radius-xs);
                         opacity: 0.7;
                         flex-shrink: 0;
                         margin-right: 8px;
@@ -2960,11 +2952,12 @@ export class ProjectKanbanView {
                 }
 
                 const groupColor = document.createElement('div');
+                const groupStyle = this.projectManager.getGroupLabelStyle(group.name);
                 groupColor.style.cssText = `
                     width: 12px;
                     height: 12px;
                     border-radius: 50%;
-                    background-color: ${group.color};
+                    background-color: ${groupStyle.backgroundColor};
                     border: 2px solid var(--b3-theme-surface);
                     box-shadow: 0 0 0 1px var(--b3-theme-border);
                     flex-shrink: 0;
@@ -3096,10 +3089,6 @@ export class ProjectKanbanView {
                         <div class="b3-label__text" style="margin-top: 4px; color: var(--b3-theme-on-surface-light);">${i18n('bindBlockIdHint')}</div>
                     </div>
                     <div class="b3-form__group">
-                        <label class="b3-form__label">${i18n('groupColor')}</label>
-                        <input type="color" id="editGroupColor" class="b3-text-field" value="${group.color}" style="width: 100%;">
-                    </div>
-                    <div class="b3-form__group">
                         <label class="b3-form__label">${i18n('iconOptional')}</label>
                         <input type="text" id="editGroupIcon" class="b3-text-field" value="${group.icon || ''}" placeholder="${i18n('emojiIconExample')}" style="width: 100%;">
                     </div>
@@ -3118,7 +3107,6 @@ export class ProjectKanbanView {
 
         const editGroupName = dialog.element.querySelector('#editGroupName') as HTMLInputElement;
         const editGroupBlockId = dialog.element.querySelector('#editGroupBlockId') as HTMLInputElement;
-        const editGroupColor = dialog.element.querySelector('#editGroupColor') as HTMLInputElement;
         const editGroupIcon = dialog.element.querySelector('#editGroupIcon') as HTMLInputElement;
         const editGroupArchived = dialog.element.querySelector('#editGroupArchived') as HTMLInputElement;
         const editCancelBtn = dialog.element.querySelector('#editCancelBtn') as HTMLButtonElement;
@@ -3146,7 +3134,6 @@ export class ProjectKanbanView {
         editSaveBtn.addEventListener('click', async () => {
             const name = editGroupName.value.trim();
             const blockId = editGroupBlockId.value.trim();
-            const color = editGroupColor.value;
             const icon = editGroupIcon.value.trim();
             const archived = editGroupArchived.checked;
 
@@ -3163,7 +3150,7 @@ export class ProjectKanbanView {
                 // 更新分组信息
                 const groupIndex = currentGroups.findIndex((g: any) => g.id === group.id);
                 if (groupIndex !== -1) {
-                    currentGroups[groupIndex] = { ...currentGroups[groupIndex], name, color, icon, blockId: blockId || undefined, archived };
+                    currentGroups[groupIndex] = { ...currentGroups[groupIndex], name, icon, blockId: blockId || undefined, archived };
                     await projectManager.setProjectCustomGroups(this.projectId, currentGroups);
                 }
 
@@ -3691,7 +3678,7 @@ export class ProjectKanbanView {
         modeSelect.style.cssText = `
             background: var(--b3-theme-surface);
             border: 1px solid var(--b3-theme-border);
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             padding: 4px 8px;
             font-size: 14px;
             color: var(--b3-theme-on-surface);
@@ -4026,7 +4013,7 @@ export class ProjectKanbanView {
                 z-index: 1000; 
                 background-color: var(--b3-theme-background); 
                 border: 1px solid var(--b3-border-color); 
-                border-radius: 4px; 
+                border-radius: var(--task-radius-xs); 
                 box-shadow: rgba(0, 0, 0, 0.15) 0px 2px 8px; 
                 min-width: 220px; 
                 max-height: 500px; 
@@ -4120,7 +4107,7 @@ export class ProjectKanbanView {
 
                 section.milestones.forEach(ms => {
                     const label = document.createElement('label');
-                    label.style.cssText = 'display: flex; align-items: center; padding: 6px 8px; cursor: pointer; border-radius: 4px; transition: background 0.2s;';
+                    label.style.cssText = 'display: flex; align-items: center; padding: 6px 8px; cursor: pointer; border-radius: var(--task-radius-xs); transition: background 0.2s;';
                     label.onmouseenter = () => label.style.backgroundColor = 'var(--b3-theme-surface-lighter)';
                     label.onmouseleave = () => label.style.backgroundColor = '';
 
@@ -4271,7 +4258,7 @@ export class ProjectKanbanView {
             padding: 12px 16px;
             border-bottom: 1px solid var(--b3-theme-border);
             background: ${color}15;
-            border-radius: 8px 8px 0 0;
+            border-radius: var(--task-radius-md) 8px 0 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -4314,7 +4301,7 @@ export class ProjectKanbanView {
         countEl.style.cssText = `
             background: ${color};
             color: white;
-            border-radius: 12px;
+            border-radius: var(--task-radius-xl);
             padding: 2px 8px;
             font-size: 12px;
             font-weight: 500;
@@ -4413,7 +4400,7 @@ export class ProjectKanbanView {
             columnPlaceholder.style.cssText = `
                 width: 6px;
                 background: var(--b3-theme-primary);
-                border-radius: 3px;
+                border-radius: var(--task-radius-xs);
                 margin: 8px 4px;
                 display: none;
                 transition: opacity 120ms ease;
@@ -6627,7 +6614,7 @@ export class ProjectKanbanView {
                             indicator.style.cssText = `
                                 width: 6px;
                                 background-color: var(--b3-theme-primary);
-                                border-radius: 3px;
+                                border-radius: var(--task-radius-xs);
                                 margin: 0 6px;
                                 align-self: stretch;
                             `;
@@ -6906,7 +6893,7 @@ export class ProjectKanbanView {
                     count.style.cssText = `
                         background: ${titleColor};
                         color: white;
-                        border-radius: 12px;
+                        border-radius: var(--task-radius-xl);
                         padding: 2px 8px;
                         font-size: 12px;
                         font-weight: 500;
@@ -7252,7 +7239,7 @@ export class ProjectKanbanView {
                 padding: 12px 16px;
                 border-bottom: 1px solid var(--b3-theme-border);
                 background: var(--b3-theme-surface-lighter);
-                border-radius: 8px 8px 0 0;
+                border-radius: var(--task-radius-md) 8px 0 0;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -7272,7 +7259,7 @@ export class ProjectKanbanView {
             // Count badge
             const countBadge = document.createElement('span');
             countBadge.className = 'kanban-column-count';
-            countBadge.style.cssText = 'background: var(--b3-theme-primary); color: white; border-radius: 12px; padding: 2px 8px; font-size: 12px; min-width: 20px; text-align: center;';
+            countBadge.style.cssText = 'background: var(--b3-theme-primary); color: white; border-radius: var(--task-radius-xl); padding: 2px 8px; font-size: 12px; min-width: 20px; text-align: center;';
             headerRight.appendChild(countBadge);
 
             // Add Task Button
@@ -7809,7 +7796,7 @@ export class ProjectKanbanView {
                     count.style.cssText = `
                         background: ${titleColor};
                         color: white;
-                        border-radius: 12px;
+                        border-radius: var(--task-radius-xl);
                         padding: 2px 8px;
                         font-size: 12px;
                         font-weight: 500;
@@ -8007,14 +7994,17 @@ export class ProjectKanbanView {
         column.className = `kanban-column kanban-column-${columnId}`;
         column.dataset.groupId = group.id;
 
+        // 获取分组颜色样式（使用色板系统）
+        const groupStyle = this.projectManager.getGroupLabelStyle(group.name);
+
         // 列标题
         const header = document.createElement('div');
         header.className = 'kanban-column-header';
         header.style.cssText = `
             padding: 12px 16px;
             border-bottom: 1px solid var(--b3-theme-border);
-            background: ${group.color}15;
-            border-radius: 8px 8px 0 0;
+            background: ${groupStyle.backgroundColor};
+            border-radius: var(--task-radius-md) 8px 0 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -8040,7 +8030,7 @@ export class ProjectKanbanView {
             margin: 0;
             font-size: 16px;
             font-weight: 600;
-            color: ${group.color};
+            color: ${groupStyle.textColor};
         `;
 
         // 如果分组绑定了块ID，添加预览和跳转功能
@@ -8062,9 +8052,9 @@ export class ProjectKanbanView {
         const countEl = document.createElement('span');
         countEl.className = 'kanban-column-count';
         countEl.style.cssText = `
-            background: ${group.color};
+            background: ${groupStyle.textColor};
             color: white;
-            border-radius: 12px;
+            border-radius: var(--task-radius-xl);
             padding: 2px 8px;
             font-size: 12px;
             font-weight: 500;
@@ -8267,7 +8257,6 @@ export class ProjectKanbanView {
 
         // 从 kanbanStatuses 获取状态配置（颜色、图标）
         const statusConfig = this.kanbanStatuses.find(s => s.id === status);
-        const statusColor = statusConfig?.color || group.color;
 
         // 分组标题 wrapper（吸顶+背景色，避免滚动时文字看不清）
         const groupHeaderWrapper = document.createElement('div');
@@ -8287,9 +8276,9 @@ export class ProjectKanbanView {
             align-items: center;
             justify-content: space-between;
             padding: 8px 12px;
-            background: ${statusColor}15;
-            border: 1px solid ${statusColor}30;
-            border-radius: 6px;
+            background: ${groupStyle.backgroundColor};
+            border: 1px solid ${groupStyle.borderColor};
+            border-radius: var(--task-radius-sm);
             cursor: pointer;
         `;
 
@@ -8300,7 +8289,7 @@ export class ProjectKanbanView {
             align-items: center;
             gap: 6px;
             font-weight: 600;
-            color: ${statusColor};
+            color: ${groupStyle.textColor};
             font-size: 13px;
         `;
 
@@ -8328,9 +8317,9 @@ export class ProjectKanbanView {
         const topLevel = tasks.filter((t: any) => !t.parentId || !taskMapLocal.has(t.parentId));
         taskCount.textContent = topLevel.length.toString();
         taskCount.style.cssText = `
-            background: ${statusColor};
+            background: ${groupStyle.textColor};
             color: white;
-            border-radius: 10px;
+            border-radius: var(--task-radius-lg);
             padding: 2px 6px;
             font-size: 11px;
             font-weight: 500;
@@ -8565,9 +8554,9 @@ export class ProjectKanbanView {
             align-items: center;
             justify-content: space-between;
             padding: 8px 12px;
-            background: ${group.color}15;
-            border: 1px solid ${group.color}30;
-            border-radius: 6px;
+            background: ${groupStyle.backgroundColor};
+            border: 1px solid ${groupStyle.borderColor};
+            border-radius: var(--task-radius-sm);
             cursor: pointer;
         `;
 
@@ -8578,7 +8567,7 @@ export class ProjectKanbanView {
             align-items: center;
             gap: 6px;
             font-weight: 600;
-            color: ${group.color};
+            color: ${groupStyle.textColor};
             font-size: 13px;
         `;
 
@@ -8599,9 +8588,9 @@ export class ProjectKanbanView {
         const topLevel = expandedTasks.filter((t: any) => !t.parentId || !taskMapLocal.has(t.parentId));
         taskCount.textContent = topLevel.length.toString();
         taskCount.style.cssText = `
-            background: ${group.color};
+            background: ${groupStyle.textColor};
             color: white;
-            border-radius: 10px;
+            border-radius: var(--task-radius-lg);
             padding: 2px 6px;
             font-size: 11px;
             font-weight: 500;
@@ -8750,30 +8739,20 @@ export class ProjectKanbanView {
         // 存储任务数据到元素
         taskEl.dataset.priority = priority;
 
-        // 添加优先级样式类
-        if (priority !== 'none') {
-            taskEl.classList.add(`kanban-task-priority-${priority}`);
-        }
-
-        // 设置任务颜色（根据优先级）
-        let backgroundColor = '';
-        let borderColor = '';
+        // 设置任务颜色（根据优先级）- pinch 精髓：去彩色，用 opacity 灰度
+        let taskOpacity = '1';
         switch (task.priority) {
             case 'high':
-                backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
-                borderColor = 'var(--b3-card-error-color)';
+                taskOpacity = '0.85';
                 break;
             case 'medium':
-                backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
-                borderColor = 'var(--b3-card-warning-color)';
+                taskOpacity = '0.7';
                 break;
             case 'low':
-                backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
-                borderColor = 'var(--b3-card-info-color)';
+                taskOpacity = '0.55';
                 break;
             default:
-                backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
-                borderColor = 'var(--b3-theme-background-light)';
+                taskOpacity = '1';
         }
 
         // 设置任务元素的背景色和边框
@@ -8781,8 +8760,8 @@ export class ProjectKanbanView {
             cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
-            background-color: ${backgroundColor};
-            border: 1.5px solid ${borderColor};
+            opacity: ${taskOpacity};
+            border: 1.5px solid var(--b3-border-color);
         `;
 
         if (task.completed) {
@@ -9142,7 +9121,7 @@ export class ProjectKanbanView {
             }
 
             const dateText = this.formatTaskDate(task);
-            let dateHtml = `<span>📅${dateText}</span>`;
+            let dateHtml = `<span>${dateText}</span>`;
 
             // 添加倒计时显示
             if (!task.completed) {
@@ -9238,7 +9217,7 @@ export class ProjectKanbanView {
                     margin-top: 4px;
                     background: var(--b3-theme-surface-lighter);
                     padding: 2px 6px;
-                    border-radius: 4px;
+                    border-radius: var(--task-radius-xs);
                     width: fit-content;
                     border: 1px solid var(--b3-theme-border);
                 `;
@@ -9286,7 +9265,7 @@ export class ProjectKanbanView {
                         padding: 2px 6px;
                         background-color: ${labelStyle.backgroundColor};
                         border: 1px solid ${labelStyle.borderColor};
-                        border-radius: 4px;
+                        border-radius: var(--task-radius-xs);
                         font-size: 11px;
                         color: ${labelStyle.textColor};
                         font-weight: 500;
@@ -9370,7 +9349,7 @@ export class ProjectKanbanView {
                 -webkit-box-orient: vertical;
                 word-break: break-all;
                 cursor: pointer;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 padding: 0 4px;
             `;
 
@@ -9479,7 +9458,7 @@ export class ProjectKanbanView {
                                 align-items: center;
                                 padding: 2px 8px;
                                 font-size: 11px;
-                                border-radius: 12px;
+                                border-radius: var(--task-radius-xl);
                                 background: ${tag.color}20;
                                 border: 1px solid ${tag.color};
                                 color: var(--b3-theme-on-surface);
@@ -9508,7 +9487,7 @@ export class ProjectKanbanView {
                 background: rgba(255, 99, 71, 0.1);
                 color: rgb(255, 99, 71);
                 padding: 4px 8px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 margin-top: 4px;
                 width: fit-content;
             `;
@@ -9584,7 +9563,7 @@ export class ProjectKanbanView {
                 flex: 1;
                 background: rgba(0,0,0,0.06);
                 height: 8px;
-                border-radius: 6px;
+                border-radius: var(--task-radius-sm);
                 overflow: hidden;
             `;
 
@@ -10166,7 +10145,7 @@ export class ProjectKanbanView {
                         background: var(--b3-theme-primary);
                         color: white;
                         padding: 6px 10px;
-                        border-radius: 4px;
+                        border-radius: var(--task-radius-xs);
                         font-size: 12px;
                         position: absolute;
                         top: -1000px;
@@ -10556,10 +10535,10 @@ export class ProjectKanbanView {
                 }
             };
 
-            items.push({ iconHTML: "📅", label: i18n("moveToToday") || "移至今天", click: () => apply(todayStr) });
-            items.push({ iconHTML: "📅", label: i18n("moveToTomorrow") || "移至明天", click: () => apply(tomorrowStr) });
-            items.push({ iconHTML: "📅", label: i18n("moveToDayAfterTomorrow") || "移至后天", click: () => apply(dayAfterStr) });
-            items.push({ iconHTML: "📅", label: i18n("moveToNextWeek") || "移至下周", click: () => apply(nextWeekStr) });
+            items.push({ iconHTML: "", label: i18n("moveToToday") || "移至今天", click: () => apply(todayStr) });
+            items.push({ iconHTML: "", label: i18n("moveToTomorrow") || "移至明天", click: () => apply(tomorrowStr) });
+            items.push({ iconHTML: "", label: i18n("moveToDayAfterTomorrow") || "移至后天", click: () => apply(dayAfterStr) });
+            items.push({ iconHTML: "", label: i18n("moveToNextWeek") || "移至下周", click: () => apply(nextWeekStr) });
             items.push({ iconHTML: "❌", label: i18n('clearDate') || '清除日期', click: () => apply(null) });
             items.push({
                 iconHTML: "✏️", label: i18n("editDate") || "编辑日期", click: () => {
@@ -10714,7 +10693,7 @@ export class ProjectKanbanView {
                                 align-items: center;
                                 padding: 2px 8px;
                                 font-size: 11px;
-                                border-radius: 12px;
+                                border-radius: var(--task-radius-xl);
                                 background: ${tag.color}20;
                                 border: 1px solid ${tag.color};
                                 color: var(--b3-theme-on-surface);
@@ -11479,7 +11458,7 @@ export class ProjectKanbanView {
             z-index: 1000; 
             background-color: var(--b3-theme-background); 
             border: 1px solid var(--b3-border-color); 
-            border-radius: 4px; 
+            border-radius: var(--task-radius-xs); 
             box-shadow: rgba(0, 0, 0, 0.15) 0px 2px 8px; 
             min-width: 200px; 
             max-height: 500px; 
@@ -11522,7 +11501,7 @@ export class ProjectKanbanView {
         // --- Helper to render checkbox item ---
         const renderItem = (id: string, name: string, type: 'tag' | 'date', color?: string, icon?: string, checked?: boolean, onChange?: (isChecked: boolean) => void) => {
             const label = document.createElement('label');
-            label.style.cssText = 'display: flex; align-items: center; padding: 6px 8px; cursor: pointer; user-select: none; border-radius: 4px; transition: background 0.1s;';
+            label.style.cssText = 'display: flex; align-items: center; padding: 6px 8px; cursor: pointer; user-select: none; border-radius: var(--task-radius-xs); transition: background 0.1s;';
             label.addEventListener('mouseenter', () => label.style.backgroundColor = 'var(--b3-theme-on-surface-light)');
             label.addEventListener('mouseleave', () => label.style.backgroundColor = '');
 
@@ -11616,7 +11595,7 @@ export class ProjectKanbanView {
         renderSectionHeader(i18n('date'), dateActions);
 
         // All Dates
-        renderItem('all', i18n('allDates'), 'date', undefined, '📅', this.selectedDateFilters.size === 0 || this.selectedDateFilters.has('all'), (checked) => {
+        renderItem('all', i18n('allDates'), 'date', undefined, '', this.selectedDateFilters.size === 0 || this.selectedDateFilters.has('all'), (checked) => {
             if (checked) {
                 this.selectedDateFilters.clear(); // Clear all specific date filters
                 // Uncheck others
@@ -11641,7 +11620,7 @@ export class ProjectKanbanView {
 
         const dateFilters = [
 
-            { id: 'today', name: i18n('today') || '今日', icon: '📅' },
+            { id: 'today', name: i18n('today') || '今日', icon: '' },
             { id: 'tomorrow', name: i18n('tomorrow') || '明日', icon: '🗓️' },
             { id: 'other_date', name: i18n('otherDate'), icon: '📆' },
 
@@ -11772,7 +11751,7 @@ export class ProjectKanbanView {
             position: absolute;
             background: var(--b3-theme-background);
             border: 1px solid var(--b3-theme-border);
-            border-radius: 6px;
+            border-radius: var(--task-radius-sm);
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
                 padding: 8px;
             z-index: 100;
@@ -11784,7 +11763,7 @@ export class ProjectKanbanView {
         const sortOptions = [
             { key: 'priority', label: i18n('sortByPriority'), icon: '🎯' },
             { key: 'time', label: i18n('sortByTime'), icon: '🕐' },
-            { key: 'createdAt', label: i18n('sortByCreated'), icon: '📅' },
+            { key: 'createdAt', label: i18n('sortByCreated'), icon: '' },
             { key: 'title', label: i18n('sortByTitle'), icon: '📝' },
         ];
 
@@ -12685,8 +12664,8 @@ export class ProjectKanbanView {
 
             .kanban-column {
                 background: var(--b3-theme-background);
-                border-radius: 8px;
-                border: 2px solid var(--b3-border-color);
+                border-radius: var(--task-radius-md);
+                border: 1px solid var(--b3-border-color);
                 display: flex;
                 flex-direction: column;
                 min-width: 280px; /* 固定最小宽度 */
@@ -12716,7 +12695,7 @@ export class ProjectKanbanView {
             }
 
             .kanban-column-count {
-                border-radius: 12px;
+                border-radius: var(--task-radius-lg);
                 padding: 2px 8px;
                 font-size: 12px;
                 font-weight: 500;
@@ -12728,7 +12707,7 @@ export class ProjectKanbanView {
             .kanban-task {
                 background: var(--b3-theme-surface-lighter);
                 border: 1px solid var(--b3-theme-border);
-                border-radius: 6px;
+                border-radius: var(--task-radius-sm);
                 padding: 12px;
                 margin-bottom: 8px;
                 transition: all 0.2s ease;
@@ -12745,21 +12724,21 @@ export class ProjectKanbanView {
                 cursor: grabbing;
             }
 
-            /* 优先级样式美化 - 使用思源主题颜色 */
+            /* 优先级样式美化 - pinch 精髓：去彩色，用 opacity 和中性阴影 */
 
             .kanban-task-priority-high:hover {
-                box-shadow: 0 0 0 1px var(--b3-card-error-color), 0 4px 12px rgba(231, 76, 60, 0.25) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
             }
 
 
             .kanban-task-priority-medium:hover {
-                box-shadow: 0 0 0 1px var(--b3-card-warning-color), 0 4px 12px rgba(243, 156, 18, 0.25) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
             }
 
 
 
             .kanban-task-priority-low:hover {
-                box-shadow: 0 0 0 1px var(--b3-card-info-color), 0 4px 12px rgba(52, 152, 219, 0.25) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
             }
 
             .kanban-task-title {
@@ -12790,7 +12769,7 @@ export class ProjectKanbanView {
                 align-items: center;
                 gap: 2px;
                 padding: 1px 4px;
-                border-radius: 3px;
+                border-radius: var(--task-radius-xs);
                 font-size: 10px;
                 font-weight: 500;
                 margin-top: 2px;
@@ -12840,7 +12819,7 @@ export class ProjectKanbanView {
                 align-items: center;
                 gap: 4px;
                 padding: 2px 6px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 font-size: 11px;
                 color: white;
                 font-weight: 500;
@@ -12857,7 +12836,7 @@ export class ProjectKanbanView {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 padding: 4px 8px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 border: 1px solid var(--b3-border-color);
                 transition: all 0.2s ease;
             }
@@ -12865,23 +12844,20 @@ export class ProjectKanbanView {
                 background-color: var(--b3-theme-surface-lighter) !important;
                 color: var(--b3-theme-primary) !important;
             }
-            /* 优先级任务的备注样式 */
+            /* 优先级任务的备注样式 - pinch 精髓：opacity 灰度，无彩色 */
             .kanban-task-priority-high .kanban-task-note {
-                background-color: rgba(231, 76, 60, 0.08);
-                border-color: rgba(231, 76, 60, 0.2);
-                color: var(--b3-card-error-color);
+                opacity: 0.85;
+                border: 1px solid var(--b3-border-color);
             }
 
             .kanban-task-priority-medium .kanban-task-note {
-                background-color: rgba(243, 156, 18, 0.08);
-                border-color: rgba(243, 156, 18, 0.2);
-                color: var(--b3-card-warning-color);
+                opacity: 0.7;
+                border: 1px solid var(--b3-border-color);
             }
 
             .kanban-task-priority-low .kanban-task-note {
-                background-color: rgba(52, 152, 219, 0.08);
-                border-color: rgba(52, 152, 219, 0.2);
-                color: var(--b3-card-info-color);
+                opacity: 0.55;
+                border: 1px solid var(--b3-border-color);
             }
 
             .kanban-drop-zone-active {
@@ -12949,7 +12925,7 @@ export class ProjectKanbanView {
                 gap: 8px;
                 padding: 6px 10px;
                 margin: 6px 8px 0 0;
-                border-radius: 20px;
+                border-radius: var(--task-radius-cta);
                 cursor: pointer;
                 border: 2px solid var(--b3-theme-border);
                 transition: all 0.2s ease;
@@ -12978,7 +12954,7 @@ export class ProjectKanbanView {
                 gap: 4px;
                 padding: 2px 6px;
                 background-color: var(--b3-theme-surface-lighter);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 border: 1px solid var(--b3-theme-border);
                 transition: all 0.2s ease;
             }
@@ -13012,7 +12988,7 @@ export class ProjectKanbanView {
             .countdown-badge {
                 font-size: 11px;
                 padding: 2px 6px;
-                border-radius: 10px;
+                border-radius: var(--task-radius-lg);
                 font-weight: 500;
                 margin-left: 4px;
                 display: inline-block;
@@ -13136,7 +13112,7 @@ export class ProjectKanbanView {
             .kanban-task-progress-wrap {
                 background: rgba(0,0,0,0.06);
                 height: 8px;
-                border-radius: 6px;
+                border-radius: var(--task-radius-sm);
                 overflow: hidden;
             }
 
@@ -13144,7 +13120,7 @@ export class ProjectKanbanView {
                 height: 100%;
                 background: linear-gradient(90deg, #2ecc71, #27ae60);
                 transition: width 0.3s ease;
-                border-radius: 6px 0 0 6px;
+                border-radius: var(--task-radius-sm) 0 0 6px;
             }
 
             .kanban-task-progress-text {
@@ -13158,7 +13134,7 @@ export class ProjectKanbanView {
             /* 自定义分组样式 */
             .custom-group-in-status {
                 background: var(--b3-theme-background);
-                border-radius: 8px;
+                border-radius: var(--task-radius-md);
                 border: 1px solid var(--b3-border-color);
             }
 
@@ -13213,7 +13189,7 @@ export class ProjectKanbanView {
 
             .custom-status-group {
                 background: var(--b3-theme-background);
-                border-radius: 8px;
+                border-radius: var(--task-radius-md);
                 border: 1px solid var(--b3-border-color);
             }
 
@@ -13259,7 +13235,7 @@ export class ProjectKanbanView {
             /* 分组管理对话框样式 */
             .manage-groups-dialog .groups-container {
                 border: 1px solid var(--b3-theme-border);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 background: var(--b3-theme-surface);
             }
 
@@ -13315,7 +13291,7 @@ export class ProjectKanbanView {
             .kanban-mode-select {
                 background: var(--b3-theme-background) !important;
                 border: 1px solid var(--b3-theme-border) !important;
-                border-radius: 4px !important;
+                border-radius: var(--task-radius-xs) !important;
                 font-size: 14px !important;
                 color: var(--b3-theme-on-surface) !important;
                 cursor: pointer !important;
@@ -13508,28 +13484,23 @@ export class ProjectKanbanView {
                 taskEl.classList.add(`kanban-task-priority-${priority}`);
             }
 
-            // 更新背景和边框
-            let backgroundColor = '';
-            let borderColor = '';
+            // 更新背景和边框 - pinch 精髓：去彩色，用 opacity
+            let taskOpacity = '1';
             switch (priority) {
                 case 'high':
-                    backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
-                    borderColor = 'var(--b3-card-error-color)';
+                    taskOpacity = '0.85';
                     break;
                 case 'medium':
-                    backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
-                    borderColor = 'var(--b3-card-warning-color)';
+                    taskOpacity = '0.7';
                     break;
                 case 'low':
-                    backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
-                    borderColor = 'var(--b3-card-info-color)';
+                    taskOpacity = '0.55';
                     break;
                 default:
-                    backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
-                    borderColor = 'var(--b3-theme-background-light)';
+                    taskOpacity = '1';
             }
-            taskEl.style.backgroundColor = backgroundColor;
-            taskEl.style.borderColor = borderColor;
+            taskEl.style.opacity = taskOpacity;
+            taskEl.style.borderColor = 'var(--b3-border-color)';
 
             // 更新优先级标签
             let priorityEl = taskEl.querySelector('.kanban-task-priority') as HTMLElement;
@@ -15932,28 +15903,11 @@ export class ProjectKanbanView {
                 taskEl.classList.add(`kanban-task-priority-${task.priority}`);
             }
 
-            // 更新优先级背景色和边框
-            let backgroundColor = '';
-            let borderColor = '';
-            switch (task.priority) {
-                case 'high':
-                    backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
-                    borderColor = 'var(--b3-card-error-color)';
-                    break;
-                case 'medium':
-                    backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
-                    borderColor = 'var(--b3-card-warning-color)';
-                    break;
-                case 'low':
-                    backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
-                    borderColor = 'var(--b3-card-info-color)';
-                    break;
-                default:
-                    backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
-                    borderColor = 'var(--b3-theme-background-light)';
-            }
-            taskEl.style.backgroundColor = backgroundColor;
-            taskEl.style.borderColor = borderColor;
+            // 更新优先级背景色和边框（仅背景使用透明色，边框统一用 b3-border-color）
+            const backgroundPriority = task.priority === 'high' ? 0.5 : task.priority === 'medium' ? 0.5 : task.priority === 'low' ? 0.7 : 0.1;
+            const bgVar = task.priority === 'high' ? 'var(--b3-card-error-background)' : task.priority === 'medium' ? 'var(--b3-card-warning-background)' : task.priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-background-light)';
+            taskEl.style.backgroundColor = colorWithOpacity(bgVar, backgroundPriority);
+            taskEl.style.borderColor = 'var(--b3-border-color)';
         }
 
         // 如果状态改变，智能移动任务卡片到新列
@@ -16650,7 +16604,7 @@ export class ProjectKanbanView {
             transform: translateX(-50%);
             background: var(--b3-theme-background);
             border: 1px solid var(--b3-theme-border);
-            border-radius: 8px;
+            border-radius: var(--task-radius-md);
             padding: 12px 20px;
             display: flex;
             align-items: center;

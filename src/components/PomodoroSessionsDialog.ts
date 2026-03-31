@@ -213,7 +213,7 @@ export class PomodoroSessionsDialog {
                         ${extraBadges}
                     </div>
                     <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); display: flex; gap: 12px;">
-                        <span>📅 ${dateStr}</span>
+                        <span> ${dateStr}</span>
                         <span>🕐 ${startTimeStr} - ${endTimeStr}</span>
                         <span> ${session.duration} 分钟</span>
                     </div>

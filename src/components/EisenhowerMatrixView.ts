@@ -1058,30 +1058,11 @@ export class EisenhowerMatrixView {
             taskEl.classList.add(`task-priority-${task.priority}`);
         }
 
-        // 设置任务颜色（根据优先级）- 参考项目看板的样式
-        let backgroundColor = '';
-        let borderColor = '';
-        switch (task.priority) {
-            case 'high':
-                backgroundColor = colorWithOpacity('var(--b3-card-error-background)', 0.5);
-                borderColor = 'var(--b3-card-error-color)';
-                break;
-            case 'medium':
-                backgroundColor = colorWithOpacity('var(--b3-card-warning-background)', 0.5);
-                borderColor = 'var(--b3-card-warning-color)';
-                break;
-            case 'low':
-                backgroundColor = colorWithOpacity('var(--b3-card-info-background)', 0.7);
-                borderColor = 'var(--b3-card-info-color)';
-                break;
-            default:
-                backgroundColor = colorWithOpacity('var(--b3-theme-background-light)', 0.1);
-                borderColor = 'var(--b3-theme-background-light)';
-        }
-
-        // 设置任务元素的背景色和边框
-        taskEl.style.backgroundColor = backgroundColor;
-        taskEl.style.border = `1.5px solid ${borderColor}`;
+        // 设置任务颜色（根据优先级）- 使用透明背景色 + 统一边框
+        const bgVar = task.priority === 'high' ? 'var(--b3-card-error-background)' : task.priority === 'medium' ? 'var(--b3-card-warning-background)' : task.priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-background-light)';
+        const bgOpacity = task.priority === 'high' ? 0.5 : task.priority === 'medium' ? 0.5 : task.priority === 'low' ? 0.7 : 0.1;
+        taskEl.style.backgroundColor = colorWithOpacity(bgVar, bgOpacity);
+        taskEl.style.border = `1.5px solid var(--b3-border-color)`;
 
         // 创建任务内容容器
         const taskContent = document.createElement('div');
@@ -1244,7 +1225,7 @@ export class EisenhowerMatrixView {
 
             // 辅助函数：创建过期徽章
             const createExpiredBadge = (days: number): string => {
-                return `<span class="countdown-badge countdown-normal" style="background-color: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 500; margin-left: 4px; display: inline-block;">已过期${days}天</span>`;
+                return `<span class="countdown-badge countdown-normal" style="background-color: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); font-size: 11px; padding: 2px 6px; border-radius: var(--task-radius-lg); font-weight: 500; margin-left: 4px; display: inline-block;">已过期${days}天</span>`;
             };
 
             // 添加周期图标
@@ -1292,7 +1273,7 @@ export class EisenhowerMatrixView {
             }
 
             const dateTextSpan = document.createElement('span');
-            dateTextSpan.innerHTML = `📅 ${dateText}`;
+            dateTextSpan.innerHTML = ` ${dateText}`;
             dateSpan.appendChild(dateTextSpan);
             dateDiv.appendChild(dateSpan);
 
@@ -1344,7 +1325,7 @@ export class EisenhowerMatrixView {
                 align-items: center;
                 gap: 2px;
                 padding: 2px 6px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 font-size: 11px;
                 font-weight: 500;
                 background-color: ${statusInfo.color}20;
@@ -1385,7 +1366,7 @@ export class EisenhowerMatrixView {
                 align-items: center;
                 gap: 2px;
                 padding: 1px 4px;
-                border-radius: 3px;
+                border-radius: var(--task-radius-xs);
                 font-size: 11px;
                 background-color: rgba(255, 99, 71, 0.1);
                 color: #ff6347;
@@ -1462,7 +1443,7 @@ export class EisenhowerMatrixView {
                 -webkit-box-orient: vertical;
                 word-break: break-all;
                 cursor: pointer;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 padding: 0 4px;
                 transition: background-color 0.2s;
             `;
@@ -2013,7 +1994,7 @@ export class EisenhowerMatrixView {
      */
     private async completeAllChildInstances(parentId: string, date: string, reminderData: any): Promise<string[]> {
         const completedTaskIds: string[] = [];
-        
+
         // 1. 处理 Ghost 子任务 (基于 originalId 的后代)
         const ghostChildren = (Object.values(reminderData) as any[]).filter((r: any) => r.parentId === parentId);
 
@@ -2046,7 +2027,7 @@ export class EisenhowerMatrixView {
         const instanceId = `${parentId}_${date}`;
         const childIds = await this.completeAllChildTasks(instanceId, reminderData);
         completedTaskIds.push(...childIds);
-        
+
         return completedTaskIds;
     }
 
@@ -2468,7 +2449,7 @@ export class EisenhowerMatrixView {
             .quadrant {
                 background: var(--b3-theme-background);
                 border: 3px solid;
-                border-radius: 8px;
+                border-radius: var(--task-radius-md);
                 overflow: hidden;
                 display: flex;
                 flex-direction: column;
@@ -2559,13 +2540,13 @@ export class EisenhowerMatrixView {
                 color: var(--b3-theme-primary);
                 margin-bottom: 8px;
                 padding: 4px 8px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
             }
 
             .task-item {
                 background: var(--b3-theme-background);
                 border: 1px solid var(--b3-theme-border);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 margin-bottom: 4px;
                 padding: 8px;
                 cursor: pointer;
@@ -2592,7 +2573,7 @@ export class EisenhowerMatrixView {
             }
             .quick_item{
                 margin-top: 2px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
             }
             .task-content {
                 display: flex;
@@ -2652,12 +2633,12 @@ export class EisenhowerMatrixView {
                 
                 .matrix-grid::-webkit-scrollbar-track {
                     background: var(--b3-theme-surface-lighter);
-                    border-radius: 3px;
+                    border-radius: var(--task-radius-xs);
                 }
                 
                 .matrix-grid::-webkit-scrollbar-thumb {
                     background: var(--b3-theme-primary-lighter);
-                    border-radius: 3px;
+                    border-radius: var(--task-radius-xs);
                 }
                 
                 .matrix-grid::-webkit-scrollbar-thumb:hover {
@@ -2686,7 +2667,7 @@ export class EisenhowerMatrixView {
                 max-height: 300px;
                 overflow-y: auto;
                 border: 1px solid var(--b3-theme-border);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 padding: 8px;
             }
             
@@ -2737,17 +2718,11 @@ export class EisenhowerMatrixView {
                 100% { opacity: 0.6; transform: scaleX(0.8); }
             }
             
-            /* 跨优先级拖拽时的视觉提示 - 仅改变边框颜色 */
-            .quick_item.priority-drop-high.drag-over {
-                border-color: var(--b3-card-error-color) !important;
-            }
-
-            .quick_item.priority-drop-medium.drag-over {
-                border-color: var(--b3-card-warning-color) !important;
-            }
-
+            /* 跨优先级拖拽时的视觉提示 - 统一边框颜色 */
+            .quick_item.priority-drop-high.drag-over,
+            .quick_item.priority-drop-medium.drag-over,
             .quick_item.priority-drop-low.drag-over {
-                border-color: var(--b3-card-info-color) !important;
+                border-color: var(--b3-border-color) !important;
             }
             
             
@@ -2763,7 +2738,7 @@ export class EisenhowerMatrixView {
                 align-items: center;
                 justify-content: center;
                 border: 1px solid var(--b3-theme-border);
-                border-radius: 2px;
+                border-radius: var(--task-radius-xs);
                 background: var(--b3-theme-background);
                 margin-bottom: 2px;
             }
@@ -2792,7 +2767,7 @@ export class EisenhowerMatrixView {
                 align-items: center;
                 gap: 4px;
                 padding: 2px 8px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 font-size: 11px;
                 font-weight: 500;
                 white-space: nowrap;
@@ -2836,23 +2811,17 @@ export class EisenhowerMatrixView {
                 background: #95a5a6;
             }
 
-            /* 优先级任务悬停效果 */
-            .task-priority-high:hover {
-                box-shadow: 0 0 0 1px var(--b3-card-error-color), 0 4px 12px rgba(231, 76, 60, 0.25) !important;
-            }
-
-            .task-priority-medium:hover {
-                box-shadow: 0 0 0 1px var(--b3-card-warning-color), 0 4px 12px rgba(243, 156, 18, 0.25) !important;
-            }
-
+            /* 优先级任务悬停效果 - 统一阴影风格（参考 pinch TaskCard hover） */
+            .task-priority-high:hover,
+            .task-priority-medium:hover,
             .task-priority-low:hover {
-                box-shadow: 0 0 0 1px var(--b3-card-info-color), 0 4px 12px rgba(52, 152, 219, 0.25) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
             }
 
             /* 任务拖拽样式 */
             .quick_item {
                 margin-top: 2px;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 cursor: grab;
                 transition: all 0.2s ease;
                 position: relative;
@@ -2877,7 +2846,7 @@ export class EisenhowerMatrixView {
                 font-size: 14px;
                 margin-bottom: 8px;
                 padding: 6px 10px;
-                border-radius: 6px;
+                border-radius: var(--task-radius-sm);
                 background: var(--b3-theme-surface-lighter);
                 border: 1.5px solid var(--b3-theme-border);
                 gap: 6px;
@@ -2920,7 +2889,7 @@ export class EisenhowerMatrixView {
                 align-items: center !important;
                 justify-content: center !important;
                 flex-shrink: 0;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 border: none;
                 background: transparent !important;
                 color: var(--b3-theme-on-surface-light) !important;
@@ -2947,7 +2916,7 @@ export class EisenhowerMatrixView {
             /* 父任务底部进度条 */
             .task-progress-container {
                 width: 100%;
-                border-radius: 6px;
+                border-radius: var(--task-radius-sm);
                 margin-top: 6px;
                 overflow: hidden;
             }
@@ -2956,7 +2925,7 @@ export class EisenhowerMatrixView {
                 height: 100%;
                 width: 0%;
                 background: linear-gradient(90deg, #2ecc71, #27ae60);
-                border-radius: 6px;
+                border-radius: var(--task-radius-sm);
                 transition: width 300ms ease-in-out;
             }
             .task-progress-percent {
@@ -2977,7 +2946,7 @@ export class EisenhowerMatrixView {
             .countdown-badge {
                 font-size: 11px;
                 padding: 2px 6px;
-                border-radius: 10px;
+                border-radius: var(--task-radius-lg);
                 font-weight: 500;
                 margin-left: 4px;
                 display: inline-block;
@@ -3011,7 +2980,7 @@ export class EisenhowerMatrixView {
             /* 象限预览样式 */
             .quadrant-preview {
                 transition: background-color 0.2s, color 0.2s;
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 border: 1px solid rgba(255, 255, 255, 0.2);
             }
             
@@ -3027,7 +2996,7 @@ export class EisenhowerMatrixView {
                 position: absolute;
                 background: var(--b3-theme-surface);
                 border: 1px solid var(--b3-theme-border);
-                border-radius: 4px;
+                border-radius: var(--task-radius-xs);
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                 z-index: 1000;
                 min-width: 160px;
@@ -4303,7 +4272,7 @@ export class EisenhowerMatrixView {
             position: absolute;
             background: var(--b3-theme-surface);
             border: 1px solid var(--b3-theme-border);
-            border-radius: 4px;
+            border-radius: var(--task-radius-xs);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 1000;
             min-width: 160px;
@@ -4437,7 +4406,7 @@ export class EisenhowerMatrixView {
                     <style>
                         .project-sort-list {
                             border: 1px solid var(--b3-theme-border);
-                            border-radius: 6px;
+                            border-radius: var(--task-radius-sm);
                             padding: 8px;
                             max-height: 400px;
                             overflow-y: auto;
@@ -4449,7 +4418,7 @@ export class EisenhowerMatrixView {
                             margin: 4px 0;
                             background: var(--b3-theme-surface-lighter);
                             border: 1px solid transparent;
-                            border-radius: 6px;
+                            border-radius: var(--task-radius-sm);
                             display: flex;
                             align-items: center;
                             gap: 8px;
@@ -4471,7 +4440,7 @@ export class EisenhowerMatrixView {
                             right: 10px;
                             top: -2px;
                             height: 2px;
-                            border-radius: 2px;
+                            border-radius: var(--task-radius-xs);
                             background: var(--b3-theme-primary);
                             box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.25);
                         }
@@ -4482,7 +4451,7 @@ export class EisenhowerMatrixView {
                             height: 24px;
                             flex-shrink: 0;
                             border: 1px solid var(--b3-border-color);
-                            border-radius: 6px;
+                            border-radius: var(--task-radius-sm);
                             background: var(--b3-theme-background);
                             display: flex;
                             align-items: center;

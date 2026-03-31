@@ -15,7 +15,6 @@ import { confirmDialog } from "../libs/dialog";
 import { ProjectManager } from "../utils/projectManager";
 import { StatusManager } from "../utils/statusManager";
 import { CategoryManageDialog } from "./CategoryManageDialog";
-import { ProjectColorDialog } from "./ProjectColorDialog";
 import { PomodoroTimer } from "./PomodoroTimer";
 import { i18n } from "../pluginInstance";
 import { generateRepeatInstances, RepeatInstance, getDaysDifference, addDaysToDate } from "../utils/repeatUtils";
@@ -66,7 +65,6 @@ export class CalendarView {
     private externalReminderUpdatedHandler: ((e: Event) => void) | null = null;
     private settingUpdateHandler: ((e: Event) => void) | null = null;
     private projectUpdatedHandler: (() => void) | null = null;
-    private projectColorUpdatedHandler: (() => void) | null = null;
     private hideTooltipTimeout: number | null = null;
     private tooltipShowTimeout: number | null = null;
     private refreshTimeout: number | null = null;
@@ -596,7 +594,7 @@ export class CalendarView {
         viewTypeDropdown.style.zIndex = '1000';
         viewTypeDropdown.style.backgroundColor = 'var(--b3-theme-background)';
         viewTypeDropdown.style.border = '1px solid var(--b3-border-color)';
-        viewTypeDropdown.style.borderRadius = '4px';
+        viewTypeDropdown.style.borderRadius = 'var(--task-radius-xs)';
         viewTypeDropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
         viewTypeDropdown.style.minWidth = '150px';
         viewTypeDropdown.style.padding = '8px';
@@ -605,7 +603,7 @@ export class CalendarView {
             const optionItem = document.createElement('div');
             optionItem.style.padding = '6px 12px';
             optionItem.style.cursor = 'pointer';
-            optionItem.style.borderRadius = '4px';
+            optionItem.style.borderRadius = 'var(--task-radius-xs)';
             optionItem.textContent = option.text;
 
             optionItem.addEventListener('click', async (e) => {
@@ -728,7 +726,7 @@ export class CalendarView {
         this.pomodoroToggleBtn.style.transition = 'opacity 140ms ease';
         this.pomodoroToggleBtn.style.visibility = 'hidden';
         this.pomodoroToggleBtn.style.pointerEvents = 'none';
-        this.pomodoroToggleBtn.innerHTML = '';
+        this.pomodoroToggleBtn.innerHTML = '🍅';
         this.pomodoroToggleBtn.title = i18n("togglePomodoroRecords") || "显示/隐藏番茄专注记录";
         this.pomodoroToggleBtn.onclick = async () => {
             this.showPomodoro = !this.showPomodoro;
@@ -783,7 +781,7 @@ export class CalendarView {
         projectDropdown.style.zIndex = '1000';
         projectDropdown.style.backgroundColor = 'var(--b3-theme-background)';
         projectDropdown.style.border = '1px solid var(--b3-border-color)';
-        projectDropdown.style.borderRadius = '4px';
+        projectDropdown.style.borderRadius = 'var(--task-radius-xs)';
         projectDropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
         projectDropdown.style.minWidth = '200px';
         projectDropdown.style.maxHeight = '400px';
@@ -818,7 +816,7 @@ export class CalendarView {
         categoryDropdown.style.zIndex = '1000';
         categoryDropdown.style.backgroundColor = 'var(--b3-theme-background)';
         categoryDropdown.style.border = '1px solid var(--b3-border-color)';
-        categoryDropdown.style.borderRadius = '4px';
+        categoryDropdown.style.borderRadius = 'var(--task-radius-xs)';
         categoryDropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
         categoryDropdown.style.minWidth = '200px';
         categoryDropdown.style.maxHeight = '400px';
@@ -861,7 +859,7 @@ export class CalendarView {
         displaySettingsDropdown.style.zIndex = '1000';
         displaySettingsDropdown.style.backgroundColor = 'var(--b3-theme-background)';
         displaySettingsDropdown.style.border = '1px solid var(--b3-border-color)';
-        displaySettingsDropdown.style.borderRadius = '4px';
+        displaySettingsDropdown.style.borderRadius = 'var(--task-radius-xs)';
         displaySettingsDropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
         displaySettingsDropdown.style.minWidth = '220px';
         displaySettingsDropdown.style.padding = '8px';
@@ -1168,7 +1166,7 @@ export class CalendarView {
             this.taskSummaryDialog.showTaskSummaryDialog();
         });
         filterGroup.appendChild(summaryBtn);
-        // 更多按钮（包含管理分类、项目颜色、插件设置）
+        // 更多按钮（包含管理分类、插件设置）
         const moreBtn = document.createElement('button');
         moreBtn.className = 'b3-button b3-button--outline';
         moreBtn.title = i18n('more') || '更多';
@@ -1186,13 +1184,7 @@ export class CalendarView {
                     click: () => this.showCategoryManageDialog()
                 });
 
-                if (settings?.showAdvancedFeatures === true) {
-                    menu.addItem({
-                        icon: 'iconProject',
-                        label: i18n('projectColor') || '项目颜色',
-                        click: () => this.showProjectColorDialog()
-                    });
-                }
+
 
                 menu.addItem({
                     icon: 'iconSettings',
@@ -1520,7 +1512,7 @@ export class CalendarView {
                             holidaySpan.className = 'day-header-holiday';
                             holidaySpan.textContent = isWorkday ? i18n('workdayMarker') : i18n('holidayMarker');
                             holidaySpan.title = typeof holidayName === 'object' ? holidayName.title : holidayName;
-                            holidaySpan.style.cssText = `background-color: ${isWorkday ? 'var(--b3-theme-error)' : colorWithOpacity("var(--b3-card-success-color)", 0.5)}; color: var(--b3-theme-background); font-size: 0.75em; padding: 2px 4px; border-radius: 50%; cursor: help; font-weight: normal; line-height: 1; flex-shrink: 0;`;
+                            holidaySpan.style.cssText = `background-color: ${isWorkday ? 'var(--b3-theme-error)' : 'rgba(0, 0, 0, 0.12)'}; color: var(--b3-theme-background); font-size: 0.75em; padding: 2px 4px; border-radius: 50%; cursor: help; font-weight: normal; line-height: 1; flex-shrink: 0;`;
                             extraInfoWrapper.appendChild(holidaySpan);
                         }
 
@@ -1663,7 +1655,7 @@ export class CalendarView {
                                     holidaySpan.className = 'day-holiday';
                                     holidaySpan.textContent = isWorkday ? i18n('workdayMarker') : i18n('holidayMarker');
                                     holidaySpan.title = typeof holidayName === 'object' ? holidayName.title : holidayName;
-                                    holidaySpan.style.cssText = `background-color: ${isWorkday ? 'var(--b3-theme-error)' : 'var(--b3-card-success-color)'}; color: #fff; font-size: 0.75em; padding: 2px 4px; border-radius: 4px; cursor: help; font-weight: normal; line-height: 1; margin-left: 8px;`;
+                                    holidaySpan.style.cssText = `background-color: ${isWorkday ? 'var(--b3-theme-error)' : 'rgba(0, 0, 0, 0.12)'}; color: #fff; font-size: 0.75em; padding: 2px 4px; border-radius: 4px; cursor: help; font-weight: normal; line-height: 1; margin-left: 8px;`;
                                     textContainer.appendChild(holidaySpan);
                                 }
                                 listHeader.setAttribute('data-holiday-processed', 'true');
@@ -1731,7 +1723,7 @@ export class CalendarView {
 
                     // Add thick left border (使用优先级颜色)
                     targetEl.style.borderLeft = `4px solid ${borderColor}`;
-                    targetEl.style.borderRadius = '3px';
+                    targetEl.style.borderRadius = 'var(--task-radius-xxs)';
 
                     // Set text color to theme text color (black/dark in light mode, light in dark mode)
                     // The user requested "Black text", which usually corresponds to the main text color in modern UIs
@@ -2076,13 +2068,6 @@ export class CalendarView {
         };
         window.addEventListener('projectUpdated', this.projectUpdatedHandler);
 
-        // 监听项目颜色更新事件
-        this.projectColorUpdatedHandler = () => {
-            this.colorCache.clear();
-            this.refreshEvents();
-        };
-        window.addEventListener('projectColorUpdated', this.projectColorUpdatedHandler);
-
         // 监听主题变化
         const themeObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -2404,12 +2389,7 @@ export class CalendarView {
         categoryDialog.show();
     }
 
-    private showProjectColorDialog() {
-        const projectColorDialog = new ProjectColorDialog(() => {
-            this.refreshEvents();
-        });
-        projectColorDialog.show();
-    }
+
 
     private addResizeListeners() {
         // 窗口大小变化监听器
@@ -2865,7 +2845,7 @@ export class CalendarView {
         });
 
         menu.addItem({
-            iconHTML: calendarEvent.allDay ? "⏰" : "📅",
+            iconHTML: calendarEvent.allDay ? "⏰" : "",
             label: calendarEvent.allDay ? i18n("changeToTimed") : i18n("changeToAllDay"),
             click: () => {
                 this.toggleAllDayEvent(calendarEvent);
@@ -2896,7 +2876,7 @@ export class CalendarView {
 
         // 添加创建副本菜单项
         menu.addItem({
-            iconHTML: "📅",
+            iconHTML: "",
             label: i18n("createCopy"),
             click: () => {
                 this.createCopy(calendarEvent);
@@ -5478,7 +5458,7 @@ export class CalendarView {
                 this.dropIndicator.style.width = rect.width + 'px';
                 this.dropIndicator.style.height = '2px';
                 this.dropIndicator.style.background = 'var(--b3-theme-primary)';
-                this.dropIndicator.style.borderRadius = '2px';
+                this.dropIndicator.style.borderRadius = 'var(--task-radius-tiny)';
                 this.dropIndicator.style.boxShadow = '0 0 6px var(--b3-theme-primary)';
                 this.dropIndicator.style.opacity = '1';
             } else {
@@ -5488,7 +5468,7 @@ export class CalendarView {
                 this.dropIndicator.style.height = rect.height + 'px';
                 this.dropIndicator.style.background = 'rgba(0,128,255,0.06)';
                 this.dropIndicator.style.border = '2px dashed rgba(0,128,255,0.18)';
-                this.dropIndicator.style.borderRadius = '6px';
+                this.dropIndicator.style.borderRadius = 'var(--task-radius-sm)';
                 this.dropIndicator.style.boxShadow = 'none';
                 this.dropIndicator.style.opacity = '1';
             }
@@ -5708,6 +5688,14 @@ export class CalendarView {
 
         const dateObj = info.date;
         const { dateStr: startDateStr } = getLocalDateTime(dateObj);
+
+        // 尝试根据日期自动选择分类
+        const autoCategoryId = this.getAutoDefaultCategoryId(startDateStr, null);
+
+        // 如果没有自动分类结果，且筛选器只有一个有效分类，则使用筛选器的分类
+        const hasSingleCategoryFilter = !this.currentCategoryFilter.has('all') && !this.currentCategoryFilter.has('none') && this.currentCategoryFilter.size === 1;
+        const fallbackCategoryId = hasSingleCategoryFilter ? Array.from(this.currentCategoryFilter)[0] : undefined;
+
         const quickDialog = new QuickReminderDialog(
             startDateStr,
             null,
@@ -5721,7 +5709,7 @@ export class CalendarView {
             },
             {
                 defaultProjectId: !this.currentProjectFilter.has('all') && !this.currentProjectFilter.has('none') && this.currentProjectFilter.size === 1 ? Array.from(this.currentProjectFilter)[0] : undefined,
-                defaultCategoryId: !this.currentCategoryFilter.has('all') && !this.currentCategoryFilter.has('none') && this.currentCategoryFilter.size === 1 ? Array.from(this.currentCategoryFilter)[0] : undefined,
+                defaultCategoryId: autoCategoryId || fallbackCategoryId,
                 plugin: this.plugin
             }
         );
@@ -5768,6 +5756,13 @@ export class CalendarView {
         const finalStartTime = selectInfo.allDay ? null : startTimeStr;
         const finalEndTime = selectInfo.allDay ? null : endTimeStr;
 
+        // 尝试根据日期和时间自动选择分类
+        const autoCategoryId = this.getAutoDefaultCategoryId(startDateStr, finalStartTime);
+
+        // 如果没有自动分类结果，且筛选器只有一个有效分类，则使用筛选器的分类
+        const hasSingleCategoryFilter = !this.currentCategoryFilter.has('all') && !this.currentCategoryFilter.has('none') && this.currentCategoryFilter.size === 1;
+        const fallbackCategoryId = hasSingleCategoryFilter ? Array.from(this.currentCategoryFilter)[0] : undefined;
+
         const quickDialog = new QuickReminderDialog(
             startDateStr,
             finalStartTime,
@@ -5781,7 +5776,7 @@ export class CalendarView {
             },
             {
                 defaultProjectId: !this.currentProjectFilter.has('all') && !this.currentProjectFilter.has('none') && this.currentProjectFilter.size === 1 ? Array.from(this.currentProjectFilter)[0] : undefined,
-                defaultCategoryId: !this.currentCategoryFilter.has('all') && !this.currentCategoryFilter.has('none') && this.currentCategoryFilter.size === 1 ? Array.from(this.currentCategoryFilter)[0] : undefined,
+                defaultCategoryId: autoCategoryId || fallbackCategoryId,
                 plugin: this.plugin
             }
         );
@@ -5938,6 +5933,66 @@ export class CalendarView {
         if (holidayInfo?.type === 'workday') return false;
         if (holidayInfo?.type === 'holiday') return true;
         return this.isWeekendDate(date);
+    }
+
+    /**
+     * 根据任务日期和时间自动选择默认分类
+     * 工作日工作时间 → 工作分类
+     * 非工作日/节假日 → 生活/个人分类
+     * @param dateStr 日期字符串 (YYYY-MM-DD)
+     * @param timeStr 时间字符串 (HH:mm)，可选
+     * @returns 匹配的分类 ID，如果没有匹配返回 undefined
+     */
+    private getAutoDefaultCategoryId(dateStr: string, timeStr?: string | null): string | undefined {
+        // 检查是否为非工作日（节假日/周末）
+        const isNonWorking = this.isNonWorkingDate(dateStr);
+
+        // 定义工作时间范围（默认 9:00-20:00）
+        const workStartHour = 9;
+        const workEndHour = 20;
+
+        // 检查是否在工作时间内
+        // 如果没有传入时间，使用当前时间判断
+        let isWorkingHours = false;
+        if (timeStr) {
+            const [hourStr] = timeStr.split(':');
+            const hour = parseInt(hourStr, 10);
+            if (!isNaN(hour)) {
+                isWorkingHours = hour >= workStartHour && hour < workEndHour;
+            }
+        } else {
+            // 没有传入时间时，使用当前时间判断
+            const now = new Date();
+            const currentHour = now.getHours();
+            isWorkingHours = currentHour >= workStartHour && currentHour < workEndHour;
+        }
+
+        // 获取所有分类
+        const categories = this.categoryManager?.getCategories() || [];
+
+        if (isNonWorking || !isWorkingHours) {
+            // 非工作日或非工作时间：查找"生活"或"个人"分类
+            const personalKeywords = ['生活', '个人'];
+            for (const cat of categories) {
+                for (const keyword of personalKeywords) {
+                    if (cat.name.includes(keyword)) {
+                        return cat.id;
+                    }
+                }
+            }
+        } else {
+            // 工作日工作时间：查找"工作"分类
+            const workKeywords = ['工作'];
+            for (const cat of categories) {
+                for (const keyword of workKeywords) {
+                    if (cat.name.includes(keyword)) {
+                        return cat.id;
+                    }
+                }
+            }
+        }
+
+        return undefined;
     }
 
     private shouldFilterCrossPeriodReminder(reminder: any): boolean {
@@ -7744,10 +7799,6 @@ export class CalendarView {
         if (this.projectUpdatedHandler) {
             window.removeEventListener('projectUpdated', this.projectUpdatedHandler);
             this.projectUpdatedHandler = null;
-        }
-        if (this.projectColorUpdatedHandler) {
-            window.removeEventListener('projectColorUpdated', this.projectColorUpdatedHandler);
-            this.projectColorUpdatedHandler = null;
         }
 
         // 销毁日历实例

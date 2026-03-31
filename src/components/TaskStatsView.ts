@@ -168,7 +168,7 @@ export class TaskStatsView {
                     </div>
                     
                     <div class="overview-card week">
-                        <div class="card-icon">📅</div>
+                        <div class="card-icon"></div>
                         <div class="card-content">
                             <div class="card-title">${i18n("weekTask")}</div>
                             <div class="card-value">${this.formatTime(weekTime)}</div>

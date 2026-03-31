@@ -3465,7 +3465,7 @@ export default class ReminderPlugin extends Plugin {
                 // 如果启用了系统弹窗，显示系统通知
                 if (systemNotificationEnabled) {
                     const totalCount = sortedReminders.length;
-                    const title = '📅 ' + i18n("dailyRemindersNotification") + ` (${totalCount})`;
+                    const title = ' ' + i18n("dailyRemindersNotification") + ` (${totalCount})`;
 
                     // 创建任务列表 - 直接显示所有任务
                     let taskList = ``;

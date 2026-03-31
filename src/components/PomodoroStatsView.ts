@@ -167,7 +167,7 @@ export class PomodoroStatsView {
                     </div>
                     
                     <div class="overview-card week">
-                        <div class="card-icon">📅</div>
+                        <div class="card-icon"></div>
                         <div class="card-content">
                             <div class="card-title">${i18n("weekFocus")}</div>
                             <div class="card-value">${this.recordManager.formatTime(weekTime)}</div>

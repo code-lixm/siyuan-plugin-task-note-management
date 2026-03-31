@@ -1,0 +1,448 @@
+/*
+ * Copyright (c) 2024 by [Author]. All Rights Reserved.
+ * @Author: [Author]
+ * @Date: 2026-03-31
+ * @FilePath: /src/styles/_mixins.scss
+ * @Description: 可复用SCSS Mixins - 插件样式规范
+ */
+
+/*
+ * ============================================================
+ * Mixins说明
+ * ============================================================
+ * 
+ * 封装常用样式模式，确保一致性和可维护性。
+ * 所有mixin都使用设计令牌变量。
+ * 
+ * ============================================================
+ */
+
+
+/* === 卡片基础样式 ===
+ * 用于所有可点击/悬停的卡片元素
+ */
+@mixin card-base {
+    background: var(--task-surface-soft);
+    border: 1px solid var(--task-border-default);
+    border-radius: var(--task-radius-md);
+    transition: box-shadow var(--task-motion-fast);
+    
+    &:hover {
+        box-shadow: var(--task-shadow-hover);
+        transform: translateY(-1px);
+    }
+}
+
+
+/* === 卡片禁用/完成状态 ===
+ * 降低透明度，保持可读性
+ */
+@mixin card-dimmed {
+    opacity: 0.6;
+    transform: none;
+    
+    &:hover {
+        transform: none;
+        box-shadow: var(--task-shadow-card);
+    }
+}
+
+
+/* === 按钮基础样式 ===
+ * 适用于所有按钮类型
+ */
+@mixin button-base {
+    border-radius: var(--task-radius-sm);
+    transition: all var(--task-motion-fast);
+    cursor: pointer;
+    
+    &:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: var(--task-shadow-hover);
+    }
+    
+    &:active:not(:disabled) {
+        transform: translateY(0);
+        box-shadow: var(--task-shadow-card);
+    }
+    
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+
+/* === 主要按钮 ===
+ */
+@mixin button-primary {
+    @include button-base;
+    background: var(--b3-theme-primary);
+    color: var(--b3-theme-on-primary, #fff);
+    border: 1px solid var(--b3-theme-primary);
+    
+    &:hover:not(:disabled) {
+        background: var(--b3-theme-primary-light);
+        border-color: var(--b3-theme-primary-light);
+    }
+}
+
+
+/* === 次要按钮 ===
+ */
+@mixin button-secondary {
+    @include button-base;
+    background: var(--task-surface-soft);
+    color: var(--b3-theme-on-surface);
+    border: 1px solid var(--task-border-default);
+    
+    &:hover:not(:disabled) {
+        background: var(--task-surface-hover);
+        border-color: var(--b3-theme-primary-light);
+    }
+}
+
+
+/* === 文本按钮 ===
+ */
+@mixin button-text {
+    @include button-base;
+    background: transparent;
+    color: var(--b3-theme-primary);
+    border: none;
+    padding: 4px 8px;
+    
+    &:hover:not(:disabled) {
+        background: var(--b3-theme-primary-lightest);
+        transform: none;
+        box-shadow: none;
+    }
+}
+
+
+/* === 优先级容器 ===
+ * 用于包裹具有优先级的项目
+ * 
+ * @param {number} $opacity - 透明度值
+ */
+@mixin priority-container($opacity: 0.85) {
+    opacity: $opacity;
+    
+    .item__note,
+    .item__content {
+        opacity: $opacity;
+        border: 1px solid var(--task-border-default);
+    }
+}
+
+
+/* === 优先级标签 ===
+ */
+@mixin priority-label-base {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: var(--task-font-xs);
+    font-weight: 500;
+    margin-left: var(--task-space-2);
+}
+
+@mixin priority-label-high {
+    background-color: rgba(0, 0, 0, 0.06);
+    opacity: var(--task-priority-high-opacity);
+}
+
+@mixin priority-label-medium {
+    background-color: rgba(0, 0, 0, 0.05);
+    opacity: var(--task-priority-medium-opacity);
+}
+
+@mixin priority-label-low {
+    background-color: rgba(0, 0, 0, 0.04);
+    opacity: var(--task-priority-low-opacity);
+}
+
+@mixin priority-label-none {
+    background-color: rgba(0, 0, 0, 0.03);
+    opacity: var(--task-priority-none-opacity);
+}
+
+
+/* === 对话框通用布局 ===
+ */
+@mixin dialog-base {
+    max-height: 100%;
+    max-width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+}
+
+@mixin dialog-container {
+    border-radius: var(--task-radius-xl);
+    background: var(--task-surface-muted);
+    box-shadow: var(--task-shadow-panel);
+    overflow: hidden;
+}
+
+@mixin dialog-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--task-space-6);
+    max-height: 90vh;
+    background: var(--task-surface-muted);
+}
+
+@mixin dialog-actions {
+    flex-shrink: 0;
+    padding: var(--task-space-5) var(--task-space-6);
+    border-top: 1px solid var(--task-border-default);
+    background: var(--task-surface-soft);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--task-space-3);
+}
+
+
+/* === 输入框基础样式 ===
+ */
+@mixin input-base {
+    border-radius: var(--task-radius-md);
+    border: 1px solid var(--task-border-default);
+    background: var(--task-surface-muted);
+    padding: var(--task-space-2) var(--task-space-3);
+    font-size: var(--task-font-sm);
+    transition: border-color var(--task-motion-fast);
+    
+    &:focus {
+        outline: none;
+        border-color: var(--task-border-focus);
+    }
+    
+    &::placeholder {
+        color: var(--b3-theme-on-surface-light);
+        opacity: 0.6;
+    }
+}
+
+
+/* === 表单项 ===
+ */
+@mixin form-group {
+    margin-bottom: var(--task-space-5);
+}
+
+@mixin form-label {
+    display: block;
+    margin-bottom: var(--task-space-1);
+    font-weight: 600;
+    font-size: var(--task-font-sm);
+    color: var(--b3-theme-on-background);
+}
+
+@mixin form-desc {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    margin-top: var(--task-space-1);
+}
+
+
+/* === 列表项 ===
+ */
+@mixin list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--task-space-3) var(--task-space-4);
+    margin-bottom: var(--task-space-2);
+    border: 1px solid var(--task-border-default);
+    border-radius: var(--task-radius-md);
+    background: var(--task-surface-soft);
+    transition: all var(--task-motion-fast);
+    position: relative;
+    
+    &:hover {
+        background: var(--task-surface-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--task-shadow-card);
+    }
+}
+
+
+/* === 标签/胶囊 ===
+ */
+@mixin tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--task-space-1);
+    padding: var(--task-space-1) var(--task-space-3);
+    border-radius: var(--task-radius-pill);
+    font-size: var(--task-font-xs);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all var(--task-motion-fast);
+}
+
+
+/* === 工具栏 ===
+ */
+@mixin toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--task-space-3);
+    gap: var(--task-space-3);
+    flex-wrap: wrap;
+}
+
+
+/* === 滚动区域 ===
+ */
+@mixin scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--task-space-3);
+}
+
+
+/* === 空状态 ===
+ */
+@mixin empty-state {
+    text-align: center;
+    color: var(--b3-theme-on-surface-light);
+    padding: var(--task-space-6);
+    font-style: italic;
+}
+
+
+/* === 加载状态 ===
+ */
+@mixin loading-overlay {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+    
+    &::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--b3-theme-primary-light);
+        border-top: 2px solid var(--b3-theme-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+    }
+}
+
+
+/* === 动画：旋转 ===
+ */
+@keyframes spin {
+    0%   { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+
+/* === 动画：淡入上浮 ===
+ */
+@mixin fade-in-up {
+    animation: fadeInUp var(--task-motion-normal) ease forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* === 动画：滑入 ===
+ */
+@mixin slide-down {
+    animation: slideDown var(--task-motion-normal) ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* === 响应式断点 ===
+ */
+
+/* 移动端 (< 480px) */
+@mixin mobile {
+    @media (max-width: 480px) {
+        @content;
+    }
+}
+
+/* 平板 (< 768px) */
+@mixin tablet {
+    @media (max-width: 768px) {
+        @content;
+    }
+}
+
+/* 桌面 (> 768px) */
+@mixin desktop {
+    @media (min-width: 769px) {
+        @content;
+    }
+}
+
+
+/* === 暗色模式适配 ===
+ */
+@mixin dark-mode {
+    .b3-theme-dark & {
+        @content;
+    }
+}
+
+
+/* === 高对比度模式 ===
+ */
+@mixin high-contrast {
+    @media (prefers-contrast: high) {
+        @content;
+    }
+}
+
+
+/* === 减少动画 ===
+ */
+@mixin reduced-motion {
+    @media (prefers-reduced-motion: reduce) {
+        @content;
+    }
+}
+
+
+/* === 焦点环 ===
+ */
+@mixin focus-ring {
+    &:focus-visible {
+        outline: 2px solid var(--task-border-focus);
+        outline-offset: 2px;
+    }
+}

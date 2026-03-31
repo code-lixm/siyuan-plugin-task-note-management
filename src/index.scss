@@ -1,63 +1,23 @@
+/*
+ * ============================================================
+ * 插件样式入口
+ * ============================================================
+ * 
+ * 规范说明：参见 src/styles/STYLE_GUIDE.md
+ * 
+ * ============================================================
+ */
+
+// 导入样式规范核心
+@use './styles/variables' as *;
+@use './styles/mixins' as *;
+
+// 导入组件样式
 @use './styles/habit-calendar.scss';
 @use './styles/doc-reminder.scss';
 @use './styles/project-reminder.scss';
 @use './styles/pomodoroTimer.scss';
 @use './styles/pomodoroStats.scss';
-
-:root {
-    --task-accent-soft: #f98f7a;
-    --task-success: #27ae60;
-    --task-warning: #f39c12;
-    --task-danger: #e74c3c;
-    --task-repeat-recurring: #2196f3;
-    --task-repeat-instance: #ff9800;
-
-    --task-priority-high-bg: #fae5e5;
-    --task-priority-high-text: #e03e3e;
-    --task-priority-medium-bg: #fcede2;
-    --task-priority-medium-text: #db7c1c;
-    --task-priority-low-bg: #deebf1;
-    --task-priority-low-text: #0b6e99;
-    --task-priority-none-bg: var(--b3-list-hover, var(--b3-theme-surface-lighter));
-    --task-priority-none-text: var(--b3-theme-on-surface-light);
-
-    --task-surface-soft: var(--b3-theme-surface);
-    --task-surface-muted: var(--b3-theme-background);
-    --task-surface-elevated: var(--b3-theme-surface-lighter);
-    --task-border-default: var(--b3-border-color);
-    --task-border-focus: var(--b3-theme-primary);
-
-    --task-radius-xs: 4px;
-    --task-radius-sm: 6px;
-    --task-radius-md: 8px;
-    --task-radius-lg: 12px;
-    --task-radius-xl: 16px;
-    --task-radius-cta: 20px;
-    --task-radius-sheet: 24px;
-    --task-radius-pill: 999px;
-
-    --task-shadow-card: var(--b3-point-shadow, 0 1px 5px rgba(0, 0, 0, 0.08));
-    --task-shadow-popover: 0 4px 12px rgba(0, 0, 0, 0.15);
-    --task-shadow-panel: 0 10px 24px rgba(0, 0, 0, 0.16);
-    --task-shadow-sheet: 0 -4px 12px rgba(0, 0, 0, 0.15);
-
-    --task-space-1: 4px;
-    --task-space-2: 6px;
-    --task-space-3: 8px;
-    --task-space-4: 12px;
-    --task-space-5: 16px;
-    --task-space-6: 20px;
-
-    --task-font-xs: 12px;
-    --task-font-sm: 13px;
-    --task-font-md: 14px;
-    --task-font-lg: 16px;
-    --task-font-xl: 18px;
-
-    --task-motion-fast: 0.2s ease;
-    --task-motion-normal: 0.3s ease;
-    --task-motion-slide: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
 
 #commonMenu[data-name="projectMoreMenu"] .b3-menu__icon {
@@ -81,14 +41,14 @@
     .batch-operations-panel {
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-theme-primary-light);
-        border-radius: var(--b3-border-radius-b, 12px);
+        border-radius: var(--task-radius-xl);
         margin-bottom: 20px;
         overflow: hidden;
         box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
         transition: var(--b3-transition, all 0.2s ease);
 
         &:hover {
-            box-shadow: var(--b3-dialog-shadow, 0 4px 16px rgba(0, 0, 0, 0.15));
+            box-shadow: var(--task-shadow-popover);
         }
     }
 
@@ -121,7 +81,7 @@
             gap: 8px;
             padding: 6px 12px;
             font-size: 13px;
-            border-radius: 6px;
+            border-radius: var(--task-radius-sm);
             transition: all 0.2s ease;
 
             .toggle-icon {
@@ -190,7 +150,7 @@
         min-height: 36px;
         padding: 6px;
         // border: 1px solid var(--b3-border-color);
-        border-radius: 6px;
+        border-radius: var(--task-radius-sm);
         background: var(--b3-theme-background);
         max-height: 80px;
         overflow-y: auto;
@@ -202,7 +162,7 @@
         gap: 4px;
         padding: 4px 8px;
         border: 1px solid var(--b3-border-color);
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         cursor: pointer;
         transition: all 0.2s ease;
         background: var(--b3-theme-background);
@@ -268,17 +228,15 @@
         &[data-category]:not([data-category=""]) {
             color: var(--b3-theme-on-background);
             text-shadow: none;
-            border-color: rgba(255, 255, 255, 0.3);
+            border-color: var(--b3-border-color);
 
             &:hover {
-                filter: brightness(1.1);
-                border-color: rgba(255, 255, 255, 0.6);
+                box-shadow: var(--task-shadow-hover);
             }
 
             &.selected {
-                border-color: white;
-                box-shadow: 0 0 0 2px var(--b3-theme-primary);
-                filter: brightness(1.2);
+                border-color: var(--b3-border-color);
+                box-shadow: var(--task-shadow-card);
             }
 
             &.selected::after {
@@ -301,7 +259,7 @@
         flex: 1;
         padding: 6px;
         // border: 1px solid var(--b3-border-color);
-        border-radius: 6px;
+        border-radius: var(--task-radius-sm);
         background: var(--b3-theme-background);
     }
 
@@ -311,7 +269,7 @@
         gap: 4px;
         padding: 4px 8px;
         border: 1px solid var(--b3-border-color);
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         cursor: pointer;
         transition: all 0.2s ease;
         background: var(--b3-theme-background);
@@ -379,7 +337,7 @@
             align-items: center;
             justify-content: center;
             font-size: 16px;
-            border-radius: 6px;
+            border-radius: var(--task-radius-sm);
         }
 
         @media (max-width: 576px) {
@@ -408,7 +366,7 @@
         padding: 8px 16px;
         font-size: 12px;
         font-weight: 500;
-        border-radius: 6px;
+        border-radius: var(--task-radius-sm);
         transition: all 0.2s ease;
         position: relative;
         overflow: hidden;
@@ -422,7 +380,7 @@
 
         &:not(:disabled):hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: var(--task-shadow-hover);
         }
 
         &:not(:disabled):active {
@@ -437,7 +395,7 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            background: transparent;
             transition: left 0.5s ease;
         }
 
@@ -450,7 +408,7 @@
         margin-bottom: 16px;
         padding: 12px 16px;
         background: var(--b3-theme-surface);
-        border-radius: var(--b3-border-radius, 6px);
+        border-radius: var(--task-radius-sm);
         border: 1px solid var(--b3-theme-primary-light);
         display: flex;
         justify-content: space-between;
@@ -477,7 +435,7 @@
         button {
             padding: 6px 12px;
             font-size: 12px;
-            border-radius: var(--b3-border-radius, 6px);
+            border-radius: var(--task-radius-sm);
             transition: var(--b3-transition, all 0.2s ease);
 
             &:hover {
@@ -504,7 +462,7 @@
     .block-list-container {
         overflow-y: auto;
         border: 1px solid var(--b3-border-color);
-        border-radius: var(--b3-border-radius, 6px);
+        border-radius: var(--task-radius-sm);
         background: var(--b3-theme-background);
     }
 
@@ -519,7 +477,7 @@
         padding: 12px 16px;
         margin-bottom: 8px;
         border: 1px solid var(--b3-border-color);
-        border-radius: var(--b3-border-radius, 6px);
+        border-radius: var(--task-radius-sm);
         background: var(--b3-theme-surface);
         transition: var(--b3-transition, all 0.2s ease);
         position: relative;
@@ -584,7 +542,7 @@
 
     .status-badge {
         padding: 2px 6px;
-        border-radius: 3px;
+        border-radius: var(--task-radius-xs);
         font-size: 11px;
         font-weight: 500;
         display: inline-flex;
@@ -652,7 +610,7 @@
         font-weight: 500;
         padding: 2px 6px;
         background: var(--b3-theme-primary-lightest);
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         border: 1px solid var(--b3-theme-primary-light);
     }
 
@@ -660,7 +618,7 @@
         color: var(--b3-theme-on-surface-light);
         padding: 2px 6px;
         background: var(--b3-theme-surface-lighter);
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         position: relative;
     }
 
@@ -674,7 +632,7 @@
 
         span {
             padding: 2px 6px;
-            border-radius: 3px;
+            border-radius: var(--task-radius-xs);
             font-size: 11px;
             font-weight: 500;
         }
@@ -685,7 +643,7 @@
 
         .priority-badge {
             padding: 2px 6px;
-            border-radius: 3px;
+            border-radius: var(--task-radius-xs);
             font-size: 11px;
             font-weight: 500;
             display: inline-flex;
@@ -693,23 +651,23 @@
             gap: 2px;
 
             &.high {
-                background: var(--b3-card-error-background, rgba(231, 76, 60, 0.1));
-                color: var(--b3-card-error-color, #e74c3c);
+                background: var(--task-priority-bg-high);
+                opacity: var(--task-priority-high-opacity);
             }
 
             &.medium {
-                background: var(--b3-card-warning-background, rgba(243, 156, 18, 0.1));
-                color: var(--b3-card-warning-color, #f39c12);
+                background: var(--task-priority-bg-medium);
+                opacity: var(--task-priority-medium-opacity);
             }
 
             &.low {
-                background: var(--b3-card-info-background, rgba(52, 152, 219, 0.1));
-                color: var(--b3-card-info-color, #3498db);
+                background: var(--task-priority-bg-low);
+                opacity: var(--task-priority-low-opacity);
             }
 
             &.none {
-                background: var(--b3-theme-surface-lighter, rgba(149, 165, 166, 0.1));
-                color: var(--b3-theme-on-surface-light, #95a5a6);
+                background: var(--task-priority-bg-none);
+                opacity: var(--task-priority-none-opacity);
             }
         }
     }
@@ -722,7 +680,7 @@
     .block-edit-btn {
         padding: 6px 12px;
         font-size: 12px;
-        border-radius: var(--b3-border-radius, 6px);
+        border-radius: var(--task-radius-sm);
         border: 1px solid var(--b3-theme-primary-light);
         background: var(--b3-theme-background);
         color: var(--b3-theme-primary);
@@ -738,7 +696,7 @@
         left: -100%;
         width: 100%;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        background: transparent;
         transition: left 0.5s ease;
     }
 
@@ -747,7 +705,7 @@
         color: var(--b3-theme-background);
         border-color: var(--b3-theme-primary);
         transform: translateY(-1px);
-        box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.15));
+        box-shadow: var(--task-shadow-hover);
     }
 
     .block-edit-btn:hover::before {
@@ -826,7 +784,7 @@
 .habit-card {
     background-color: var(--b3-list-hover, rgba(from var(--b3-theme-background-light) r g b / .1));
     border: 1px solid var(--b3-theme-surface-lighter);
-    border-radius: var(--b3-border-radius, 6px);
+    border-radius: var(--task-radius-sm);
     padding: 12px;
     margin-bottom: 8px;
     cursor: pointer;
@@ -902,7 +860,7 @@
 
 .reminder-item {
     border: 1px solid var(--b3-theme-surface-lighter);
-    border-radius: 4px;
+    border-radius: var(--task-radius-xs);
     margin-bottom: 8px;
     padding: 8px;
     cursor: pointer;
@@ -968,7 +926,7 @@
     &:hover {
         background: var(--b3-theme-surface-light) !important;
         color: var(--b3-theme-primary) !important;
-        border-radius: 2px !important;
+        border-radius: var(--task-radius-xs) !important;
     }
 
     svg {
@@ -1249,7 +1207,7 @@
     flex-direction: column;
     overflow: hidden;
     padding: 8px;
-    height: calc(100vh - 55px);
+    height: calc(100vh - 60px);
     flex: 1;
 }
 
@@ -1353,7 +1311,6 @@
 .reminder-calendar-container.fc .fc-highlight {
     border-color: var(--b3-theme-surface-lighter) !important;
     background-color: var(--b3-theme-surface-lighter) !important;
-    background-color: color-mix(in srgb, var(--b3-theme-surface-lighter), transparent 70%) !important;
     color: var(--b3-theme-on-background) !important;
 
     .fc-event-main {
@@ -1364,12 +1321,35 @@
 
 .reminder-calendar-container.fc .fc-button {
     font-family: inherit;
+    min-height: var(--task-toolbar-height);
+    height: var(--task-toolbar-height);
+    padding: 0 var(--task-toolbar-padding-x);
+    border-radius: var(--task-radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--task-space-1);
+    box-sizing: border-box;
 }
 
 .reminder-calendar-container.fc .fc-jumpTo-button {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
+    min-width: var(--task-toolbar-icon-size);
+    width: var(--task-toolbar-icon-size);
+    padding: 0;
+}
+
+.reminder-calendar-container.fc .fc-prev-button,
+.reminder-calendar-container.fc .fc-next-button {
+    min-width: var(--task-toolbar-icon-size);
+    width: var(--task-toolbar-icon-size);
+    padding: 0;
+}
+
+.reminder-calendar-container.fc .fc-myToday-button {
+    min-width: 52px;
 }
 
 .reminder-calendar-container.fc .fc-event-title {
@@ -1437,7 +1417,7 @@
     width: 14px;
     height: 14px;
     background: rgba(255, 255, 255, 0.95);
-    border-radius: 3px;
+    border-radius: var(--task-radius-xs);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1467,7 +1447,7 @@
     width: 14px;
     height: 14px;
     background: rgba(255, 255, 255, 0.95);
-    border-radius: 3px;
+    border-radius: var(--task-radius-xs);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1634,23 +1614,20 @@
         color: var(--b3-theme-primary) !important;
     }
 
-    /* 优先级任务的备注样式 */
+    /* 优先级任务的备注样式 - pinch 精髓：用 opacity 灰度表示层级，无彩色 */
     .reminder-priority-high .reminder-item__note {
-        background-color: rgba(231, 76, 60, 0.08);
-        border-color: rgba(231, 76, 60, 0.2);
-        color: var(--b3-card-error-color);
+        opacity: var(--task-priority-high-opacity);
+        border: 1px solid var(--task-border-default);
     }
 
     .reminder-priority-medium .reminder-item__note {
-        background-color: rgba(243, 156, 18, 0.08);
-        border-color: rgba(243, 156, 18, 0.2);
-        color: var(--b3-card-warning-color);
+        opacity: var(--task-priority-medium-opacity);
+        border: 1px solid var(--task-border-default);
     }
 
     .reminder-priority-low .reminder-item__note {
-        background-color: rgba(52, 152, 219, 0.08);
-        border-color: rgba(52, 152, 219, 0.2);
-        color: var(--b3-card-info-color);
+        opacity: var(--task-priority-low-opacity);
+        border: 1px solid var(--task-border-default);
     }
 }
 
@@ -1683,10 +1660,8 @@
 
 .priority-option.selected {
     border-color: var(--task-border-focus);
-    background: var(--b3-theme-primary-lightest);
-    background: color-mix(in srgb, var(--b3-theme-primary-lightest), var(--task-surface-muted) 25%);
-    box-shadow: 0 0 0 1px var(--b3-theme-primary-light);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--b3-theme-primary), transparent 70%);
+    background: var(--task-surface-elevated);
+    box-shadow: var(--task-shadow-card);
 }
 
 .priority-dot {
@@ -1747,9 +1722,9 @@
     &.selected {
         font-weight: 600;
         border-color: var(--task-border-focus);
-        background-color: var(--b3-theme-primary-lightest) !important;
+        background-color: var(--task-surface-elevated) !important;
         color: var(--b3-theme-primary);
-        box-shadow: 0 0 0 1px color-mix(in srgb, var(--b3-theme-primary), transparent 70%);
+        box-shadow: var(--task-shadow-card);
     }
 }
 
@@ -1760,29 +1735,29 @@
     gap: 4px;
     font-size: 11px;
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: var(--task-radius-xs);
     margin-left: 8px;
     font-weight: 500;
 }
 
 .reminder-priority-label.high {
-    background-color: var(--b3-card-error-background, rgba(231, 76, 60, 0.1));
-    color: var(--b3-card-error-color, #e74c3c);
+    background-color: var(--task-priority-bg-high);
+    opacity: var(--task-priority-high-opacity);
 }
 
 .reminder-priority-label.medium {
-    background-color: var(--b3-card-warning-background, rgba(243, 156, 18, 0.1));
-    color: var(--b3-card-warning-color, #f39c12);
+    background-color: var(--task-priority-bg-medium);
+    opacity: var(--task-priority-medium-opacity);
 }
 
 .reminder-priority-label.low {
-    background-color: var(--b3-card-info-background, rgba(52, 152, 219, 0.1));
-    color: var(--b3-card-info-color, #3498db);
+    background-color: var(--task-priority-bg-low);
+    opacity: var(--task-priority-low-opacity);
 }
 
 .reminder-priority-label.none {
-    background-color: var(--b3-theme-surface-lighter, rgba(149, 165, 166, 0.1));
-    color: var(--b3-theme-on-surface-light, #95a5a6);
+    background-color: var(--task-priority-bg-none);
+    opacity: var(--task-priority-none-opacity);
 }
 
 
@@ -1879,26 +1854,22 @@
     color: var(--b3-theme-background, white);
 }
 
-// 有颜色的分类选项样式
+// 有颜色的分类选项样式 - pinch 精髓：无白色边框光环，用阴影代替
 .category-option[data-category]:not([data-category=""]) {
     color: var(--b3-theme-on-background) !important;
-    border-color: rgba(255, 255, 255, 0.3);
-    border-width: 2px;
+    border: 1px solid var(--b3-border-color);
 }
 
 .category-option[data-category]:not([data-category=""]):hover {
     transform: translateY(-1px);
-    box-shadow: var(--b3-point-shadow, 0 4px 12px rgba(0, 0, 0, 0.25));
-    filter: brightness(1.1);
-    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: var(--task-shadow-hover);
 }
 
 .category-option[data-category]:not([data-category=""]).selected {
-    border: 3px solid var(--b3-theme-background, white) !important;
-    box-shadow: var(--b3-dialog-shadow, 0 0 0 2px var(--b3-theme-primary), 0 4px 16px rgba(0, 0, 0, 0.3)) !important;
-    transform: scale(1.05) !important;
-    filter: brightness(1.2) saturate(1.2) !important;
-    font-weight: bold;
+    border: 2px solid var(--task-border-focus) !important;
+    box-shadow: var(--task-shadow-card) !important;
+    transform: scale(1.02) !important;
+    font-weight: 600;
 }
 
 .category-option[data-category]:not([data-category=""]).selected::after {
@@ -1914,7 +1885,7 @@
     align-items: center;
     padding: 4px 10px;
     font-size: 12px;
-    border-radius: 12px;
+    border-radius: var(--task-radius-xl);
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
@@ -1976,7 +1947,7 @@
     padding: 12px 16px;
     margin-bottom: 8px;
     border: 1px solid var(--b3-border-color);
-    border-radius: 8px;
+    border-radius: var(--task-radius-md);
     background: var(--b3-theme-surface);
     transition: all 0.2s ease;
 }
@@ -2004,7 +1975,7 @@
 .category-icon {
     width: 32px;
     height: 32px;
-    border-radius: 6px;
+    border-radius: var(--task-radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2039,7 +2010,7 @@
     min-width: 32px;
     height: 32px;
     padding: 0;
-    border-radius: 6px;
+    border-radius: var(--task-radius-sm);
     transition: all 0.2s ease;
 }
 
@@ -2050,9 +2021,10 @@
 }
 
 .category-delete-btn:hover {
-    background: var(--b3-card-error-background);
-    border-color: var(--b3-card-error-color);
-    color: var(--b3-card-error-color);
+    background: var(--task-bg-active);
+    border-color: var(--b3-border-color);
+    color: var(--b3-theme-on-surface);
+    opacity: 0.85;
 }
 
 .category-error {
@@ -2075,7 +2047,7 @@
     gap: 8px;
     padding: 12px 16px;
     border: 1px solid var(--b3-border-color);
-    border-radius: 6px;
+    border-radius: var(--task-radius-sm);
     background: var(--b3-theme-surface);
 }
 
@@ -2145,11 +2117,9 @@
 
     .quick-form-mode-btn.quick-form-mode-btn--active {
         border-color: var(--task-border-focus);
-        background: var(--b3-theme-primary-lightest);
-        background: color-mix(in srgb, var(--b3-theme-primary-lightest), white 20%);
+        background: var(--task-surface-elevated);
         color: var(--b3-theme-primary);
-        box-shadow: 0 0 0 1px var(--b3-theme-primary-light);
-        box-shadow: 0 0 0 1px color-mix(in srgb, var(--b3-theme-primary), transparent 70%);
+        box-shadow: var(--task-shadow-card);
     }
 
     .b3-form__group {
@@ -2232,11 +2202,9 @@
 
         &.selected {
             border-color: var(--task-border-focus);
-            background: var(--b3-theme-primary-lightest);
-            background: color-mix(in srgb, var(--b3-theme-primary-lightest), white 25%);
+            background: var(--task-surface-elevated);
             color: var(--b3-theme-primary);
-            box-shadow: 0 0 0 1px var(--b3-theme-primary-light);
-            box-shadow: 0 0 0 1px color-mix(in srgb, var(--b3-theme-primary), transparent 70%);
+            box-shadow: var(--task-shadow-card);
         }
     }
 
@@ -2279,6 +2247,7 @@
 }
 
 .quick-reminder-dialog {
+
     .b3-text-field,
     .b3-select {
         border-radius: var(--task-radius-md);
@@ -2286,22 +2255,17 @@
 
     .b3-dialog__content {
         background: var(--task-surface-muted);
-        background:
-            linear-gradient(180deg, color-mix(in srgb, var(--task-accent-soft), transparent 94%) 0%, transparent 160px),
-            var(--task-surface-muted);
     }
 
     #quickCustomTimeInputArea,
     #quickBlockPreview {
         border-radius: var(--task-radius-lg) !important;
-        border: 1px solid var(--task-border-default) !important;
         background: var(--task-surface-soft) !important;
         box-shadow: var(--task-shadow-card);
     }
 
     #quickReminderNote {
         border-radius: var(--task-radius-lg) !important;
-        border: 1px solid var(--task-border-default) !important;
         box-shadow: inset 0 0 0 1px transparent;
     }
 
@@ -2313,9 +2277,6 @@
 .project-dialog {
     .b3-dialog__content {
         background: var(--task-surface-muted);
-        background:
-            linear-gradient(180deg, color-mix(in srgb, var(--task-accent-soft), transparent 94%) 0%, transparent 140px),
-            var(--task-surface-muted);
     }
 
     .form-group {
@@ -2336,12 +2297,6 @@
         border-radius: var(--task-radius-md);
     }
 
-    #projectColor {
-        border-radius: var(--task-radius-md);
-        background: var(--task-surface-soft);
-        box-shadow: var(--task-shadow-card);
-    }
-
     .b3-dialog__action {
         justify-content: flex-end;
     }
@@ -2356,12 +2311,12 @@
 }
 
 .reminder-panel {
+
     .reminder-header,
     .reminder-panel__header {
         padding: var(--task-space-3);
         border-bottom: 1px solid var(--task-border-default);
-        background: rgba(249, 143, 122, 0.04);
-        background: color-mix(in srgb, var(--task-accent-soft), transparent 96%);
+        background: var(--task-surface-soft);
     }
 
     .reminder-controls,
@@ -2375,19 +2330,15 @@
     }
 
     .reminder-item {
-        border: 1px solid var(--task-border-default);
-        border: 1px solid color-mix(in srgb, var(--task-border-default), transparent 20%);
         border-radius: var(--task-radius-lg);
         background: var(--task-surface-soft);
         box-shadow: var(--task-shadow-card);
-        transition: transform var(--task-motion-fast), box-shadow var(--task-motion-fast), border-color var(--task-motion-fast);
+        transition: transform var(--task-motion-fast), box-shadow var(--task-motion-fast);
     }
 
     .reminder-item:hover {
         transform: translateY(-1px);
-        box-shadow: var(--task-shadow-popover);
-        border-color: var(--task-accent-soft);
-        border-color: color-mix(in srgb, var(--task-accent-soft), var(--task-border-default) 55%);
+        box-shadow: var(--task-shadow-hover);
     }
 
     .reminder-item__project,
@@ -2410,32 +2361,22 @@
     }
 
     .reminder-priority-high .reminder-item__note {
-        background-color: var(--task-priority-high-bg);
-        border-color: var(--task-priority-high-text);
-        background-color: color-mix(in srgb, var(--task-priority-high-bg), white 8%);
-        border-color: color-mix(in srgb, var(--task-priority-high-text), transparent 75%);
-        color: var(--task-priority-high-text);
+        opacity: var(--task-priority-high-opacity);
+        border: 1px solid var(--task-border-default);
     }
 
     .reminder-priority-medium .reminder-item__note {
-        background-color: var(--task-priority-medium-bg);
-        border-color: var(--task-priority-medium-text);
-        background-color: color-mix(in srgb, var(--task-priority-medium-bg), white 8%);
-        border-color: color-mix(in srgb, var(--task-priority-medium-text), transparent 75%);
-        color: var(--task-priority-medium-text);
+        opacity: var(--task-priority-medium-opacity);
+        border: 1px solid var(--task-border-default);
     }
 
     .reminder-priority-low .reminder-item__note {
-        background-color: var(--task-priority-low-bg);
-        border-color: var(--task-priority-low-text);
-        background-color: color-mix(in srgb, var(--task-priority-low-bg), white 8%);
-        border-color: color-mix(in srgb, var(--task-priority-low-text), transparent 75%);
-        color: var(--task-priority-low-text);
+        opacity: var(--task-priority-low-opacity);
+        border: 1px solid var(--task-border-default);
     }
 
     .reminder-progress-wrap {
         background: var(--task-border-default);
-        background: color-mix(in srgb, var(--task-border-default), transparent 60%);
         border-radius: var(--task-radius-sm);
     }
 
@@ -2450,7 +2391,7 @@
         padding: 8px;
         background-color: var(--b3-theme-surface-lighter);
         border: 1px solid var(--b3-theme-border);
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         font-size: 12px;
         color: var(--b3-theme-on-surface);
         max-height: 100px;
@@ -2464,7 +2405,7 @@
     .nl-preview {
         padding: 12px;
         border: 1px solid var(--b3-theme-border);
-        border-radius: 4px;
+        border-radius: var(--task-radius-xs);
         background-color: var(--b3-theme-surface-lighter);
         font-size: 13px;
         min-height: 20px;
@@ -2508,7 +2449,7 @@
     font-size: 11px;
     font-weight: 500;
     padding: 3px 8px;
-    border-radius: 12px;
+    border-radius: var(--task-radius-xl);
     margin-top: 4px;
     transition: all 0.2s ease;
     position: relative;
@@ -2538,16 +2479,14 @@
     /* 悬停效果 */
     &:hover {
         transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        filter: brightness(1.1) saturate(1.1);
-        border-color: rgba(255, 255, 255, 0.3);
+        box-shadow: var(--task-shadow-hover);
+        opacity: 0.8;
     }
 
     /* 暗色模式适配 */
     .b3-theme-dark & {
         &:hover {
-            filter: brightness(1.2) saturate(1.1);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            opacity: 0.7;
         }
     }
 
@@ -2574,7 +2513,6 @@
 
 .reminder-item[style*="opacity: 0.5"] .reminder-item__category:hover {
     opacity: 1;
-    filter: grayscale(0.1) brightness(1.1);
 }
 
 /* 块旁的项目按钮样式 */
@@ -2584,7 +2522,7 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: var(--task-radius-xs);
     color: var(--b3-theme-on-background);
     opacity: 0.85;
     transition: all 0.12s ease;
@@ -2661,7 +2599,7 @@
     background-color: var(--b3-theme-background) !important;
     color: var(--b3-theme-on-background) !important;
     border: 1px solid var(--b3-theme-surface-lighter) !important;
-    border-radius: 4px;
+    border-radius: var(--task-radius-xs);
     margin-top: 0px;
     overflow-x: hidden !important;
     /* 防止水平滚动条 */
@@ -2701,7 +2639,7 @@
         code {
             background-color: var(--b3-theme-surface-lighter) !important;
             padding: 2px 4px !important;
-            border-radius: 3px !important;
+            border-radius: var(--task-radius-xs) !important;
             font-family: var(--b3-font-family-code) !important;
         }
 
@@ -2790,7 +2728,7 @@
 /* 月视图日期数字：增强可点击 hover 反馈 */
 .fc-daygrid-day-top .fc-daygrid-day-number {
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--task-radius-sm);
     padding: 1px 6px;
     transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 

@@ -1,6 +1,7 @@
 import { getFile, putFile, removeFile } from '../api';
 import { StatusManager } from './statusManager';
 import { i18n } from '../pluginInstance';
+import { CATEGORY_PALETTE } from './categoryManager';
 
 export interface Milestone {
     id: string;
@@ -60,7 +61,6 @@ export class ProjectManager {
     private static instance: ProjectManager;
     private plugin: any;
     private projects: Project[] = [];
-    private projectColors: { [key: string]: string } = {};
     private statusManager: StatusManager;
 
     private constructor(plugin: any) {
@@ -83,41 +83,41 @@ export class ProjectManager {
         await this.loadProjects();
     }
 
-    public async setProjectColor(projectId: string, color: string) {
-        try {
-            const projectData = await this.plugin.loadProjectData() || {};
-            if (projectData[projectId]) {
-                projectData[projectId].color = color;
-                await this.plugin.saveProjectData(projectData);
-            }
-            this.projectColors[projectId] = color;
-            // 触发项目颜色更新事件，通知日历视图等组件更新颜色缓存
-            window.dispatchEvent(new CustomEvent('projectColorUpdated'));
-        } catch (error) {
-            console.error('Failed to set project color:', error);
-            throw error;
-        }
-    }
-
+    /**
+     * 根据项目名称/id获取对应的柔和色板颜色（与分类标签颜色系统统一）
+     */
     public getProjectColor(projectId: string): string {
         if (!projectId) {
-            return '#cccccc'; // 默认颜色
+            return CATEGORY_PALETTE[0].bg;
         }
-        return this.projectColors[projectId] || this.generateColorFromId(projectId);
+        // 使用与分类标签相同的 hash 算法查表
+        const index = this.hashToPaletteIndex(projectId);
+        return CATEGORY_PALETTE[index].bg;
     }
 
-    private generateColorFromId(id: string): string {
-        if (!id || typeof id !== 'string') {
-            return '#cccccc'; // 默认颜色
-        }
+    /**
+     * 根据分组名称获取对应的柔和色板颜色样式（与分类标签颜色系统统一）
+     */
+    public getGroupLabelStyle(groupName: string): { backgroundColor: string; borderColor: string; textColor: string } {
+        const seed = groupName || 'group';
+        const index = this.hashToPaletteIndex(seed);
+        const { bg, border, text } = CATEGORY_PALETTE[index];
+        return {
+            backgroundColor: bg,
+            borderColor: border,
+            textColor: text
+        };
+    }
+
+    /**
+     * 将文本稳定映射为色板索引（0-15），使用两套柔和色板
+     */
+    private hashToPaletteIndex(text: string): number {
         let hash = 0;
-        for (let i = 0; i < id.length; i++) {
-            hash = id.charCodeAt(i) + ((hash << 5) - hash);
+        for (let i = 0; i < text.length; i++) {
+            hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
         }
-        const c = (hash & 0x00FFFFFF)
-            .toString(16)
-            .toUpperCase();
-        return "#" + "00000".substring(0, 6 - c.length) + c;
+        return hash % CATEGORY_PALETTE.length;
     }
 
     /**
@@ -154,21 +154,13 @@ export class ProjectManager {
                         filterCrossPeriodOnNonWorkingDays: project.filterCrossPeriodOnNonWorkingDays === true
                     }));
 
-                // 从项目中提取颜色到 projectColors
-                this.projectColors = {};
-                projectEntries.forEach(([id, project]: [string, any]) => {
-                    if (project.color) {
-                        this.projectColors[id] = project.color;
-                    }
-                });
+                    // 项目颜色现在统一使用 CATEGORY_PALETTE，不再从项目数据中读取
             } else {
                 this.projects = [];
-                this.projectColors = {};
             }
         } catch (error) {
             console.error('Failed to load projects:', error);
             this.projects = [];
-            this.projectColors = {};
         }
     }
 

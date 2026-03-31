@@ -345,7 +345,7 @@ export class SubtasksDialog {
         const sortOptions: { key: 'priority' | 'time' | 'createdAt' | 'title', label: string, icon: string }[] = [
             { key: 'priority', label: i18n('sortByPriority') || '按优先级', icon: '🎯' },
             { key: 'time', label: i18n('sortByTime') || '按设定时间', icon: '🕐' },
-            { key: 'createdAt', label: i18n('sortByCreated') || '按创建时间', icon: '📅' },
+            { key: 'createdAt', label: i18n('sortByCreated') || '按创建时间', icon: '' },
             { key: 'title', label: i18n('sortByTitle') || '按标题', icon: '📝' },
         ];
 
@@ -541,7 +541,7 @@ export class SubtasksDialog {
 
         if (!this.isTempMode) {
             const reminderData = await this.plugin.loadReminderData() || {};
-            
+
             // 解析可能存在的实例信息 (id_YYYY-MM-DD)
             let targetParentId = this.parentId;
             const lastUnderscoreIndex = this.parentId.lastIndexOf('_');
@@ -551,7 +551,7 @@ export class SubtasksDialog {
                     targetParentId = this.parentId.substring(0, lastUnderscoreIndex);
                 }
             }
-            
+
             // 获取原始父任务（支持重复实例）
             parentTask = reminderData[targetParentId];
         }
@@ -711,7 +711,7 @@ export class SubtasksDialog {
         await this.plugin.saveReminderData(reminderData);
         await this.loadSubtasks();
         this.renderSubtasks();
-        
+
         // 触发更新事件通知其他组件
         if (taskProjectId) {
             window.dispatchEvent(new CustomEvent('reminderUpdated', {
@@ -720,7 +720,7 @@ export class SubtasksDialog {
                 }
             }));
         }
-        
+
         // 通知父组件更新
         if (this.onUpdate) {
             this.onUpdate();
@@ -785,7 +785,7 @@ export class SubtasksDialog {
             await this.plugin.saveReminderData(reminderData);
             await this.loadSubtasks();
             this.renderSubtasks();
-            
+
             // 触发更新事件通知其他组件
             if (taskProjectId) {
                 window.dispatchEvent(new CustomEvent('reminderUpdated', {
@@ -794,19 +794,19 @@ export class SubtasksDialog {
                     }
                 }));
             }
-            
+
             // 通知父组件更新
             if (this.onUpdate) {
                 this.onUpdate();
             }
-            
+
             showMessage(i18n("deleteSuccess"));
         };
 
         if (date) {
             // 判断是否为编辑单个实例模式（非编辑所有实例）
             const isEditingSingleInstance = this.isInstanceEdit && !this.isModifyAllInstances;
-            
+
             if (isEditingSingleInstance) {
                 // 编辑单个实例：将此 ghost 子任务在当前日期标记为隐藏
                 // 而不是删除整个模板
@@ -823,7 +823,7 @@ export class SubtasksDialog {
                         await this.plugin.saveReminderData(reminderData);
                         await this.loadSubtasks();
                         this.renderSubtasks();
-                        
+
                         // 触发更新事件
                         if (taskProjectId) {
                             window.dispatchEvent(new CustomEvent('reminderUpdated', {
@@ -833,7 +833,7 @@ export class SubtasksDialog {
                         if (this.onUpdate) {
                             this.onUpdate();
                         }
-                        
+
                         showMessage(i18n("hideSuccess") || "已隐藏");
                     }
                 );
@@ -1048,10 +1048,10 @@ export class SubtasksDialog {
         }
 
         let parentTask: any = null;
-        
+
         if (!this.isTempMode) {
             const reminderData = await this.plugin.loadReminderData() || {};
-            
+
             // 解析可能存在的实例信息 (id_YYYY-MM-DD)
             let targetParentId = this.parentId;
             const lastUnderscoreIndex = this.parentId.lastIndexOf('_');
@@ -1061,13 +1061,13 @@ export class SubtasksDialog {
                     targetParentId = this.parentId.substring(0, lastUnderscoreIndex);
                 }
             }
-            
+
             // 获取原始父任务（支持重复实例）
             const originalTask = reminderData[targetParentId];
-            
+
             // 判断是否为编辑单个实例模式（非编辑所有实例）
             const isEditingSingleInstance = this.isInstanceEdit && !this.isModifyAllInstances;
-            
+
             if (isEditingSingleInstance) {
                 // 编辑单个实例：创建一个虚拟父任务对象，使用实例ID作为parentId
                 // 这样创建的子任务会是普通子任务，只属于当前实例

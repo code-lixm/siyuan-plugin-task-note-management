@@ -3,11 +3,10 @@
 </script>
 
 <div
-    class="b3-label help-panel"
-    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 24px; padding: 48px; background: var(--b3-theme-background); border-radius: 12px; margin: 16px; border: 1px solid var(--b3-border-color);"
+    class="b3-label help-panel help-panel-container"
 >
     <div
-        style="width: 64px; height: 64px; border-radius: 16px; background: var(--b3-theme-primary-lightest); display: flex; align-items: center; justify-content: center; color: var(--b3-theme-primary); margin-bottom: 8px;"
+        class="help-icon-wrapper"
     >
         <svg
             viewBox="0 0 24 24"
@@ -36,7 +35,7 @@
     <a
         href="https://www.zhihu.com/column/c_1998349446233202806"
         target="_blank"
-        style="display: flex; align-items: center; gap: 8px; color: #fff; background: var(--b3-theme-primary); padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(var(--b3-theme-primary-rgb), 0.2);"
+        class="help-link-button"
         on:mouseenter={e => {
             e.currentTarget.style.transform = 'translateY(-2px)';
             e.currentTarget.style.boxShadow = '0 6px 16px rgba(var(--b3-theme-primary-rgb), 0.3)';
@@ -63,3 +62,45 @@
         </svg>
     </a>
 </div>
+
+<style>
+    .help-panel-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+        gap: 24px;
+        padding: 48px;
+        background: var(--b3-theme-background);
+        border-radius: 12px;
+        margin: 16px;
+        border: 1px solid var(--b3-border-color);
+    }
+
+    .help-icon-wrapper {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: var(--b3-theme-primary-lightest);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--b3-theme-primary);
+        margin-bottom: 8px;
+    }
+
+    .help-link-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #fff;
+        background: var(--b3-theme-primary);
+        padding: 12px 24px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(var(--b3-theme-primary-rgb), 0.2);
+    }
+</style>

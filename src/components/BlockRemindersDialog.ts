@@ -148,28 +148,10 @@ export class BlockRemindersDialog {
 
         // 优先级设置
         const priority = reminder.priority || 'none';
-        let backgroundColor = '';
-        let borderColor = '';
-        switch (priority) {
-            case 'high':
-                backgroundColor = 'var(--b3-card-error-background)';
-                borderColor = 'var(--b3-card-error-color)';
-                break;
-            case 'medium':
-                backgroundColor = 'var(--b3-card-warning-background)';
-                borderColor = 'var(--b3-card-warning-color)';
-                break;
-            case 'low':
-                backgroundColor = 'var(--b3-card-info-background)';
-                borderColor = 'var(--b3-card-info-color)';
-                break;
-            default:
-                backgroundColor = 'var(--b3-theme-surface-lighter)';
-                borderColor = 'var(--b3-theme-surface-lighter)';
-        }
-        item.style.backgroundColor = backgroundColor;
-        item.style.border = `2px solid ${borderColor}`;
-        item.style.borderRadius = '4px';
+        const bgVar = priority === 'high' ? 'var(--b3-card-error-background)' : priority === 'medium' ? 'var(--b3-card-warning-background)' : priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-surface-lighter)';
+        item.style.backgroundColor = bgVar;
+        item.style.border = `2px solid var(--b3-border-color)`;
+        item.style.borderRadius = 'var(--task-radius-xs)';
         item.style.padding = '12px';
         item.style.marginBottom = '8px';
 
@@ -598,18 +580,18 @@ export class BlockRemindersDialog {
                 if (endDiffDays < 0) {
                     const overdueDays = Math.abs(endDiffDays);
                     countdownEl.textContent = (i18n("overdueNDays") || '逾期${days}天').replace("${days}", overdueDays.toString());
-                    countdownEl.style.background = 'var(--b3-card-error-background)';
-                    countdownEl.style.color = 'var(--b3-card-error-color)';
+                    countdownEl.style.background = 'rgba(0, 0, 0, 0.1)';
+                    countdownEl.style.color = 'var(--b3-theme-on-surface)';
                 } else if (endDiffDays === 0) {
                     countdownEl.textContent = i18n("dueToday") || '今天截止';
-                    countdownEl.style.background = 'var(--b3-card-warning-background)';
-                    countdownEl.style.color = 'var(--b3-card-warning-color)';
+                    countdownEl.style.background = 'rgba(0, 0, 0, 0.08)';
+                    countdownEl.style.color = 'var(--b3-theme-on-surface)';
                 } else if (endDiffDays === 1) {
                     countdownEl.textContent = i18n("tomorrowDeadline") || '明天截止';
                 } else if (endDiffDays <= 7) {
                     countdownEl.textContent = i18n("deadlineInNDays")?.replace("${days}", endDiffDays.toString()) || `${endDiffDays}天后截止`;
-                    countdownEl.style.background = 'var(--b3-font-background4)';
-                    countdownEl.style.color = 'var(--b3-font-color4)';
+                    countdownEl.style.background = 'rgba(0, 0, 0, 0.05)';
+                    countdownEl.style.color = 'var(--b3-theme-on-surface)';
                 } else {
                     return null;
                 }
@@ -618,13 +600,13 @@ export class BlockRemindersDialog {
                 if (startDiffDays < 0) {
                     const overdueDays = Math.abs(startDiffDays);
                     countdownEl.textContent = (i18n("overdueNDays") || '逾期${days}天').replace("${days}", overdueDays.toString());
-                    countdownEl.style.background = 'var(--b3-card-error-background)';
-                    countdownEl.style.color = 'var(--b3-card-error-color)';
+                    countdownEl.style.background = 'rgba(0, 0, 0, 0.1)';
+                    countdownEl.style.color = 'var(--b3-theme-on-surface)';
                 } else {
                     // startDiffDays === 0，今天开始且无结束日期
                     countdownEl.textContent = i18n("dueToday") || '今天';
-                    countdownEl.style.background = 'var(--b3-card-warning-background)';
-                    countdownEl.style.color = 'var(--b3-card-warning-color)';
+                    countdownEl.style.background = 'rgba(0, 0, 0, 0.08)';
+                    countdownEl.style.color = 'var(--b3-theme-on-surface)';
                 }
             }
         }

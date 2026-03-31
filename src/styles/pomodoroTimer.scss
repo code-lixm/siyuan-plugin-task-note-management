@@ -283,7 +283,7 @@
         .pomodoro-header button {
             font-size: 24px !important;
             padding: 16px 24px !important;
-            border-radius: 12px !important;
+            border-radius: var(--task-radius-xl) !important;
             background: rgba(255, 255, 255, 0.1) !important;
             border: 2px solid rgba(255, 255, 255, 0.2) !important;
             backdrop-filter: blur(8px) !important;
@@ -318,7 +318,7 @@
             background: rgba(255, 255, 255, 0.1) !important;
             border: 2px solid var(--b3-table-border-color) !important;
             backdrop-filter: blur(10px) !important;
-            border-radius: 12px !important;
+            border-radius: var(--task-radius-xl) !important;
             font-family: var(--b3-font-family) !important;
         }
 
@@ -421,7 +421,7 @@
             max-width: 1000px !important;
             border: 2px solid rgba(255, 255, 255, 0.2) !important;
             backdrop-filter: blur(10px) !important;
-            border-radius: 20px !important;
+            border-radius: var(--task-radius-cta) !important;
             padding: 20px 40px !important;
             opacity: 1 !important;
             transition: opacity 0.3s ease !important;
@@ -469,7 +469,7 @@
         border: 2px solid rgba(255, 255, 255, 0.3);
         cursor: pointer;
         padding: 12px 20px;
-        border-radius: 8px;
+        border-radius: var(--task-radius-md);
         font-size: 16px;
         font-weight: 600;
         z-index: 10001;
@@ -497,7 +497,7 @@
         from {
             width: 240px;
             height: auto;
-            border-radius: 12px;
+            border-radius: var(--task-radius-xl);
         }
 
         to {
@@ -517,7 +517,7 @@
         to {
             width: 240px;
             height: auto;
-            border-radius: 12px;
+            border-radius: var(--task-radius-xl);
         }
     }
 
