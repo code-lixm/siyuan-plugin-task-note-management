@@ -1511,7 +1511,7 @@
         };
 
         // 为笔记本选择器更新选项
-        if (item.key === "newDocNotebook") {
+        if (item.key === "newDocNotebook" || item.key === "calendarDefaultNotebookId") {
           updatedItem.options = notebooks.reduce(
             (acc, notebook) => {
               acc[notebook.id] = notebook.name;
@@ -1519,6 +1519,13 @@
             },
             {} as { [key: string]: string },
           );
+          // calendarDefaultNotebookId 需要保留空选项
+          if (item.key === "calendarDefaultNotebookId") {
+            updatedItem.options = {
+              "": i18n("pleaseSelectNotebook"),
+              ...updatedItem.options,
+            };
+          }
         }
 
         return updatedItem;

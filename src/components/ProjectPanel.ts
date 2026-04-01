@@ -1051,7 +1051,9 @@ export class ProjectPanel {
     }
 
     /**
-     * 计算给定项目的顶级任务在 kanbanStatus 上的数量（只计顶级，即没有 parentId）
+     * 计算给定项目的叶子任务在 kanbanStatus 上的数量
+     * - 只计顶级任务（没有 parentId）
+     * - 排除有子任务的任务（只计算叶子节点）
      * 使用 ProjectKanbanView 的静态方法，确保统计逻辑一致（包括日期自动归档到进行中的逻辑）
      */
     private async countTopLevelKanbanStatus(projectId: string, reminderData: any): Promise<{ doing: number; short_term: number; long_term: number; done: number }> {

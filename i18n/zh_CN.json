@@ -1244,7 +1244,7 @@
     "show": "显示",
     "instances": "个未完成实例",
     "noLimit": "表示不限制",
-    "taskNoteSettings": "任务笔记设置",
+    "taskNoteSettings": "笔记设置",
     "audioUploadSuccess": "音频 \"${name}\" 上传成功",
     "audioDownloading": "正在下载并保存音频到本地...",
     "audioDownloadSuccess": "下载成功，音频已转存至本地存储",

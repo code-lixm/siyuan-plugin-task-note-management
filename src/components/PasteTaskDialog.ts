@@ -25,6 +25,7 @@ export interface HierarchicalTask {
     endTime?: string;
     reminderTimes?: any[];
     blockId?: string;
+    categoryId?: string;
     level: number;
     children: HierarchicalTask[];
     completed?: boolean;
@@ -214,7 +215,7 @@ export class PasteTaskDialog {
                 <div class="b3-dialog__content">
                     <p>${i18n("pasteInstructions") || "粘贴Markdown列表或多行文本，每行将创建一个任务。支持多层级列表自动创建父子任务。"}</p>
                     <p style="font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8; margin-bottom: 4px; word-break: break-all;">
-                        ${i18n("supportPrioritySyntaxDemo") || "支持语法：<code>@priority=high&startDate=2025-08-12&endDate=2025-08-30&reminderTimes=[{\"time\":\"2026-02-24T12:33\",\"note\":\"备注1\"}]</code>"}
+                        ${i18n("supportPrioritySyntaxDemo") || "支持语法：<code>@priority=high&startDate=2025-08-12&endDate=2025-08-30&categoryId=分类ID&reminderTimes=[{\"time\":\"2026-02-24T12:33\",\"note\":\"备注1\"}]</code>"}
                     </p>
                     <p style="font-size: 12px; color: var(--b3-theme-on-surface); opacity: 0.8; margin-bottom: 4px;">
                         ${i18n("supportBlockLinkDemo") || "支持绑定块：<code>[任务标题](siyuan://blocks/块ID)</code> 或 <code>((块ID '任务标题'))</code>"}
@@ -831,6 +832,7 @@ export class PasteTaskDialog {
         let endTime: string | undefined;
         let reminderTimes: any[] | undefined;
         let blockId: string | undefined;
+        let categoryId: string | undefined;
         let completed: boolean | undefined;
 
         blockId = this.extractBlockIdFromText(line);
@@ -909,13 +911,18 @@ export class PasteTaskDialog {
                 }
             }
 
+            const parsedCategoryId = params.get('categoryId')?.trim();
+            if (parsedCategoryId) {
+                categoryId = parsedCategoryId;
+            }
+
             if (priority && !['high', 'medium', 'low', 'none'].includes(priority)) priority = 'none';
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (startDate && !dateRegex.test(startDate)) startDate = undefined;
             if (endDate && !dateRegex.test(endDate)) endDate = undefined;
         }
 
-        let result = { title: title.trim() || i18n('noContentHint') || '未命名任务', priority, startDate, time, endDate, endTime, reminderTimes, blockId, completed };
+        let result = { title: title.trim() || i18n('noContentHint') || '未命名任务', priority, startDate, time, endDate, endTime, reminderTimes, blockId, categoryId, completed };
         // console.log('Parsed task line:', { line, result });
         return result
     }
@@ -953,12 +960,15 @@ export class PasteTaskDialog {
             task: HierarchicalTask,
             parentId?: string,
             parentPriority?: string,
-            inheritedGroupId?: string
+            inheritedGroupId?: string,
+            inheritedCategoryId?: string
         ): Promise<string> => {
             const taskId = `reminder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             sortCounter += 10;
 
             const inheritedPriority = (task.priority && task.priority !== 'none') ? task.priority : (parentPriority || 'none');
+            // 任务自身的 categoryId 优先，否则使用继承的分类
+            const taskCategoryId = task.categoryId || inheritedCategoryId;
 
             // 优先使用用户选择的状态
             const statusToUse = selectedStatus !== undefined ? selectedStatus : this.config.defaultStatus;
@@ -977,7 +987,7 @@ export class PasteTaskDialog {
                 title: task.title,
                 note: '',
                 priority: inheritedPriority,
-                categoryId: categoryId,
+                categoryId: taskCategoryId,
                 projectId: projectId,
                 completed: !!task.completed,
                 kanbanStatus: kanbanStatus,
@@ -1040,7 +1050,7 @@ export class PasteTaskDialog {
 
             if (task.children && task.children.length > 0) {
                 for (const child of task.children) {
-                    await createTaskRecursively(child, taskId, inheritedPriority, inheritedGroupId);
+                    await createTaskRecursively(child, taskId, inheritedPriority, inheritedGroupId, taskCategoryId);
                 }
             }
 
@@ -1053,7 +1063,7 @@ export class PasteTaskDialog {
         for (const task of tasks) {
             const topParentId = parentTask ? parentTask.id : undefined;
             const parentPriority = parentTask?.priority;
-            await createTaskRecursively(task, topParentId, parentPriority, groupToUse);
+            await createTaskRecursively(task, topParentId, parentPriority, groupToUse, categoryId);
         }
 
         // 临时模式下不保存到数据库，通过回调返回

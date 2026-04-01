@@ -5944,7 +5944,9 @@ export class ProjectKanbanView {
     }
 
     /**
-     * 静态方法：计算给定项目的顶级任务在 kanbanStatus 上的数量（只计顶级，即没有 parentId）
+     * 静态方法：计算给定项目的叶子任务在 kanbanStatus 上的数量
+     * - 只计顶级任务（没有 parentId）
+     * - 对于有子任务的任务，递归计算其所有后代叶子任务的状态
      * 使用与 getTaskStatus 相同的逻辑，包括日期自动归档到进行中的逻辑
      */
     public static countTopLevelTasksByStatus(projectId: string, reminderData: any, kanbanStatuses?: Array<{ id: string; name?: string }>): { counts: Record<string, number>; completed: number } {
@@ -5965,6 +5967,21 @@ export class ProjectKanbanView {
 
         const firstNonCompletedStatus = Object.keys(counts).find(k => k !== 'completed') || null;
 
+        // First pass: build a set of task IDs that have children (are parents)
+        const parentTaskIds = new Set<string>();
+        const childrenMap = new Map<string, any[]>(); // parentId -> children[]
+        allReminders.forEach((r: any) => {
+            if (!r || typeof r !== 'object') return;
+            if (r.projectId !== projectId) return;
+            const parentId = r.hasOwnProperty('parentId') && r.parentId !== undefined && r.parentId !== null ? String(r.parentId).trim() : '';
+            if (parentId) {
+                parentTaskIds.add(parentId);
+                const children = childrenMap.get(parentId) || [];
+                children.push(r);
+                childrenMap.set(parentId, children);
+            }
+        });
+
         const safeInc = (statusId: string | null) => {
             if (!statusId) {
                 if (firstNonCompletedStatus) counts[firstNonCompletedStatus] = (counts[firstNonCompletedStatus] || 0) + 1;
@@ -5974,95 +5991,104 @@ export class ProjectKanbanView {
             else if (firstNonCompletedStatus) counts[firstNonCompletedStatus] = (counts[firstNonCompletedStatus] || 0) + 1;
         };
 
-        allReminders.forEach((r: any) => {
-            if (!r || typeof r !== 'object') return;
-            const hasParent = r.hasOwnProperty('parentId') && r.parentId !== undefined && r.parentId !== null && String(r.parentId).trim() !== '';
-            if (r.projectId !== projectId || hasParent) return;
+        /**
+         * 递归计算一个任务的所有叶子任务的状态
+         * 如果任务没有子任务（是叶子），直接计算并返回
+         * 如果任务有子任务，递归计算所有后代叶子任务
+         */
+        const countLeafRecursively = (task: any): void => {
+            const taskId = String(task.id).trim();
+            const children = childrenMap.get(taskId) || [];
 
-            const isCompletedFlag = !!r.completed || (r.completedTime !== undefined && r.completedTime !== null && String(r.completedTime).trim() !== '');
+            if (children.length === 0) {
+                // 是叶子任务，直接计算状态
+                const isCompletedFlag = !!task.completed || (task.completedTime !== undefined && task.completedTime !== null && String(task.completedTime).trim() !== '');
 
-            if (r.repeat && r.repeat.enabled) {
-                const completedInstances = r.repeat.completedInstances || [];
-
-                const rangeStart = r.startDate || r.date || r.createdTime?.split('T')[0] || '2020-01-01';
-                const futureDate = new Date();
-                futureDate.setDate(futureDate.getDate() + 365);
-                const rangeEnd = getLocalDateString(futureDate);
-
-                let repeatInstances: any[] = [];
-                try {
-                    repeatInstances = generateRepeatInstances(r, rangeStart, rangeEnd);
-                } catch (e) {
-                    console.error('生成重复实例失败', e);
-                    repeatInstances = [];
-                }
-
-                let hasTodayIncomplete = false;
-                const futureIncompleteList: any[] = [];
-
-                repeatInstances.forEach((instance: any) => {
-                    const instanceIdStr = (instance as any).instanceId || `${r.id}_${instance.date}`;
-                    const originalKey = instanceIdStr.split('_').pop() || instance.date;
-                    const isInstanceCompleted = completedInstances.includes(originalKey);
-                    const instanceLogical = this.getTaskLogicalDate(instance.date, instance.time);
-                    const dateComparison = compareDateStrings(instanceLogical, today);
-
-                    if (isInstanceCompleted) {
-                        counts['completed'] = (counts['completed'] || 0) + 1;
-                    } else {
-                        const effectiveStatus = instance.kanbanStatus || null;
-                        if (dateComparison <= 0) {
-                            // past or today -> prefer a 'doing' status if present
-                            if (counts.hasOwnProperty('doing')) safeInc('doing');
-                            else safeInc(effectiveStatus);
-                            if (dateComparison === 0) hasTodayIncomplete = true;
-                        } else {
-                            futureIncompleteList.push({ ...instance });
-                        }
-                    }
-                });
-
-                if (!hasTodayIncomplete && futureIncompleteList.length > 0) {
-                    const firstFuture = futureIncompleteList[0];
-                    const eff = firstFuture.kanbanStatus || null;
-                    if (eff) safeInc(eff);
-                    else if (firstFuture.termType === 'long_term' && counts.hasOwnProperty('long_term')) safeInc('long_term');
-                    else if (counts.hasOwnProperty('short_term')) safeInc('short_term');
-                    else safeInc(null);
-                }
-
-            } else {
                 if (isCompletedFlag) {
                     counts['completed'] = (counts['completed'] || 0) + 1;
                     return;
                 }
 
-                const eff = r.kanbanStatus || null;
+                // 处理重复任务
+                if (task.repeat && task.repeat.enabled) {
+                    const completedInstances = task.repeat.completedInstances || [];
+                    const rangeStart = task.startDate || task.date || task.createdTime?.split('T')[0] || '2020-01-01';
+                    const futureDate = new Date();
+                    futureDate.setDate(futureDate.getDate() + 365);
+                    const rangeEnd = getLocalDateString(futureDate);
+
+                    let repeatInstances: any[] = [];
+                    try {
+                        repeatInstances = generateRepeatInstances(task, rangeStart, rangeEnd);
+                    } catch (e) {
+                        repeatInstances = [];
+                    }
+
+                    let hasTodayIncomplete = false;
+                    const futureIncompleteList: any[] = [];
+
+                    repeatInstances.forEach((instance: any) => {
+                        const instanceIdStr = instance.instanceId || `${task.id}_${instance.date}`;
+                        const originalKey = instanceIdStr.split('_').pop() || instance.date;
+                        const isInstanceCompleted = completedInstances.includes(originalKey);
+                        const instanceLogical = this.getTaskLogicalDate(instance.date, instance.time);
+                        const dateComparison = compareDateStrings(instanceLogical, today);
+
+                        if (isInstanceCompleted) {
+                            counts['completed'] = (counts['completed'] || 0) + 1;
+                        } else {
+                            if (dateComparison <= 0) {
+                                if (counts.hasOwnProperty('doing')) safeInc('doing');
+                                else safeInc(instance.kanbanStatus || null);
+                                if (dateComparison === 0) hasTodayIncomplete = true;
+                            } else {
+                                futureIncompleteList.push({ ...instance });
+                            }
+                        }
+                    });
+
+                    if (!hasTodayIncomplete && futureIncompleteList.length > 0) {
+                        const firstFuture = futureIncompleteList[0];
+                        safeInc(firstFuture.kanbanStatus || null);
+                    }
+                    return;
+                }
+
+                // 非重复任务的普通处理
+                const eff = task.kanbanStatus || null;
                 if (eff && eff !== 'completed') {
                     safeInc(eff);
                     return;
                 }
 
-                if (r.date) {
-                    const logicalR = this.getTaskLogicalDate(r.date, r.time);
+                if (task.date) {
+                    const logicalR = this.getTaskLogicalDate(task.date, task.time);
                     const dateComparison = compareDateStrings(logicalR, today);
                     if (dateComparison <= 0) {
-                        if (counts.hasOwnProperty('doing')) safeInc('doing');
-                        else safeInc(null);
+                        safeInc('doing');
                         return;
                     }
                 }
 
-                if (r.termType === 'long_term' && counts.hasOwnProperty('long_term')) {
-                    safeInc('long_term');
-                } else if (r.termType === 'doing' && counts.hasOwnProperty('doing')) {
-                    safeInc('doing');
-                } else if (counts.hasOwnProperty('short_term')) {
-                    safeInc('short_term');
-                } else {
-                    safeInc(null);
-                }
+                safeInc(eff);
+                return;
             }
+
+            // 有子任务，递归计算所有子任务
+            for (const child of children) {
+                countLeafRecursively(child);
+            }
+        };
+
+        // 遍历所有顶级任务（没有 parentId 的），递归计算叶子任务
+        allReminders.forEach((r: any) => {
+            if (!r || typeof r !== 'object') return;
+            if (r.projectId !== projectId) return;
+
+            const hasParent = r.hasOwnProperty('parentId') && r.parentId !== undefined && r.parentId !== null && String(r.parentId).trim() !== '';
+            if (hasParent) return; // 只处理顶级任务
+
+            countLeafRecursively(r);
         });
 
         return { counts, completed: counts['completed'] || 0 };
