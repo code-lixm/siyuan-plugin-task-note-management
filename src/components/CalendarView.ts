@@ -68,6 +68,7 @@ export class CalendarView {
     private hideTooltipTimeout: number | null = null;
     private tooltipShowTimeout: number | null = null;
     private refreshTimeout: number | null = null;
+    private eventSourceId: string = 'main-events'; // 固定的事件源ID，用于增量更新
     private currentCompletionFilter: string = 'all'; // 当前完成状态过滤
     private isDragging: boolean = false; // 标记是否正在拖动事件
     private allDayDragState: {
@@ -208,15 +209,8 @@ export class CalendarView {
         // 刷新事件
         await this.refreshEvents();
 
-        // 解决 FC v6 的重绘问题：仅仅 render() 或 changeView() 同类型视图可能不会销毁并重建 DOM
-        // 通过切换一个结构性选项（如 dayHeaders）并切回来，可以强制它完全重建内部网格，从而触发 Mount 钩子
-        const hasHeaders = this.calendar.getOption('dayHeaders');
-        this.calendar.setOption('dayHeaders', !hasHeaders);
-        this.calendar.setOption('dayHeaders', hasHeaders);
-
-        // 额外强制执行一次 render
-        this.calendar.render();
-
+        // 解决 FC v6 的重绘问题：通过 updateSize 触发重绘，而不是完全重建
+        // 注意：不再切换 dayHeaders 选项，避免完全重建DOM
         if (this.isCalendarVisible()) {
             this.calendar.updateSize();
         }
@@ -1604,6 +1598,12 @@ export class CalendarView {
                 return [];
             },
             eventDidMount: (info) => {
+                // 防止重复绑定事件监听器
+                if (info.el.hasAttribute('data-event-listeners-attached')) {
+                    return; // 已经绑定过监听器，跳过
+                }
+                info.el.setAttribute('data-event-listeners-attached', 'true');
+                
                 // List View Lunar Logic
                 if (info.view.type.startsWith('list')) {
                     // Find the preceding list header
@@ -2480,9 +2480,9 @@ export class CalendarView {
             if (this.calendar && this.isCalendarVisible()) {
                 try {
                     this.calendar.updateSize();
-                    this.calendar.render();
+                    // 注意：不再调用 render()，避免完全重建DOM
                 } catch (error) {
-                    console.error('重新渲染日历失败:', error);
+                    console.error('更新日历大小失败:', error);
                 }
             }
         }, 100);
@@ -5654,12 +5654,12 @@ export class CalendarView {
                 this.dailyNoteDates.add(note.date);
             });
 
-            this.calendar.render();
+            // 注意：不再调用 render()，避免完全重建DOM
+            // 日记日期标记通过 dayCellClassNames 回调自动处理
         } catch (error) {
             console.error('刷新日记日期失败:', error);
         }
     }
-
     private handleDateClick(info) {
         const currentViewType = this.calendar?.view?.type;
         if (currentViewType !== 'dayGridMonth') {
@@ -5809,19 +5809,86 @@ export class CalendarView {
                 // 先获取新的事件数据
                 const events = await this.getEvents(force);
 
-                // 清除所有现有事件和事件源
-                this.calendar.removeAllEvents();
-                this.calendar.removeAllEventSources();
-
-                // 批量添加事件（比逐个添加更高效）
-                if (events.length > 0) {
-                    this.calendar.addEventSource(events);
+                // 使用增量更新策略，避免完全重建DOM
+                const existingEventSource = this.calendar.getEventSourceById(this.eventSourceId);
+                
+                if (existingEventSource) {
+                    // 事件源已存在，使用增量更新
+                    // 获取当前所有事件
+                    const currentEvents = this.calendar.getEvents();
+                    const currentEventIds = new Set(currentEvents.map(e => e.id));
+                    const newEventIds = new Set(events.map(e => e.id));
+                    
+                    // 检查是否有变化
+                    const hasChanges = 
+                        currentEvents.length !== events.length ||
+                        currentEventIds.size !== newEventIds.size ||
+                        [...currentEventIds].some(id => !newEventIds.has(id)) ||
+                        [...newEventIds].some(id => !currentEventIds.has(id));
+                    
+                    if (hasChanges) {
+                        // 有变化，需要更新
+                        // 移除不再存在的事件
+                        for (const event of currentEvents) {
+                            if (!newEventIds.has(event.id)) {
+                                event.remove();
+                            }
+                        }
+                        
+                        // 添加新事件或更新现有事件
+                        for (const eventData of events) {
+                            const existingEvent = this.calendar.getEventById(eventData.id);
+                            if (existingEvent) {
+                                // 更新现有事件的属性
+                                try {
+                                    if (eventData.title !== existingEvent.title) {
+                                        existingEvent.setProp('title', eventData.title);
+                                    }
+                                    if (eventData.start && eventData.start !== existingEvent.start?.toISOString()) {
+                                        existingEvent.setStart(eventData.start);
+                                    }
+                                    if (eventData.end && eventData.end !== existingEvent.end?.toISOString()) {
+                                        existingEvent.setEnd(eventData.end);
+                                    }
+                                    // 更新扩展属性
+                                    const props = eventData.extendedProps || {};
+                                    const existingProps = existingEvent.extendedProps || {};
+                                    if (JSON.stringify(props) !== JSON.stringify(existingProps)) {
+                                        existingEvent.setExtendedProp('extendedProps', props);
+                                    }
+                                    // 更新颜色
+                                    if (eventData.backgroundColor && eventData.backgroundColor !== existingEvent.backgroundColor) {
+                                        existingEvent.setProp('backgroundColor', eventData.backgroundColor);
+                                    }
+                                    if (eventData.borderColor && eventData.borderColor !== existingEvent.borderColor) {
+                                        existingEvent.setProp('borderColor', eventData.borderColor);
+                                    }
+                                } catch (updateError) {
+                                    // 更新失败时移除旧事件并添加新事件
+                                    existingEvent.remove();
+                                    this.calendar.addEvent(eventData, this.eventSourceId);
+                                }
+                            } else {
+                                // 添加新事件
+                                this.calendar.addEvent(eventData, this.eventSourceId);
+                            }
+                        }
+                    }
+                    // 如果没有变化，不需要做任何事情
+                } else {
+                    // 事件源不存在，创建新的事件源
+                    if (events.length > 0) {
+                        this.calendar.addEventSource({
+                            id: this.eventSourceId,
+                            events: events
+                        });
+                    }
                 }
 
-                // 强制重新渲染日历并更新大小
+                // 只在必要时更新大小，避免完全重新渲染
                 if (this.isCalendarVisible()) {
                     this.calendar.updateSize();
-                    this.calendar.render();
+                    // 注意：不再调用 this.calendar.render()，避免完全重建DOM
 
                     // 2. 恢复滚动位置
                     // 注意：FullCalendar 重新渲染可能会保留部分 DOM 结构，如果 el 还在文档中则直接恢复
