@@ -11,6 +11,7 @@
 // 导入样式规范核心
 @use './styles/variables' as *;
 @use './styles/mixins' as *;
+@use './styles/components';
 
 // 导入组件样式
 @use './styles/habit-calendar.scss';
@@ -259,6 +260,54 @@
             background: rgba(255, 255, 255, 0.05);
         }
     }
+}
+
+/* ============================================================
+ * BEM命名别名 - 向后兼容
+ * ============================================================
+ * 新项目建议使用双横线命名：
+ * .plugin-task-btn--primary 代替 .plugin-task-btn-primary
+ * .plugin-task-btn--sm 代替 .plugin-task-btn-sm
+ * ============================================================ */
+
+// 主按钮 BEM别名
+.plugin-task-btn--primary {
+    @extend .plugin-task-btn-primary;
+}
+
+// 描边按钮 BEM别名
+.plugin-task-btn--outline {
+    @extend .plugin-task-btn-outline;
+}
+
+// 幽灵按钮 BEM别名
+.plugin-task-btn--ghost {
+    @extend .plugin-task-btn-ghost;
+}
+
+// 小尺寸 BEM别名
+.plugin-task-btn--sm {
+    @extend .plugin-task-btn-sm;
+}
+
+// 大尺寸 BEM别名
+.plugin-task-btn--lg {
+    @extend .plugin-task-btn-lg;
+}
+
+// 图标按钮 BEM别名
+.plugin-task-btn--icon {
+    @extend .plugin-task-btn-icon;
+}
+
+// 加载状态 BEM别名
+.plugin-task-btn--loading {
+    @extend .plugin-task-btn-loading;
+}
+
+// 禁用状态 BEM别名
+.plugin-task-btn--disabled {
+    @extend .plugin-task-btn-disabled;
 }
 
 // 隐藏所有自定义菜单的图标 (emoji 和空 SVG 占位符)
