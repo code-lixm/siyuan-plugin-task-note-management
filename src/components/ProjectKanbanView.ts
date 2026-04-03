@@ -8800,6 +8800,7 @@ export class ProjectKanbanView {
         `;
 
         if (task.completed) {
+            taskEl.classList.add('kanban-task-completed');
             taskEl.style.opacity = '0.5';
         }
 
@@ -12741,13 +12742,18 @@ export class ProjectKanbanView {
 
             /* 基础任务卡片样式 */
             .kanban-task {
-                background: var(--b3-theme-surface-lighter);
+                background: transparent;
                 border: 1px solid var(--b3-theme-border);
                 border-radius: var(--task-radius-sm);
                 padding: 12px;
                 margin-bottom: 8px;
                 transition: all 0.2s ease;
                 position: relative;
+            }
+            
+            /* 已完成任务样式 - 添加背景色 */
+            .kanban-task-completed {
+                background: var(--b3-theme-surface-lighter);
             }
 
             .kanban-task:hover {
@@ -15906,6 +15912,13 @@ export class ProjectKanbanView {
             const checkbox = taskEl.querySelector('.kanban-task-checkbox') as HTMLInputElement;
             if (checkbox) checkbox.checked = task.completed;
             taskEl.style.opacity = task.completed ? '0.5' : '1';
+            
+            // 更新完成状态类名
+            if (task.completed) {
+                taskEl.classList.add('kanban-task-completed');
+            } else {
+                taskEl.classList.remove('kanban-task-completed');
+            }
 
             // 更新完成时间显示
             const infoEl = taskEl.querySelector('.kanban-task-info') as HTMLElement;
@@ -15941,9 +15954,12 @@ export class ProjectKanbanView {
             }
 
             // 更新优先级背景色和边框（仅背景使用透明色，边框统一用 b3-border-color）
-            const backgroundPriority = task.priority === 'high' ? 0.5 : task.priority === 'medium' ? 0.5 : task.priority === 'low' ? 0.7 : 0.1;
-            const bgVar = task.priority === 'high' ? 'var(--b3-card-error-background)' : task.priority === 'medium' ? 'var(--b3-card-warning-background)' : task.priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-background-light)';
-            taskEl.style.backgroundColor = colorWithOpacity(bgVar, backgroundPriority);
+            // 已完成的任务不应用优先级背景色，使用 kanban-task-completed 类的背景色
+            if (!task.completed) {
+                const backgroundPriority = task.priority === 'high' ? 0.5 : task.priority === 'medium' ? 0.5 : task.priority === 'low' ? 0.7 : 0.1;
+                const bgVar = task.priority === 'high' ? 'var(--b3-card-error-background)' : task.priority === 'medium' ? 'var(--b3-card-warning-background)' : task.priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-background-light)';
+                taskEl.style.backgroundColor = colorWithOpacity(bgVar, backgroundPriority);
+            }
             taskEl.style.borderColor = 'var(--b3-border-color)';
         }
 
