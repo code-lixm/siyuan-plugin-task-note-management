@@ -8,7 +8,12 @@
       "Bash(pnpm tsc:*)",
       "Bash(pnpm run build:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api:*)",
+      "Bash(gh search:*)",
+      "Bash(echo \"OPENCODE_CONFIG_DIR: $OPENCODE_CONFIG_DIR\")",
+      "Bash(opencode --version)"
     ],
     "deny": [],
     "ask": [],
