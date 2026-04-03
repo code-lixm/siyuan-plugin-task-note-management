@@ -3,12 +3,13 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    font-size: 13px;
+    font-size: var(--task-font-sm);
 }
 
 .project-header {
-    padding: 8px;
-    border-bottom: 1px solid var(--task-border-default);
+    padding: var(--task-panel-header-padding);
+    border-bottom: var(--task-divider-width) solid var(--task-divider-color);
+    background: var(--task-surface-soft);
     flex-shrink: 0;
 }
 
@@ -16,23 +17,23 @@
     display: flex;
     align-items: center;
     font-weight: 500;
-    margin-bottom: 8px;
+    margin-bottom: var(--task-space-2);
 }
 
 .project-icon {
-    margin-right: 8px;
-    font-size: 16px;
+    margin-right: var(--task-space-2);
+    font-size: var(--task-font-lg);
 }
 
 .project-panel__actions {
     display: flex;
-    gap: 4px;
+    gap: var(--task-space-1);
     margin-left: auto;
 }
 
 .project-controls {
     display: flex;
-    gap: 8px;
+    gap: var(--task-space-2);
     align-items: center;
     flex-wrap: wrap;
 }
@@ -41,9 +42,9 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
+    gap: var(--task-space-2);
     flex-wrap: wrap;
-    margin-bottom: 8px;
+    margin-bottom: var(--task-space-2);
 }
 
 /*
@@ -130,18 +131,25 @@
 .project-list {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: var(--task-panel-padding);
 }
 
 .project-item {
-    background: var(--b3-theme-surface);
-    border: 1px solid var(--task-border-default);
-    border-radius: var(--task-radius-sm);
-    margin-bottom: 8px;
-    padding: 12px;
-    cursor: pointer;
-    transition: var(--b3-transition, all 0.2s ease);
     position: relative;
+    padding: var(--task-list-item-padding);
+    margin-bottom: var(--task-list-item-gap);
+    background: var(--task-surface-muted);
+    border: 1px solid var(--task-border-default);
+    border-radius: var(--task-list-item-radius);
+    cursor: pointer;
+    transition: all var(--task-motion-fast);
+    
+    &:hover {
+        background: var(--task-surface-elevated);
+        border-color: var(--task-border-focus);
+        box-shadow: var(--task-shadow-hover);
+        transform: translateY(-1px);
+    }
 }
 
 // 拖拽手柄
