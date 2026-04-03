@@ -1,0 +1,342 @@
+/*
+ * Copyright (c) 2024 by [Author]. All Rights Reserved.
+ * @Author: [Author]
+ * @Date: 2026-04-03
+ * @FilePath: /src/styles/_components.scss
+ * @Description: 通用组件样式 - 表格、列表、卡片、输入框、标签等
+ */
+
+/*
+ * ============================================================
+ * 通用组件样式说明
+ * ============================================================
+ * 
+ * 所有组件使用CSS变量（Design Tokens）控制样式
+ * 遵循BEM命名规范
+ * 保持与SiYuan主题的一致性
+ * 
+ * ============================================================
+ */
+
+/* ============================================================
+ * 表格样式
+ * ============================================================ */
+
+.plugin-task-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--task-font-sm);
+    
+    th,
+    td {
+        padding: var(--task-table-cell-padding);
+        border-bottom: 1px solid var(--task-table-border);
+        text-align: left;
+    }
+    
+    th {
+        background: var(--task-table-header-bg);
+        font-weight: 600;
+        color: var(--b3-theme-on-background);
+    }
+    
+    tbody tr {
+        transition: background-color var(--task-motion-fast);
+        
+        &:hover {
+            background: var(--task-table-row-hover);
+        }
+    }
+}
+
+/* ============================================================
+ * 列表样式
+ * ============================================================ */
+
+.plugin-task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    
+    &__item {
+        display: flex;
+        align-items: center;
+        padding: var(--task-list-item-padding);
+        margin-bottom: var(--task-list-item-gap);
+        background: var(--task-surface-muted);
+        border: 1px solid var(--task-border-default);
+        border-radius: var(--task-list-item-radius);
+        transition: all var(--task-motion-fast);
+        
+        &:hover {
+            background: var(--task-surface-elevated);
+            border-color: var(--task-border-focus);
+            box-shadow: var(--task-shadow-hover);
+        }
+        
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+/* ============================================================
+ * 卡片样式
+ * ============================================================ */
+
+.plugin-task-card {
+    background: var(--task-surface-soft);
+    border: 1px solid var(--task-border-default);
+    border-radius: var(--task-radius-md);
+    padding: var(--task-space-4);
+    transition: all var(--task-motion-fast);
+    
+    &:hover {
+        box-shadow: var(--task-shadow-hover);
+        transform: translateY(-1px);
+    }
+    
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--task-space-3);
+    }
+    
+    &__title {
+        font-weight: 600;
+        font-size: var(--task-font-md);
+        color: var(--b3-theme-on-background);
+    }
+    
+    &__content {
+        color: var(--b3-theme-on-surface);
+        font-size: var(--task-font-sm);
+    }
+    
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--task-space-2);
+        margin-top: var(--task-space-3);
+        padding-top: var(--task-space-3);
+        border-top: 1px solid var(--task-border-default);
+    }
+}
+
+/* ============================================================
+ * 输入框样式
+ * ============================================================ */
+
+.plugin-task-input {
+    width: 100%;
+    height: var(--task-input-height);
+    padding: var(--task-input-padding);
+    border: 1px solid var(--task-border-default);
+    border-radius: var(--task-input-radius);
+    background: var(--task-surface-muted);
+    font-size: var(--task-font-sm);
+    transition: border-color var(--task-motion-fast);
+    
+    &:focus {
+        outline: none;
+        border-color: var(--task-border-focus);
+    }
+    
+    &::placeholder {
+        color: var(--b3-theme-on-surface-light);
+        opacity: 0.6;
+    }
+}
+
+/* ============================================================
+ * 标签样式
+ * ============================================================ */
+
+.plugin-task-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: var(--task-font-xs);
+    font-weight: 500;
+    background: var(--task-bg-subtle);
+    border: 1px solid var(--task-border-default);
+    border-radius: var(--task-radius-xs);
+    color: var(--b3-theme-on-surface);
+    
+    &--primary {
+        background: var(--b3-theme-primary-lightest);
+        border-color: var(--b3-theme-primary-light);
+        color: var(--b3-theme-primary);
+    }
+    
+    &--success {
+        background: var(--b3-theme-success-lightest);
+        border-color: var(--b3-theme-success-light);
+        color: var(--b3-theme-success);
+    }
+    
+    &--warning {
+        background: var(--b3-theme-warning-lightest);
+        border-color: var(--b3-theme-warning-light);
+        color: var(--b3-theme-warning);
+    }
+    
+    &--error {
+        background: var(--b3-theme-error-lightest);
+        border-color: var(--b3-theme-error-light);
+        color: var(--b3-theme-error);
+    }
+}
+
+/* ============================================================
+ * 分隔线样式
+ * ============================================================ */
+
+.plugin-task-divider {
+    height: var(--task-divider-width);
+    background: var(--task-divider-color);
+    margin: var(--task-space-4) 0;
+    border: none;
+}
+
+/* ============================================================
+ * 空状态样式
+ * ============================================================ */
+
+.plugin-task-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--task-space-6);
+    color: var(--b3-theme-on-surface-light);
+    text-align: center;
+    
+    &__icon {
+        font-size: 48px;
+        margin-bottom: var(--task-space-3);
+        opacity: 0.5;
+    }
+    
+    &__text {
+        font-size: var(--task-font-sm);
+    }
+}
+
+/* ============================================================
+ * 徽章样式
+ * ============================================================ */
+
+.plugin-task-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 9px;
+    background: var(--b3-theme-primary);
+    color: white;
+    
+    &--error {
+        background: var(--b3-theme-error);
+    }
+    
+    &--success {
+        background: var(--b3-theme-success);
+    }
+    
+    &--warning {
+        background: var(--b3-theme-warning);
+    }
+}
+
+/* ============================================================
+ * 工具提示样式
+ * ============================================================ */
+
+.plugin-task-tooltip {
+    position: relative;
+    
+    &::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 4px 8px;
+        background: var(--b3-theme-surface);
+        color: var(--b3-theme-on-background);
+        font-size: var(--task-font-xs);
+        border-radius: var(--task-radius-xs);
+        box-shadow: var(--task-shadow-popover);
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--task-motion-fast), visibility var(--task-motion-fast);
+        z-index: var(--task-z-tooltip, 600);
+    }
+    
+    &:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+/* ============================================================
+ * 加载状态样式
+ * ============================================================ */
+
+.plugin-task-loading {
+    position: relative;
+    pointer-events: none;
+    
+    &::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        margin: -10px 0 0 -10px;
+        border: 2px solid var(--b3-theme-primary-light);
+        border-top-color: var(--b3-theme-primary);
+        border-radius: 50%;
+        animation: plugin-task-spin 1s linear infinite;
+    }
+}
+
+@keyframes plugin-task-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================================
+ * 深色主题适配
+ * ============================================================ */
+
+.b3-theme-dark {
+    .plugin-task-card {
+        background: var(--b3-theme-surface);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .plugin-task-list__item {
+        background: var(--b3-theme-surface);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .plugin-task-tag {
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+}
