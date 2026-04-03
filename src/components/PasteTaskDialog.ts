@@ -155,6 +155,7 @@ export class PasteTaskDialog {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="cancelLinkBtn">${i18n('cancel') || '取消'}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="saveLinkBtn">${i18n('save') || '确定'}</button>
                 </div>
             `,
@@ -254,6 +255,7 @@ export class PasteTaskDialog {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="cancelBtn">${i18n("cancel") || "取消"}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="createBtn">${isSubtask ? (i18n("createSubtasks") || "创建子任务") : (i18n("createTasks") || "创建任务")}</button>
                 </div>
             `,

@@ -184,6 +184,7 @@ export class BlockBindingDialog {
                 <!-- 按钮区域 -->
                 <div class="b3-dialog__action" style="flex-shrink: 0; margin-top: 16px;">
                     <button class="b3-button b3-button--cancel" id="quickCreateCancelBtn">${i18n("cancel") || "取消"}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="quickCreateConfirmBtn">${i18n("confirm") || "确定"}</button>
                 </div>
             </div>

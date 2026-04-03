@@ -63,7 +63,7 @@ export class ProjectDialog {
         ).join('');
 
         return `
-            <div class="project-dialog">
+            <div class="plugin-task-dialog plugin-task-dialog--medium project-dialog">
                 <div class="b3-dialog__content">
                     <div class="form-group">
                         <label>${i18n("eventName") || "项目名称"}:</label>
@@ -86,6 +86,10 @@ export class ProjectDialog {
                             <button type="button" id="projectBindBlockBtn" class="b3-button b3-button--outline" title="${i18n("newDocument") || '新建文档'}">
                                 <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
                             </button>
+                        </div>
+                        <div id="projectBlockPreview" style="margin-top: 8px; padding: 8px; background: var(--b3-theme-background-light); border: 1px solid var(--b3-border-color); border-radius: 4px; display: none;">
+                            <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); margin-bottom: 4px;">${i18n("currentSelection") || "当前选择："}</div>
+                            <div id="projectBlockPreviewContent" style="font-size: 13px; color: var(--b3-theme-on-surface);"></div>
                         </div>
                     </div>
                     
@@ -134,6 +138,7 @@ export class ProjectDialog {
                 
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="cancelBtn">${i18n("cancel") || "取消"}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--text" id="saveBtn">${i18n("save") || "保存"}</button>
                 </div>
             </div>
@@ -193,6 +198,7 @@ export class ProjectDialog {
                     const blockId = this.extractBlockId(text) || text.trim();
                     if (blockInput) {
                         blockInput.value = blockId;
+                        await this.updateBlockPreview(blockId);
                     }
                 }
             } catch (error) {
@@ -204,9 +210,10 @@ export class ProjectDialog {
         // 新建文档/绑定块按钮
         bindBlockBtn?.addEventListener('click', () => {
             const titleEl = this.dialog.element.querySelector('#projectTitle') as HTMLInputElement;
-            const blockBindingDialog = new BlockBindingDialog(this.plugin, (blockId: string) => {
+            const blockBindingDialog = new BlockBindingDialog(this.plugin, async (blockId: string) => {
                 if (blockInput) {
                     blockInput.value = blockId;
+                    await this.updateBlockPreview(blockId);
                 }
             }, {
                 defaultTab: 'document',
@@ -214,6 +221,24 @@ export class ProjectDialog {
             });
             blockBindingDialog.show();
         });
+
+        blockInput?.addEventListener('input', async () => {
+            const raw = blockInput.value.trim();
+            if (!raw) {
+                await this.updateBlockPreview('');
+                return;
+            }
+            const blockId = this.extractBlockId(raw) || raw;
+            if (blockId !== raw) {
+                blockInput.value = blockId;
+            }
+            await this.updateBlockPreview(blockId);
+        });
+
+        const initialBlockId = blockInput?.value?.trim();
+        if (initialBlockId) {
+            this.updateBlockPreview(initialBlockId);
+        }
 
         // 回车键保存
         this.dialog.element.addEventListener('keydown', (e) => {
@@ -322,6 +347,45 @@ export class ProjectDialog {
         if (idMatch) return idMatch[1];
 
         return null;
+    }
+
+    private async updateBlockPreview(blockId: string) {
+        const preview = this.dialog.element.querySelector('#projectBlockPreview') as HTMLElement;
+        const content = this.dialog.element.querySelector('#projectBlockPreviewContent') as HTMLElement;
+
+        if (!preview || !content) return;
+
+        if (!blockId) {
+            preview.style.display = 'none';
+            content.innerHTML = '';
+            return;
+        }
+
+        try {
+            const block = await getBlockByID(blockId);
+            if (!block) {
+                content.innerHTML = `<div style="color: var(--b3-theme-error);">${i18n("blockNotExist") || '块不存在'}</div>`;
+                preview.style.display = 'block';
+                return;
+            }
+
+            const blockContent = block.content || i18n("unnamedNote") || '未命名';
+            const pathText = block.hpath || block.box || '';
+            const displayText = blockContent.length > 80 ? `${blockContent.substring(0, 80)}...` : blockContent;
+
+            content.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-weight: 500; color: var(--b3-protyle-inline-blockref-color); word-break: break-word;">${displayText}</span>
+                    <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); word-break: break-all;">类型: ${block.type} | ID: ${block.id}</div>
+                    ${pathText ? `<div style="font-size: 12px; color: var(--b3-theme-on-surface-light); word-break: break-word;">${pathText}</div>` : ''}
+                </div>
+            `;
+            preview.style.display = 'block';
+        } catch (error) {
+            console.error('获取项目绑定块信息失败:', error);
+            content.innerHTML = `<div style="color: var(--b3-theme-error);">${i18n("loadFailed") || '加载失败'}</div>`;
+            preview.style.display = 'block';
+        }
     }
 
     private async saveProject() {

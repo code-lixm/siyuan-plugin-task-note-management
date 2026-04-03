@@ -367,7 +367,7 @@ export class CalendarView {
         const todayStartTime = await this.getTodayStartTime();
         const slotMaxTime = this.calculateSlotMaxTime(todayStartTime);
 
-        this.container.classList.add('reminder-calendar-view');
+        this.container.classList.add('reminder-calendar-view', 'plugin-task-calendar');
 
         // 注入自定义样式，强制修正 FullCalendar 的顶部布局
         const style = document.createElement('style');
@@ -388,7 +388,7 @@ export class CalendarView {
 
         // 创建工具栏
         const toolbar = document.createElement('div');
-        toolbar.className = 'reminder-calendar-toolbar';
+        toolbar.className = 'reminder-calendar-toolbar plugin-task-calendar-toolbar';
         this.container.appendChild(toolbar);
 
         // Dock 模式：添加“在标签页打开”按钮和折叠按钮
@@ -1212,7 +1212,7 @@ export class CalendarView {
         filterGroup.appendChild(moreBtn);
         // 创建日历容器
         const calendarEl = document.createElement('div');
-        calendarEl.className = 'reminder-calendar-container';
+        calendarEl.className = 'reminder-calendar-container plugin-task-calendar-month';
         this.container.appendChild(calendarEl);
 
         // 初始化日历 - 使用用户设置的周开始日
@@ -1369,7 +1369,7 @@ export class CalendarView {
                 meridiem: false,
                 hour12: false
             },
-            eventClassNames: 'reminder-calendar-event',
+            eventClassNames: 'reminder-calendar-event plugin-task-calendar-event',
             eventOrder: (a: any, b: any) => {
                 const propsA = a.extendedProps;
                 const propsB = b.extendedProps;

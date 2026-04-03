@@ -4492,6 +4492,7 @@ export class EisenhowerMatrixView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="sortCancelBtn">取消</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="sortSaveBtn">保存</button>
                     </div>
                 </div>
@@ -4669,6 +4670,7 @@ export class EisenhowerMatrixView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="settingsCancelBtn">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="settingsSaveBtn">${i18n('save')}</button>
                     </div>
                 </div>
@@ -4725,7 +4727,9 @@ export class EisenhowerMatrixView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="filterCancelBtn">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button" id="filterResetBtn">${i18n('eisenhowerResetBtn')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="filterApplyBtn">${i18n('eisenhowerApplyBtn')}</button>
                     </div>
                 </div>

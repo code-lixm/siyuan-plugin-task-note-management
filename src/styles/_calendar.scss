@@ -1,0 +1,687 @@
+/* ============================================================
+ * 日历视图样式优化 - Calendar Styles Optimization
+ * ============================================================
+ * 插件任务日历专用样式，统一使用设计系统变量
+ * 提取硬编码样式到SCSS，优化视觉一致性
+ * ============================================================ */
+
+/* ============================================================
+ * 日历基础样式类
+ * ============================================================ */
+
+.plugin-task-calendar {
+    /* 日历专用 CSS 变量 */
+    --fc-calendar-primary: var(--b3-theme-primary);
+    --fc-calendar-primary-light: var(--b3-theme-primary-light);
+    --fc-calendar-primary-lightest: var(--b3-theme-primary-lightest);
+    --fc-calendar-bg: var(--b3-theme-background);
+    --fc-calendar-surface: var(--b3-theme-surface);
+    --fc-calendar-surface-light: var(--b3-theme-surface-light);
+    --fc-calendar-border: var(--b3-border-color);
+    --fc-calendar-text: var(--b3-theme-on-background);
+    --fc-calendar-text-secondary: var(--b3-theme-on-surface-light);
+    --fc-calendar-today-bg: var(--b3-theme-primary-lightest);
+    
+    /* 事件卡片变量 */
+    --fc-event-radius: var(--task-radius-xs);
+    --fc-event-padding: 2px 4px;
+    --fc-event-border-width: 4px;
+    --fc-event-opacity-completed: 0.5;
+    
+    /* 单元格变量 */
+    --fc-day-padding: 4px;
+    --fc-day-header-height: 26px;
+    --fc-day-min-rows: 5;
+    --fc-day-event-line-height: 1.4;
+}
+
+/* ============================================================
+ * FullCalendar 主题变量覆盖 - 完整版
+ * ============================================================ */
+
+.reminder-calendar-container.fc {
+    /* FullCalendar CSS 变量覆盖 */
+    --fc-border-color: var(--fc-calendar-border);
+    --fc-button-bg-color: var(--fc-calendar-primary);
+    --fc-button-border-color: var(--fc-calendar-primary);
+    --fc-button-hover-bg-color: var(--fc-calendar-primary-light);
+    --fc-button-hover-border-color: var(--fc-calendar-primary-light);
+    --fc-button-active-bg-color: var(--fc-calendar-primary);
+    --fc-button-active-border-color: var(--fc-calendar-primary);
+    --fc-event-bg-color: var(--fc-calendar-surface-light);
+    --fc-event-border-color: var(--fc-calendar-surface-light);
+    --fc-page-bg-color: var(--fc-calendar-bg);
+    --fc-today-bg-color: var(--fc-calendar-today-bg);
+    --fc-list-event-hover-bg-color: var(--b3-list-hover);
+    --fc-highlight-color: var(--fc-calendar-primary-lightest);
+    --fc-more-link-bg-color: var(--fc-calendar-surface);
+    --fc-more-link-text-color: var(--fc-calendar-primary);
+    
+    font-family: inherit;
+}
+
+/* ============================================================
+ * 日历工具栏样式 - 统一插件按钮风格
+ * ============================================================ */
+
+.plugin-task-calendar-toolbar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    align-items: center;
+    gap: var(--task-space-3);
+}
+
+.plugin-task-calendar-toolbar--dock {
+    justify-content: flex-end;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.plugin-task-calendar-toolbar-collapsible {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid var(--fc-calendar-border);
+    margin-bottom: 8px;
+}
+
+/* 工具栏按钮样式 - 统一为插件按钮风格 */
+.reminder-calendar-container.fc .fc-button {
+    font-family: inherit;
+    min-height: var(--task-toolbar-height);
+    height: var(--task-toolbar-height);
+    padding: 0 var(--task-toolbar-padding-x);
+    border-radius: var(--task-radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--task-space-1);
+    box-sizing: border-box;
+    font-size: var(--task-font-sm);
+    font-weight: 500;
+    transition: var(--task-motion-fast);
+    border: 1px solid var(--fc-button-border-color);
+    background-color: var(--fc-button-bg-color);
+    color: var(--b3-theme-on-primary, white);
+    
+    &:hover {
+        background-color: var(--fc-button-hover-bg-color);
+        border-color: var(--fc-button-hover-border-color);
+        transform: translateY(-1px);
+        box-shadow: var(--task-shadow-hover);
+    }
+    
+    &:active {
+        transform: translateY(0);
+    }
+    
+    &:focus {
+        box-shadow: none !important;
+        outline: 2px solid var(--fc-calendar-primary-light);
+        outline-offset: 2px;
+    }
+}
+
+/* 图标按钮 */
+.reminder-calendar-container.fc .fc-jumpTo-button,
+.reminder-calendar-container.fc .fc-prev-button,
+.reminder-calendar-container.fc .fc-next-button {
+    min-width: var(--task-toolbar-icon-size);
+    width: var(--task-toolbar-icon-size);
+    padding: 0;
+}
+
+/* 今天按钮 */
+.reminder-calendar-container.fc .fc-myToday-button {
+    min-width: 52px;
+}
+
+/* 标题样式 */
+.reminder-calendar-container.fc .fc-toolbar-title {
+    font-size: var(--task-font-lg);
+    font-weight: 600;
+    color: var(--fc-calendar-text);
+}
+
+/* ============================================================
+ * 日历事件卡片样式 - 统一风格
+ * ============================================================ */
+
+.plugin-task-calendar-event {
+    /* 事件基础样式 */
+    border-radius: var(--fc-event-radius);
+    padding: var(--fc-event-padding);
+    font-size: var(--task-font-sm);
+    transition: var(--task-motion-fast);
+    
+    /* Modern UI 风格：淡色背景 + 粗左边框 */
+    border: none;
+    border-left: var(--fc-event-border-width) solid var(--fc-calendar-primary);
+    background-color: var(--fc-calendar-surface-light);
+    color: var(--fc-calendar-text);
+    
+    &:hover {
+        box-shadow: var(--task-shadow-hover);
+        transform: translateY(-1px);
+        z-index: 10;
+    }
+    
+    /* 已完成事件 */
+    &.fc-event-completed,
+    &[data-completed="true"] {
+        opacity: var(--fc-event-opacity-completed);
+        filter: grayscale(0.3);
+    }
+    
+    /* 订阅事件 */
+    &.fc-event-subscribed {
+        border-style: dashed;
+        border-width: 1px;
+        border-left-width: var(--fc-event-border-width);
+    }
+    
+    /* 番茄钟事件 */
+    &.fc-event-pomodoro {
+        background-color: rgba(255, 107, 107, 0.15);
+        border-left-color: #ff6b6b;
+    }
+    
+    /* 习惯打卡事件 */
+    &.fc-event-habit {
+        cursor: pointer;
+        
+        &:hover {
+            opacity: 0.85;
+        }
+    }
+    
+    /* 已完成任务时间 */
+    &.fc-event-completed-time {
+        background-color: var(--b3-theme-success-lightest);
+        border-left-color: var(--b3-theme-success);
+        opacity: 0.7;
+    }
+}
+
+/* 事件标题 */
+.reminder-calendar-container.fc .fc-event-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+/* 事件时间 */
+.reminder-calendar-container.fc .fc-event-time {
+    font-size: var(--task-font-xs);
+    opacity: 0.85;
+    flex-shrink: 0;
+}
+
+/* 事件主框架 */
+.fc-event-main-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px 0;
+}
+
+/* 事件顶行（复选框 + 标题 + 时间） */
+.reminder-event-top-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+/* 复选框样式 */
+.reminder-calendar-event-checkbox {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--fc-calendar-primary);
+}
+
+/* 分类徽章 */
+.reminder-event-badge {
+    font-size: 12px;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+}
+
+/* 重复图标 */
+.reminder-event-icon {
+    flex-shrink: 0;
+    font-size: 11px;
+}
+
+/* ============================================================
+ * 日历单元格样式 - 日视图
+ * ============================================================ */
+
+.plugin-task-calendar-day {
+    /* 日单元格基础样式 */
+    padding: var(--fc-day-padding);
+    transition: background-color 0.15s ease;
+}
+
+/* 月视图单元格 */
+.fc-daygrid-day {
+    &.fc-day-today {
+        background-color: var(--fc-calendar-today-bg);
+        
+        .fc-daygrid-day-number {
+            background-color: var(--fc-calendar-primary);
+            color: var(--b3-theme-on-primary, white);
+            border-radius: var(--task-radius-sm);
+            padding: 2px 6px;
+            font-weight: 600;
+        }
+    }
+    
+    &.fc-day-has-daily-note .fc-daygrid-day-number {
+        color: var(--fc-calendar-primary) !important;
+        text-decoration: underline !important;
+        font-weight: 500;
+    }
+    
+    /* 悬停效果 */
+    &:hover:not(.fc-day-today) {
+        background-color: var(--fc-calendar-surface-light);
+    }
+}
+
+/* 日期数字 */
+.fc-daygrid-day-number {
+    cursor: pointer;
+    border-radius: var(--task-radius-sm);
+    padding: 1px 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    text-decoration: none !important;
+    
+    &:hover {
+        background-color: var(--fc-calendar-primary-lightest);
+        color: var(--fc-calendar-primary);
+    }
+}
+
+/* 月视图标题行 */
+.fc-col-header-cell {
+    padding: 8px 4px;
+    font-weight: 500;
+    font-size: var(--task-font-sm);
+    color: var(--fc-calendar-text-secondary);
+}
+
+/* ============================================================
+ * 周日历样式
+ * ============================================================ */
+
+.plugin-task-calendar-week {
+    /* 周日历特定样式 */
+    .fc-timegrid-slot {
+        height: 2em;
+    }
+    
+    .fc-timegrid-slot-label {
+        font-size: var(--task-font-xs);
+        color: var(--fc-calendar-text-secondary);
+    }
+}
+
+/* 时间槽 */
+.fc-timegrid-slot {
+    border-color: var(--fc-calendar-border);
+    
+    &.fc-timegrid-slot-minor {
+        border-color: transparent;
+    }
+}
+
+/* 当前时间指示线 */
+.fc-timegrid-now-indicator-line {
+    border-color: var(--fc-calendar-primary);
+}
+
+.fc-timegrid-now-indicator-arrow {
+    border-color: var(--fc-calendar-primary);
+    color: var(--fc-calendar-primary);
+}
+
+/* ============================================================
+ * 月日历样式
+ * ============================================================ */
+
+.plugin-task-calendar-month {
+    /* 月日历特定样式 */
+    .fc-dayGridMonth-view {
+        --fc-month-day-min-rows: 5;
+        --fc-month-day-header-height: 26px;
+        --fc-month-day-event-line-height: 1.4;
+        --fc-month-day-min-height: calc(var(--fc-month-day-min-rows) * var(--fc-month-day-event-line-height) * 1em + var(--fc-month-day-header-height));
+    }
+    
+    .fc-daygrid-day-frame {
+        min-height: var(--fc-month-day-min-height);
+        height: auto;
+        display: block;
+        overflow: visible;
+    }
+    
+    .fc-daygrid-day-top {
+        flex-shrink: 0;
+        height: var(--fc-month-day-header-height);
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        padding-right: 4px !important;
+    }
+    
+    .fc-daygrid-day-events {
+        overflow: visible;
+        line-height: var(--fc-month-day-event-line-height);
+        display: block;
+    }
+    
+    .fc-daygrid-event-harness {
+        width: auto;
+    }
+    
+    .fc-daygrid-event {
+        box-sizing: border-box;
+    }
+}
+
+/* ============================================================
+ * 农历和节假日样式
+ * ============================================================ */
+
+.day-extra-info-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    line-height: 1;
+    margin-right: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.day-lunar {
+    color: var(--fc-calendar-text-secondary);
+    opacity: 0.8;
+    font-size: 0.9em;
+    z-index: 1;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    text-align: right;
+    
+    &.festival {
+        color: var(--fc-calendar-primary);
+        font-weight: bold;
+    }
+}
+
+.day-holiday {
+    font-size: 0.75em;
+    padding: 2px 4px;
+    border-radius: var(--task-radius-xs);
+    cursor: help;
+    font-weight: normal;
+    line-height: 1;
+    flex-shrink: 0;
+    
+    &[data-type="holiday"] {
+        background-color: rgba(0, 0, 0, 0.12);
+        color: var(--fc-calendar-bg);
+    }
+    
+    &[data-type="workday"] {
+        background-color: var(--b3-theme-error);
+        color: var(--fc-calendar-bg);
+    }
+}
+
+.day-header-extra-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    line-height: 1.2;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.day-header-lunar {
+    font-size: 0.8em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex-shrink: 1;
+    
+    &.festival {
+        color: var(--fc-calendar-primary);
+    }
+}
+
+.day-header-holiday {
+    font-size: 0.75em;
+    padding: 2px 4px;
+    border-radius: var(--task-radius-xs);
+    cursor: help;
+    font-weight: normal;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+ * 全天事件区域调整器
+ * ============================================================ */
+
+.fc-allday-resizable-container {
+    position: relative;
+    
+    .fc-scroller {
+        max-height: 200px;
+        overflow-y: auto !important;
+        transition: max-height 0.1s linear;
+    }
+}
+
+.fc-allday-resizer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: transparent;
+    cursor: row-resize;
+    z-index: 10;
+    transition: background 0.2s;
+    
+    &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 2px;
+        height: 1px;
+        background-color: var(--fc-calendar-border);
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    &:hover,
+    &.resizing {
+        background: rgba(var(--b3-theme-primary-rgb), 0.1);
+        
+        &::after {
+            opacity: 1;
+            background-color: var(--fc-calendar-primary);
+        }
+    }
+}
+
+/* ============================================================
+ * 弹出框样式
+ * ============================================================ */
+
+.fc-popover {
+    max-width: calc(100% - 8px);
+    z-index: 10 !important;
+    border-radius: var(--task-radius-md);
+    box-shadow: var(--task-shadow-popover);
+    border: 1px solid var(--fc-calendar-border);
+    background-color: var(--fc-calendar-bg);
+    
+    .fc-popover-header {
+        padding: 8px 12px;
+        background-color: var(--fc-calendar-surface);
+        border-bottom: 1px solid var(--fc-calendar-border);
+        border-radius: var(--task-radius-md) var(--task-radius-md) 0 0;
+    }
+    
+    .fc-popover-body {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 8px;
+    }
+    
+    .fc-event {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: calc(100% - 8px) !important;
+        height: auto !important;
+        margin: 2px 4px !important;
+        display: block !important;
+    }
+}
+
+/* ============================================================
+ * 列表视图样式
+ * ============================================================ */
+
+.fc-list-day {
+    &.fc-list-day-today-custom {
+        background-color: var(--fc-calendar-today-bg);
+    }
+    
+    .fc-list-day-text {
+        font-weight: 600;
+        color: var(--fc-calendar-text);
+    }
+    
+    .fc-list-day-side-text {
+        color: var(--fc-calendar-text-secondary);
+        font-size: var(--task-font-xs);
+    }
+}
+
+.fc-list-event {
+    transition: background-color 0.15s ease;
+    
+    &:hover {
+        background-color: var(--b3-list-hover);
+    }
+    
+    td {
+        padding: 8px 12px;
+    }
+}
+
+/* ============================================================
+ * 选择和高亮样式
+ * ============================================================ */
+
+.fc-highlight {
+    background-color: var(--fc-calendar-primary-lightest) !important;
+    border-color: var(--fc-calendar-primary-light) !important;
+}
+
+.fc-event-mirror {
+    background-color: var(--fc-calendar-surface-light) !important;
+    border-color: var(--fc-calendar-primary) !important;
+    opacity: 0.8;
+}
+
+/* ============================================================
+ * 拖放指示器
+ * ============================================================ */
+
+.calendar-drop-indicator {
+    position: fixed;
+    background-color: var(--fc-calendar-primary);
+    z-index: 10000;
+    pointer-events: none;
+    
+    &.all-day-reorder-indicator {
+        height: 2px;
+    }
+}
+
+/* ============================================================
+ * 深色主题适配
+ * ============================================================ */
+
+.b3-theme-dark {
+    .plugin-task-calendar {
+        --fc-calendar-today-bg: rgba(var(--b3-theme-primary-rgb), 0.15);
+        --fc-calendar-surface-light: rgba(255, 255, 255, 0.05);
+    }
+    
+    .plugin-task-calendar-event {
+        color: var(--b3-theme-on-background);
+    }
+    
+    .day-holiday[data-type="holiday"] {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: var(--b3-theme-background);
+    }
+}
+
+/* ============================================================
+ * 响应式适配
+ * ============================================================ */
+
+@media (max-width: 768px) {
+    .plugin-task-calendar-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .reminder-calendar-container.fc .fc-toolbar-title {
+        font-size: var(--task-font-md);
+        order: -1;
+        width: 100%;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+    
+    .plugin-task-calendar-event {
+        font-size: var(--task-font-xs);
+        padding: 1px 2px;
+    }
+}
+
+/* 隐藏 FullCalendar 许可证提示 */
+.fc-license-message {
+    display: none !important;
+}

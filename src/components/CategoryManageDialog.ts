@@ -47,10 +47,12 @@ export class CategoryManageDialog {
                         <svg class="b3-button__icon"><use xlink:href="#iconRefresh"></use></svg>
                         ${i18n("resetToDefault")}
                     </button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="addCategoryBtn">
                         <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
                         ${i18n("addCategory")}
                     </button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="closeBtn">${i18n("save")}</button>
                 </div>
             </div>
@@ -465,6 +467,7 @@ export class CategoryManageDialog {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="editCancelBtn">${i18n("cancel")}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="editConfirmBtn">${i18n("save")}</button>
                     </div>
                     <style>

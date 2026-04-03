@@ -12,12 +12,16 @@ export class ReminderTaskLogic {
         const allReminders = this.generateAllRemindersWithInstances(reminderData, today);
 
         const reminderMap = new Map<string, any>();
-        allReminders.forEach(r => reminderMap.set(r.id, r));
+        allReminders.forEach(r => {
+            reminderMap.set(r.id, r);
+        });
 
         const matchedIds = new Set<string>();
         tabNames.forEach(tab => {
             const filtered = this.filterRemindersByTab(allReminders, today, tab, excludeDesserts);
-            filtered.forEach(r => matchedIds.add(r.id));
+            filtered.forEach(r => {
+                matchedIds.add(r.id);
+            });
         });
 
         const finalReminders = allReminders.filter(r => matchedIds.has(r.id));
@@ -121,7 +125,9 @@ export class ReminderTaskLogic {
 
     public static filterRemindersByTab(reminders: any[], today: string, targetTab: string, excludeDesserts: boolean = false): any[] {
         const reminderMap = new Map<string, any>();
-        reminders.forEach(r => reminderMap.set(r.id, r));
+        reminders.forEach(r => {
+            reminderMap.set(r.id, r);
+        });
 
         const isEffectivelyCompleted = (reminder: any) => {
             if (reminder.completed) return true;
@@ -139,6 +145,7 @@ export class ReminderTaskLogic {
             case 'overdue':
                 return reminders.filter(r => {
                     if (!r.date || isEffectivelyCompleted(r)) return false;
+                    if (r.isSubscribed) return false;
                     const endLogical = this.getReminderLogicalDate(r.endDate || r.date, r.endTime || r.time);
                     return compareDateStrings(endLogical, today) < 0;
                 });
@@ -146,6 +153,7 @@ export class ReminderTaskLogic {
                 return reminders.filter(r => {
                     const isCompleted = isEffectivelyCompleted(r);
                     if (isCompleted) return false;
+                    if (r.isSubscribed) return false;
 
                     const startLogical = r.date ? this.getReminderLogicalDate(r.date, r.time) : null;
                     const endLogical = r.date ? this.getReminderLogicalDate(r.endDate || r.date, r.endTime || r.time) : null;
@@ -169,6 +177,8 @@ export class ReminderTaskLogic {
                             }
                             const dailyCompleted = Array.isArray(r.dailyDessertCompleted) ? r.dailyDessertCompleted : [];
                             if (dailyCompleted.includes(today)) return false;
+                            const dailyIgnored = Array.isArray(r.dailyDessertIgnored) ? r.dailyDessertIgnored : [];
+                            if (dailyIgnored.includes(today)) return false;
                             return true;
                         }
                     }

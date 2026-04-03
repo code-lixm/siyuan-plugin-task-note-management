@@ -4,47 +4,72 @@
     flex-direction: column;
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    
+    /* 统一按钮基础样式 */
     .range-btn,
-    .group-btn{
-            padding: 6px 12px;
-            border: 1px solid var(--b3-theme-border);
-            background: var(--b3-theme-background);
-            color: var(--b3-theme-on-background);
-            border-radius: var(--task-radius-xs);
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s ease;
-
-            &:hover {
-                background: var(--b3-theme-surface-hover);
-            }
-
-            &.active {
-                background: var(--b3-theme-primary);
-                color: var(--b3-theme-on-primary);
-                border-color: var(--b3-theme-primary);
-            }
-        }
-    .nav-arrow {
-        padding: 3px 6px;
-        border: 1px solid var(--b3-theme-border);
-        background: var(--b3-theme-background);
-        color: var(--b3-theme-on-background);
-        border-radius: var(--task-radius-xs);
+    .group-btn,
+    .nav-arrow,
+    .nav-btn,
+    .stats-switch-btn,
+    .details-group-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--task-space-1);
+        box-sizing: border-box;
+        font-family: inherit;
+        font-weight: 500;
+        white-space: nowrap;
         cursor: pointer;
-        font-size: 12px;
-        transition: all 0.2s ease;
-
-        &:hover {
-            background: var(--b3-theme-surface-hover);
+        user-select: none;
+        transition: var(--task-motion-fast);
+        border: 1px solid var(--task-border-default);
+        border-radius: var(--task-radius-xs);
+        background: var(--task-surface-soft);
+        color: var(--b3-theme-on-background);
+        
+        &:hover:not(:disabled) {
+            background: var(--task-bg-hover);
+            border-color: var(--b3-theme-primary-light);
         }
-
+        
+        &:active:not(:disabled) {
+            background: var(--task-bg-active);
+        }
+        
         &.active {
             background: var(--b3-theme-primary);
-            color: var(--b3-theme-on-primary);
+            color: white;
             border-color: var(--b3-theme-primary);
         }
     }
+    
+    /* 小尺寸按钮 */
+    .range-btn,
+    .group-btn,
+    .nav-arrow {
+        min-height: 28px;
+        height: 28px;
+        padding: 6px 12px;
+        font-size: var(--task-font-xs);
+    }
+    
+    /* 中等尺寸按钮 */
+    .nav-btn,
+    .stats-switch-btn,
+    .details-group-btn {
+        min-height: 32px;
+        height: 32px;
+        padding: 8px 16px;
+        font-size: var(--task-font-sm);
+        border-radius: var(--task-radius-sm);
+    }
+    
+    /* 导航箭头特殊样式 */
+    .nav-arrow {
+        padding: 3px 6px;
+    }
+    
     .stats-switch {
         display: flex;
         gap: 8px;
@@ -52,28 +77,8 @@
         border-bottom: 1px solid var(--b3-theme-border);
         background: var(--b3-theme-surface);
         flex-wrap: wrap;
-
-        .stats-switch-btn {
-            padding: 6px 12px;
-            border: 1px solid var(--b3-theme-border);
-            background: var(--b3-theme-background);
-            color: var(--b3-theme-on-background);
-            border-radius: var(--task-radius-sm);
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s ease;
-
-            &:hover {
-                background: var(--b3-theme-surface-hover);
-            }
-
-            &.active {
-                background: var(--b3-theme-primary);
-                color: var(--b3-theme-on-primary);
-                border-color: var(--b3-theme-primary);
-            }
-        }
     }
+    
     .stats-nav {
         display: flex;
         border-bottom: 1px solid var(--b3-theme-border);
@@ -81,35 +86,32 @@
         padding: 8px 16px;
         gap: 8px;
         flex-wrap: wrap;
-
-        .nav-btn {
-            padding: 8px 16px;
-            border: 1px solid var(--b3-theme-border);
-            background: var(--b3-theme-background);
-            color: var(--b3-theme-on-background);
-            border-radius: var(--task-radius-sm);
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-
-            &:hover {
-                background: var(--b3-theme-surface-hover);
-                border-color: var(--b3-theme-primary);
-            }
-
-            &.active {
-                background: var(--b3-theme-primary);
-                color: var(--b3-theme-on-primary);
-                border-color: var(--b3-theme-primary);
-            }
-        }
     }
 
     .stats-content {
         flex: 1;
         overflow-y: auto;
         padding: 20px;
+    }
+}
+
+/* 深色主题适配 */
+.b3-theme-dark {
+    .pomodoro-stats-view {
+        .range-btn,
+        .group-btn,
+        .nav-arrow,
+        .nav-btn,
+        .stats-switch-btn,
+        .details-group-btn {
+            &:hover:not(:disabled) {
+                background: rgba(255, 255, 255, 0.05);
+            }
+            
+            &.active {
+                background: var(--b3-theme-primary);
+            }
+        }
     }
 }
 
@@ -332,46 +334,10 @@
             gap: 8px;
             align-items: center;
 
-            .range-btn {
-                padding: 6px 12px;
-                border: 1px solid var(--b3-theme-border);
-                background: var(--b3-theme-background);
-                color: var(--b3-theme-on-background);
-                border-radius: var(--task-radius-xs);
-                cursor: pointer;
-                font-size: 12px;
-                transition: all 0.2s ease;
-
-                &:hover {
-                    background: var(--b3-theme-surface-hover);
-                }
-
-                &.active {
-                    background: var(--b3-theme-primary);
-                    color: var(--b3-theme-on-primary);
-                    border-color: var(--b3-theme-primary);
-                }
-            }
-
             .nav-arrows {
                 display: flex;
                 gap: 4px;
                 margin-left: 8px;
-
-                .nav-arrow {
-                    padding: 6px 8px;
-                    border: 1px solid var(--b3-theme-border);
-                    background: var(--b3-theme-background);
-                    color: var(--b3-theme-on-background);
-                    border-radius: var(--task-radius-xs);
-                    cursor: pointer;
-                    font-size: 12px;
-                    transition: all 0.2s ease;
-
-                    &:hover {
-                        background: var(--b3-theme-surface-hover);
-                    }
-                }
             }
         }
 
@@ -379,27 +345,6 @@
             display: flex;
             gap: 8px;
             align-items: center;
-
-            .details-group-btn {
-                padding: 6px 12px;
-                border: 1px solid var(--b3-theme-border);
-                background: var(--b3-theme-background);
-                color: var(--b3-theme-on-background);
-                border-radius: var(--task-radius-xs);
-                cursor: pointer;
-                font-size: 12px;
-                transition: all 0.2s ease;
-
-                &:hover {
-                    background: var(--b3-theme-surface-hover);
-                }
-
-                &.active {
-                    background: var(--b3-theme-primary);
-                    color: var(--b3-theme-on-primary);
-                    border-color: var(--b3-theme-primary);
-                }
-            }
         }
     }
 
@@ -818,21 +763,6 @@
                 color: var(--b3-theme-on-surface);
                 min-width: 60px;
                 text-align: center;
-            }
-
-            .nav-arrow {
-                padding: 6px 8px;
-                border: 1px solid var(--b3-theme-border);
-                background: var(--b3-theme-background);
-                color: var(--b3-theme-on-background);
-                border-radius: var(--task-radius-xs);
-                cursor: pointer;
-                font-size: 12px;
-                transition: var(--b3-transition, all 0.2s ease);
-
-                &:hover {
-                    background: var(--b3-theme-surface-hover);
-                }
             }
         }
     }

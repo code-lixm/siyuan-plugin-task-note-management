@@ -215,6 +215,7 @@ export class RepeatSettingsDialog {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="cancelBtn">${i18n("cancel")}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="confirmBtn">${i18n("save")}</button>
                 </div>
             </div>

@@ -46,8 +46,16 @@
     margin-bottom: 8px;
 }
 
+/*
+ * project-toolbar-btn 样式
+ * 
+ * 注意: .project-toolbar-btn 现在作为 .plugin-task-btn 的别名使用
+ * 实际使用时建议直接使用 .plugin-task-btn 类名
+ * 保留此样式是为了向后兼容
+ */
 .project-toolbar-btn,
 .project-toolbar-select {
+    // 继承基础按钮变量
     min-height: var(--task-toolbar-height);
     height: var(--task-toolbar-height);
     box-sizing: border-box;
@@ -58,9 +66,34 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: var(--task-space-1);
     padding: 0 var(--task-toolbar-padding-x);
-    border-color: var(--task-border-default);
+    border: 1px solid var(--task-border-default);
+    background: var(--task-surface-soft);
+    color: var(--b3-theme-on-background);
+    font-size: var(--task-font-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--task-motion-fast);
+    user-select: none;
+    
+    &:hover:not(:disabled) {
+        background: var(--task-bg-hover);
+        border-color: var(--b3-theme-primary-light);
+        transform: translateY(-1px);
+        box-shadow: var(--task-shadow-hover);
+    }
+    
+    &:active:not(:disabled) {
+        transform: translateY(0);
+        box-shadow: none;
+        background: var(--task-bg-active);
+    }
+    
+    &:disabled {
+        opacity: var(--task-text-disabled);
+        cursor: not-allowed;
+    }
 }
 
 .project-toolbar-btn--icon {
@@ -83,6 +116,15 @@
     padding: 0 var(--task-toolbar-padding-x);
     border-color: var(--task-border-default);
     background: var(--task-surface-soft);
+}
+
+// 深色主题适配
+.b3-theme-dark {
+    .project-toolbar-btn {
+        &:hover:not(:disabled) {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+    }
 }
 
 .project-list {

@@ -140,18 +140,22 @@ export class ProjectPanel {
     }
 
     private initUI() {
-        this.container.classList.add('project-panel');
+        this.container.className = 'plugin-task-project-panel';
         this.container.innerHTML = '';
 
         // 标题部分
         const header = document.createElement('div');
-        header.className = 'project-header';
+        header.className = 'plugin-task-project-panel__header';
+
+        // 标题行
+        const titleRow = document.createElement('div');
+        titleRow.className = 'plugin-task-project-panel__title-row';
 
         const titleContainer = document.createElement('div');
-        titleContainer.className = 'project-title';
+        titleContainer.className = 'plugin-task-project-panel__title';
 
         const iconSpan = document.createElement('span');
-        iconSpan.className = 'project-icon';
+        iconSpan.className = 'plugin-task-project-panel__title-icon';
         iconSpan.textContent = '📁';
 
         const titleSpan = document.createElement('span');
@@ -159,11 +163,12 @@ export class ProjectPanel {
 
         titleContainer.appendChild(iconSpan);
         titleContainer.appendChild(titleSpan);
+        titleRow.appendChild(titleContainer);
+        header.appendChild(titleRow);
 
-        // 添加右侧按钮容器
+        // 操作按钮行
         const actionContainer = document.createElement('div');
-        actionContainer.className = 'project-panel__actions';
-        actionContainer.style.marginLeft = 'auto';
+        actionContainer.className = 'plugin-task-project-panel__actions-row';
 
         // 添加创建项目按钮
         const createProjectBtn = document.createElement('button');
@@ -247,15 +252,15 @@ export class ProjectPanel {
         header.appendChild(titleContainer);
 
         // 把按钮容器移到标题下方，确保标题独占一行，按钮右对齐
-        const actionRow = document.createElement('div');
-        actionRow.className = 'project-header__actions-row';
-        // 将 actionContainer 中的按钮移动到 actionRow
+        const actionButtonsRow = document.createElement('div');
+        actionButtonsRow.className = 'project-header__actions-row';
+        // 将 actionContainer 中的按钮移动到 actionButtonsRow
         while (actionContainer.firstChild) {
             // 由于 actionContainer 可能包含样式 marginLeft:auto，我们直接把子节点移动
-            actionRow.appendChild(actionContainer.firstChild);
+            actionButtonsRow.appendChild(actionContainer.firstChild);
         }
 
-        header.appendChild(actionRow);
+        header.appendChild(actionButtonsRow);
 
         // 筛选控件
         const controls = document.createElement('div');
@@ -1657,6 +1662,7 @@ export class ProjectPanel {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="mergeCancel">${i18n("cancel") || '取消'}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="mergeConfirm">${i18n("confirm") || '确认'}</button>
                     </div>
                 </div>
@@ -2461,6 +2467,7 @@ export class ProjectPanel {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="categorySelectCancel">${i18n("cancel")}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="categorySelectConfirm">${i18n("confirm")}</button>
                 </div>
             </div>

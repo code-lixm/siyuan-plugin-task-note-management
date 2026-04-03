@@ -1,27 +1,42 @@
 /* 习惯打卡日历样式 */
 
-/* 视图切换按钮样式 */
+/* 视图切换按钮样式 - 已统一为 plugin-task-btn 系统 */
 .view-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 8px 16px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
+    font-size: var(--task-font-sm);
+    font-weight: 500;
+    border: 1px solid transparent;
     border-radius: var(--task-radius-xs);
+    background: transparent;
+    color: var(--b3-theme-on-background);
+    cursor: pointer;
+    transition: var(--task-motion-fast);
+    user-select: none;
+}
+
+.view-toggle-btn:hover {
+    background: var(--task-bg-hover);
 }
 
 .view-toggle-btn.active {
     background: var(--b3-theme-primary);
-    color: var(--b3-theme-on-primary);
-}
-
-.view-toggle-btn:hover {
-    background: var(--b3-theme-surface-lighter);
+    color: white;
+    border-color: var(--b3-theme-primary);
 }
 
 .view-toggle-btn.active:hover {
-    background: var(--b3-theme-primary);
+    background: var(--b3-theme-primary-light);
+    border-color: var(--b3-theme-primary-light);
+}
+
+/* 深色主题适配 */
+.b3-theme-dark {
+    .view-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
 }
 
 /* 日期圆形徽章样式 */

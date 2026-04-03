@@ -421,6 +421,7 @@ class SmartBatchDialog {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="smartBatchCancelBtn">${i18n("cancel")}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="smartBatchConfirmBtn">${i18n("batchSetReminders")}</button>
                 </div>
             </div>
@@ -862,6 +863,7 @@ class SmartBatchDialog {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="batchNlCancelBtn">${i18n("cancel")}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="batchNlConfirmBtn" disabled>${i18n("batchApply")}</button>
                     </div>
                 </div>
@@ -1688,6 +1690,7 @@ class BlockEditDialog {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="editCancelBtn">${i18n("cancel")}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="editSaveBtn">${i18n("saveSettings")}</button>
                 </div>
             </div>
@@ -1787,6 +1790,7 @@ class BlockEditDialog {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="editNlCancelBtn">${i18n("cancel")}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="editNlConfirmBtn" disabled>${i18n("apply")}</button>
                     </div>
                 </div>

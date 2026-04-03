@@ -313,6 +313,7 @@ export class ProjectKanbanView {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="newGroupCancel">${i18n('cancel')}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="newGroupSave">${i18n('createGroup')}</button>
                 </div>
             `,
@@ -1034,6 +1035,7 @@ export class ProjectKanbanView {
                                         </div>
                                         <div class="b3-dialog__action">
                                             <button class="b3-button b3-button--cancel" id="cancelMoveBtn">${i18n('cancel')}</button>
+                                            <div class="fn__space"></div>
                                             <button class="b3-button b3-button--primary" id="confirmMoveBtn">${i18n('confirm')}</button>
                                         </div>
                                     `,
@@ -1117,6 +1119,7 @@ export class ProjectKanbanView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="cancelEditBtn">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="saveEditBtn">${i18n('save')}</button>
                     </div>
                 `,
@@ -1189,6 +1192,7 @@ export class ProjectKanbanView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="cancelAddBtn">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="confirmAddBtn">${i18n('save')}</button>
                     </div>
                 `,
@@ -1438,6 +1442,7 @@ export class ProjectKanbanView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="tagDialogCancel">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="tagDialogSave">${i18n('save')}</button>
                     </div>
                 `,
@@ -2476,6 +2481,7 @@ export class ProjectKanbanView {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="msCancel">${i18n('cancel')}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="msSave">${i18n('save')}</button>
                 </div>
             `,
@@ -3099,6 +3105,7 @@ export class ProjectKanbanView {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="editCancelBtn">${i18n('cancel')}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="editSaveBtn">${i18n('save')}</button>
                 </div>
             `,
@@ -3305,6 +3312,7 @@ export class ProjectKanbanView {
                     </div>
                     <div class="b3-dialog__action" style="margin-top: 24px;">
                         <button class="b3-button b3-button--cancel" id="deleteCancelBtn">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--error" id="deleteConfirmBtn">${i18n('deleteGroup')}</button>
                     </div>
                 </div>
@@ -6759,6 +6767,7 @@ export class ProjectKanbanView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="batchTagsCancel">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="batchTagsSave">${i18n('save')}</button>
                     </div>
                 `,
@@ -11062,6 +11071,7 @@ export class ProjectKanbanView {
                             </div>
                             <div class="b3-dialog__action">
                                 <button class="b3-button b3-button--cancel" id="cancelBtn">取消</button>
+                                <div class="fn__space"></div>
                                 <button class="b3-button b3-button--primary" id="editBtn">编辑任务时间</button>
                             </div>
                         `,
@@ -14762,6 +14772,7 @@ export class ProjectKanbanView {
                             </div>
                             <div class="b3-dialog__action">
                                 <button class="b3-button b3-button--cancel" id="cancelBtn">取消</button>
+                                <div class="fn__space"></div>
                                 <button class="b3-button b3-button--primary" id="editBtn">编辑任务时间</button>
                             </div>
                         `,
@@ -16274,7 +16285,9 @@ export class ProjectKanbanView {
                             </div>
                             <div class="b3-dialog__action">
                                 <button class="b3-button b3-button--cancel" id="cancelBtn">取消</button>
+                                <div class="fn__space"></div>
                                 <button class="b3-button" id="continueBtn">继续（跳过这些任务）</button>
+                                <div class="fn__space"></div>
                                 <button class="b3-button b3-button--primary" id="editBtn">编辑第一个任务时间</button>
                             </div>
                         `,
@@ -16964,6 +16977,7 @@ export class ProjectKanbanView {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="batchStatusCancel">${i18n('cancel')}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="batchStatusConfirm">${i18n('confirm')}</button>
                 </div>
             `,
@@ -17168,7 +17182,9 @@ export class ProjectKanbanView {
                             </div>
                             <div class="b3-dialog__action">
                                 <button class="b3-button b3-button--cancel" id="cancelBtn">${i18n('cancel')}</button>
+                                <div class="fn__space"></div>
                                 <button class="b3-button b3-button--outline" id="continueBtn">${i18n('continueMoveRest') || '继续移动其余任务（跳过这些）'}</button>
+                                <div class="fn__space"></div>
                                 <button class="b3-button b3-button--primary" id="editBtn">${i18n('editFirstTaskTime') || '编辑第一个任务时间'}</button>
                             </div>
                         `,
@@ -17541,6 +17557,7 @@ export class ProjectKanbanView {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="batchGroupCancel">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="batchGroupConfirm">${i18n('confirm')}</button>
                     </div>
                 `,
@@ -17638,6 +17655,7 @@ export class ProjectKanbanView {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="batchMilestoneCancel">${i18n('cancel')}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="batchMilestoneConfirm">${i18n('confirm')}</button>
                 </div>
             `,
@@ -17695,6 +17713,7 @@ export class ProjectKanbanView {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="batchPriorityCancel">${i18n('cancel')}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="batchPriorityConfirm">${i18n('confirm')}</button>
                 </div>
             `,

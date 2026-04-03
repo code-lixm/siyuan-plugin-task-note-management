@@ -941,7 +941,7 @@ export class ReminderPanel {
         });
 
         // mark the dialog so we can override dialog-level scrolling for this instance
-        dialog.element.classList.add('filter-management-dialog');
+        dialog.element.classList.add('plugin-task-dialog', 'plugin-task-dialog--large', 'filter-management-dialog');
 
         // 动态导入 Svelte 组件
         import('./FilterManagement.svelte').then((module) => {
@@ -1769,6 +1769,26 @@ export class ReminderPanel {
                         }
                     }
                 });
+            }
+
+            // today 视图勾选“显示已完成子任务”时，补充今天相关任务树中的已完成子任务。
+            // 仅靠 directlyMatchingReminders 无法覆盖“父任务和子任务都已完成”的场景，
+            // 因为 today 过滤会先排除已完成项，导致整棵子树没有入口进入渲染集合。
+            if (this.currentTab === 'today' && this.showCompletedSubtasks) {
+                for (const reminder of categoryFilteredReminders) {
+                    if (!reminder.parentId) continue;
+                    if (!this.isCompletedForTodayView(reminder)) continue;
+
+                    const isTodayRelevant = this.isReminderInTodayScope(reminder, today)
+                        || this.hasAncestorInTodayScope(reminder, reminderMap, today);
+                    if (!isTodayRelevant) continue;
+
+                    idsToRender.add(reminder.id);
+                    const ancestors = this.getAllAncestorIds(reminder.id, reminderMap);
+                    ancestors.forEach(ancestorId => {
+                        idsToRender.add(ancestorId);
+                    });
+                }
             }
 
 
@@ -3894,6 +3914,38 @@ export class ReminderPanel {
         } else {
             // 普通事件：检查事件的每日完成记录
             return reminder.dailyCompletions && reminder.dailyCompletions[yesterdayStr] === true;
+        }
+
+        return false;
+    }
+
+    private isCompletedForTodayView(reminder: any): boolean {
+        return !!reminder.completed || this.isSpanningEventTodayCompleted(reminder);
+    }
+
+    private isReminderInTodayScope(reminder: any, today: string): boolean {
+        if (reminder.isSubscribed) return false;
+
+        const hasDate = reminder.date || reminder.endDate;
+        if (!hasDate) return false;
+
+        const startLogical = this.getReminderLogicalDate(reminder.date || reminder.endDate, reminder.time || reminder.endTime);
+        const endLogical = this.getReminderLogicalDate(reminder.endDate || reminder.date, reminder.endTime || reminder.time);
+        if (!startLogical || !endLogical) return false;
+
+        const inRange = compareDateStrings(startLogical, today) <= 0 && compareDateStrings(today, endLogical) <= 0;
+        const isOverdue = compareDateStrings(endLogical, today) < 0;
+        return inRange || isOverdue;
+    }
+
+    private hasAncestorInTodayScope(reminder: any, reminderMap: Map<string, any>, today: string): boolean {
+        let currentId = reminder.parentId;
+
+        while (currentId) {
+            const parent = reminderMap.get(currentId);
+            if (!parent) return false;
+            if (this.isReminderInTodayScope(parent, today)) return true;
+            currentId = parent.parentId;
         }
 
         return false;
@@ -9722,6 +9774,7 @@ export class ReminderPanel {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="categorySelectCancel">${i18n("cancel")}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="categorySelectConfirm">${i18n("confirm")}</button>
                 </div>
             </div>
@@ -9968,6 +10021,7 @@ export class ReminderPanel {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="panelBatchDateCancel">${i18n('cancel')}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="panelBatchDateConfirm">${i18n('confirm')}</button>
                 </div>
             `,

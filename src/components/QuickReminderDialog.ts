@@ -118,6 +118,7 @@ export class QuickReminderDialog {
                 </div>
                 <div class="b3-dialog__action">
                     <button class="b3-button b3-button--cancel" id="cancelLinkBtn">${i18n('cancel') || '取消'}</button>
+                    <div class="fn__space"></div>
                     <button class="b3-button b3-button--primary" id="saveLinkBtn">${i18n('save') || '确定'}</button>
                 </div>
             `,
@@ -1525,7 +1526,7 @@ export class QuickReminderDialog {
         this.dialog = new Dialog({
             title: this.dateOnly ? i18n("editDate") : (this.mode === 'edit' ? i18n("editReminder") : (this.mode === 'note' ? i18n("editNote") : i18n("createQuickReminder"))),
             content: this.mode === 'note' ? `
-                <div class="quick-reminder-dialog">
+                <div class="plugin-task-dialog plugin-task-dialog--medium quick-reminder-dialog">
                     <div class="b3-dialog__content">
                         <!-- 备注 (Vditor) -->
                         <div class="b3-form__group" style="margin-top: 0;">
@@ -1534,11 +1535,12 @@ export class QuickReminderDialog {
                     </div>
                     <div class="b3-dialog__action">
                         <button class="b3-button b3-button--cancel" id="quickCancelBtn">${i18n("cancel")}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--primary" id="quickConfirmBtn">${i18n("save")}</button>
                     </div>
                 </div>
             ` : `
-                <div class="quick-reminder-dialog">
+                <div class="plugin-task-dialog plugin-task-dialog--medium quick-reminder-dialog">
                     <div class="b3-dialog__content">
                         <div class="b3-form__group" id="quickParentTaskGroup" style="display: none;">
                             <label class="b3-form__label">${i18n("parentTask")}</label>

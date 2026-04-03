@@ -173,6 +173,7 @@
         const editDialog = new Dialog({
             title: isEdit ? i18n('editSubscription') : i18n('addSubscription'),
             content: `
+                <div class="plugin-task-dialog plugin-task-dialog--medium ics-subscription-dialog">
                 <div class="b3-dialog__content" style="padding: 16px;flex: 1;overflow-y: auto;">
                     <div class="fn__flex-column" style="gap: 12px;">
                         <div class="b3-label">
@@ -273,7 +274,9 @@
                 </div>
                 <div class="b3-dialog__action" style="margin-top: 16px; flex-shrink: 0; display: flex; justify-content: flex-end;">
                         <button class="b3-button b3-button--cancel">${i18n('cancel')}</button>
+                        <div class="fn__space"></div>
                         <button class="b3-button b3-button--text" id="confirm-sub">${i18n('save')}</button>
+                </div>
                 </div>
             `,
             width: '500px',

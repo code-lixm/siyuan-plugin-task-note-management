@@ -18,15 +18,262 @@
 @use './styles/project-reminder.scss';
 @use './styles/pomodoroTimer.scss';
 @use './styles/pomodoroStats.scss';
+@use './styles/calendar.scss';
 
+/*
+ * ============================================================
+ * 按钮样式系统 (Button System)
+ * ============================================================
+ * 
+ * 统一的按钮样式规范，所有插件按钮应使用以下类名:
+ * 
+ * 基础类:
+ *   .plugin-task-btn - 基础按钮样式
+ * 
+ * 变体类:
+ *   .plugin-task-btn-primary - 主按钮(填充色)
+ *   .plugin-task-btn-outline - 描边按钮
+ *   .plugin-task-btn-ghost - 幽灵按钮(无背景无边框)
+ * 
+ * 尺寸类:
+ *   .plugin-task-btn-sm - 小尺寸 (28px高)
+ *   .plugin-task-btn-md - 中尺寸 (32px高, 默认)
+ *   .plugin-task-btn-lg - 大尺寸 (40px高)
+ * 
+ * 状态类:
+ *   .plugin-task-btn-loading - 加载状态
+ *   .plugin-task-btn-disabled - 禁用状态
+ * 
+ * 使用示例:
+ *   <button class="plugin-task-btn plugin-task-btn-primary">主按钮</button>
+ *   <button class="plugin-task-btn plugin-task-btn-outline">描边按钮</button>
+ *   <button class="plugin-task-btn plugin-task-btn-primary plugin-task-btn-sm">小主按钮</button>
+ * 
+ * 设计令牌:
+ *   - 标准高度: 32px (--task-toolbar-height)
+ *   - 内边距: 8px 16px
+ *   - 圆角: 6px (--task-radius-sm)
+ *   - 过渡: 0.2s ease (--task-motion-fast)
+ * ============================================================
+ */
 
-#commonMenu[data-name="projectMoreMenu"] .b3-menu__icon {
+// 基础按钮样式
+.plugin-task-btn {
+    // 盒模型
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--task-space-1);
+    box-sizing: border-box;
+    
+    // 尺寸(默认中等)
+    min-height: var(--task-toolbar-height);
+    height: var(--task-toolbar-height);
+    padding: 8px 16px;
+    
+    // 字体
+    font-family: inherit;
+    font-size: var(--task-font-sm);
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    
+    // 边框与圆角
+    border: 1px solid transparent;
+    border-radius: var(--task-radius-sm);
+    
+    // 背景与颜色
+    background: var(--task-surface-soft);
+    color: var(--b3-theme-on-background);
+    
+    // 交互
+    cursor: pointer;
+    transition: var(--task-motion-fast);
+    user-select: none;
+    
+    // 焦点样式
+    &:focus-visible {
+        outline: 2px solid var(--b3-theme-primary);
+        outline-offset: 2px;
+    }
+    
+    // 悬停状态
+    &:hover:not(:disabled, .plugin-task-btn-disabled) {
+        background: var(--task-bg-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--task-shadow-hover);
+    }
+    
+    // 按下状态
+    &:active:not(:disabled, .plugin-task-btn-disabled) {
+        transform: translateY(0);
+        box-shadow: none;
+    }
+    
+    // 禁用状态
+    &:disabled,
+    &.plugin-task-btn-disabled {
+        opacity: var(--task-text-disabled);
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    // 加载状态
+    &.plugin-task-btn-loading {
+        position: relative;
+        color: transparent;
+        pointer-events: none;
+        
+        &::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--b3-theme-on-surface);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: plugin-task-btn-spin 1s linear infinite;
+        }
+    }
+}
+
+// 主按钮变体 - 填充主色
+.plugin-task-btn-primary {
+    background: var(--b3-theme-primary);
+    color: white;
+    border-color: var(--b3-theme-primary);
+    
+    &:hover:not(:disabled, .plugin-task-btn-disabled) {
+        background: var(--b3-theme-primary-light);
+        border-color: var(--b3-theme-primary-light);
+        box-shadow: var(--task-shadow-hover);
+    }
+    
+    &:active:not(:disabled, .plugin-task-btn-disabled) {
+        background: var(--b3-theme-primary);
+        border-color: var(--b3-theme-primary);
+    }
+}
+
+// 描边按钮变体
+.plugin-task-btn-outline {
+    background: transparent;
+    color: var(--b3-theme-on-background);
+    border-color: var(--task-border-default);
+    
+    &:hover:not(:disabled, .plugin-task-btn-disabled) {
+        background: var(--task-surface-soft);
+        border-color: var(--b3-theme-primary-light);
+        color: var(--b3-theme-primary);
+    }
+    
+    &:active:not(:disabled, .plugin-task-btn-disabled) {
+        background: var(--task-bg-active);
+    }
+}
+
+// 幽灵按钮变体 - 无背景无边框
+.plugin-task-btn-ghost {
+    background: transparent;
+    color: var(--b3-theme-on-surface);
+    border-color: transparent;
+    
+    &:hover:not(:disabled, .plugin-task-btn-disabled) {
+        background: var(--task-bg-hover);
+        color: var(--b3-theme-on-background);
+        box-shadow: none;
+    }
+    
+    &:active:not(:disabled, .plugin-task-btn-disabled) {
+        background: var(--task-bg-active);
+    }
+}
+
+// 小尺寸
+.plugin-task-btn-sm {
+    min-height: 28px;
+    height: 28px;
+    padding: 6px 12px;
+    font-size: var(--task-font-xs);
+    border-radius: var(--task-radius-xs);
+    
+    &.plugin-task-btn-loading::after {
+        width: 14px;
+        height: 14px;
+        border-width: 1.5px;
+    }
+}
+
+// 大尺寸
+.plugin-task-btn-lg {
+    min-height: 40px;
+    height: 40px;
+    padding: 10px 20px;
+    font-size: var(--task-font-md);
+    border-radius: var(--task-radius-md);
+    
+    &.plugin-task-btn-loading::after {
+        width: 20px;
+        height: 20px;
+        border-width: 2.5px;
+    }
+}
+
+// 图标按钮 - 正方形
+.plugin-task-btn-icon {
+    width: var(--task-toolbar-icon-size);
+    min-width: var(--task-toolbar-icon-size);
+    padding: 0;
+    
+    &.plugin-task-btn-sm {
+        width: 28px;
+        min-width: 28px;
+    }
+    
+    &.plugin-task-btn-lg {
+        width: 40px;
+        min-width: 40px;
+    }
+}
+
+// 加载动画
+@keyframes plugin-task-btn-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+// 深色主题适配
+.b3-theme-dark {
+    .plugin-task-btn {
+        &:hover:not(:disabled, .plugin-task-btn-disabled) {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+    }
+    
+    .plugin-task-btn-outline {
+        &:hover:not(:disabled, .plugin-task-btn-disabled) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+    }
+}
+
+// 隐藏所有自定义菜单的图标 (emoji 和空 SVG 占位符)
+#commonMenu button.b3-menu__item {
+    font-size: 0;
+}
+
+#commonMenu button.b3-menu__item svg.b3-menu__icon {
     display: none;
 }
 
-#commonMenu[data-name="projectContextMenu"] .b3-menu__icon {
-    display: none;
+#commonMenu button.b3-menu__item span.b3-menu__label {
+    font-size: var(--b3-font-size, 14px);
 }
+
 
 .fc-direction-ltr .fc-daygrid-event {
     margin-left: 0;
@@ -1036,7 +1283,242 @@
     }
 }
 
-// 通用 dialog 布局优化
+// ============================================================
+// 标准弹窗容器样式 - .plugin-task-dialog
+// ============================================================
+// 统一所有弹窗的样式规范，使用BEM命名法
+// 
+// 使用方式：
+//   <div class="plugin-task-dialog plugin-task-dialog--medium">
+//     <div class="plugin-task-dialog__header">
+//       <h3 class="plugin-task-dialog__title">标题</h3>
+//       <button class="plugin-task-dialog__close">...</button>
+//     </div>
+//     <div class="plugin-task-dialog__content">...</div>
+//     <div class="plugin-task-dialog__footer">...</div>
+//   </div>
+//
+// 尺寸变体：
+//   --small:   400px,  适合简单确认/提示
+//   --medium:  500px,  适合表单编辑 (默认)
+//   --large:   700px,  适合复杂内容/列表
+// ============================================================
+
+.plugin-task-dialog {
+    // 基础容器样式
+    max-height: 100%;
+    max-width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    // SiYuan Dialog 容器适配
+    .b3-dialog__container {
+        display: flex;
+        flex-direction: column;
+        border-radius: var(--task-radius-xl);
+        background: var(--task-surface-muted);
+        box-shadow: var(--task-shadow-panel);
+        overflow: hidden;
+    }
+
+    // ========== 头部样式 ==========
+    &__header {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--task-space-5) var(--task-space-6);
+        border-bottom: 1px solid var(--task-border-default);
+        background: var(--task-surface-soft);
+    }
+
+    &__title {
+        margin: 0;
+        font-size: var(--task-font-lg);
+        font-weight: 600;
+        color: var(--b3-theme-on-background);
+        line-height: 1.4;
+    }
+
+    &__close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: none;
+        border-radius: var(--task-radius-sm);
+        background: transparent;
+        color: var(--b3-theme-on-surface-light);
+        cursor: pointer;
+        transition: var(--task-motion-fast);
+
+        &:hover {
+            background: var(--task-bg-hover);
+            color: var(--b3-theme-on-surface);
+        }
+
+        svg {
+            width: 16px;
+            height: 16px;
+        }
+    }
+
+    // ========== 内容区域样式 ==========
+    &__content {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: var(--task-space-6);
+        background: var(--task-surface-muted);
+        max-height: 70vh;
+
+        // 表单组默认样式
+        .b3-form__group {
+            margin-bottom: var(--task-space-5);
+        }
+
+        .b3-form__label {
+            display: block;
+            margin-bottom: var(--task-space-1);
+            font-weight: 500;
+            font-size: var(--task-font-sm);
+        }
+
+        .b3-form__desc {
+            font-size: var(--task-font-xs);
+            color: var(--b3-theme-on-surface-light);
+            margin-top: var(--task-space-1);
+        }
+    }
+
+    // ========== 底部操作栏样式 ==========
+    &__footer {
+        flex-shrink: 0;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: var(--task-space-3);
+        padding: var(--task-space-5) var(--task-space-6);
+        border-top: 1px solid var(--task-border-default);
+        background: var(--task-surface-soft);
+
+        // 按钮靠左的特殊情况
+        &--space-between {
+            justify-content: space-between;
+        }
+
+        // 按钮居中
+        &--center {
+            justify-content: center;
+        }
+    }
+
+    // ========== 尺寸变体 ==========
+    &--small {
+        .b3-dialog__container {
+            min-width: 320px;
+            max-width: 400px;
+        }
+    }
+
+    &--medium {
+        .b3-dialog__container {
+            min-width: 400px;
+            max-width: 500px;
+        }
+    }
+
+    &--large {
+        .b3-dialog__container {
+            min-width: 500px;
+            max-width: 700px;
+        }
+
+        .plugin-task-dialog__content {
+            max-height: 75vh;
+        }
+    }
+
+    // ========== 移动端适配 ==========
+    @media (max-width: 768px) {
+        .b3-dialog__container {
+            min-width: auto !important;
+            max-width: 92vw !important;
+            width: auto !important;
+        }
+
+        &__content {
+            padding: var(--task-space-5);
+            max-height: 65vh;
+        }
+
+        &__header,
+        &__footer {
+            padding: var(--task-space-4) var(--task-space-5);
+        }
+    }
+
+    // 表单元素默认样式
+    .b3-text-field,
+    .b3-select {
+        border-radius: var(--task-radius-md);
+    }
+
+    .b3-button:not(.b3-button--text) {
+        border-radius: var(--task-radius-sm);
+        transition: var(--task-motion-fast);
+    }
+}
+
+// 兼容旧弹窗的过渡样式 - 逐步迁移
+// 将旧的弹窗类名映射到新的标准类
+.reminder-dialog,
+.quick-reminder-dialog,
+.project-dialog,
+.batch-reminder-dialog,
+.time-edit-dialog,
+.nl-dialog,
+.category-manage-dialog,
+.category-select-dialog,
+.category-edit-dialog,
+.status-manage-dialog,
+.status-edit-dialog,
+.subtasks-dialog,
+.repeat-settings-dialog,
+.pomodoro-sessions-dialog,
+.add-pomodoro-dialog,
+.edit-pomodoro-dialog,
+.project-sort-dialog,
+.settings-dialog,
+.filter-dialog,
+.merge-project-dialog,
+.bind-to-block-dialog,
+.document-reminder-dialog,
+.habit-edit-dialog,
+.habit-check-in-dialog,
+.habit-day-dialog,
+.habit-history-dialog,
+.habit-record-dialog,
+.block-edit-dialog,
+.smart-batch-dialog,
+.nl-dialog,
+.sort-menu-dialog,
+.delete-group-dialog,
+.manage-groups-dialog,
+.manage-statuses-dialog,
+.manage-tags-dialog,
+.manage-milestones-dialog,
+.create-doc-heading-dialog {
+    @extend .plugin-task-dialog;
+}
+
+// ============================================================
+// 通用 dialog 布局优化 (保留以兼容旧代码)
+// ============================================================
 #habitEditContainer,
 #checkInEmojiContainer,
 #habitAddSingleEntryContainer,
@@ -2783,4 +3265,461 @@
 /* 隐藏 FullCalendar 许可证提示 */
 .fc-license-message {
     display: none !important;
+}
+
+/* ============================================================
+ * ProjectPanel 样式
+ * ============================================================
+ * 使用 .plugin-task- 前缀避免与其他插件冲突
+ * 基于设计令牌(_variables.scss)实现一致的视觉风格
+ * ============================================================
+ */
+
+/* ---------- 面板根容器 ---------- */
+.plugin-task-project-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* ---------- 头部区域 ---------- */
+.plugin-task-project-panel__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--task-space-3);
+    padding: var(--task-space-3);
+    border-bottom: 1px solid var(--task-border-default);
+    background: var(--task-surface-soft);
+    flex-shrink: 0;
+}
+
+/* 标题行 */
+.plugin-task-project-panel__title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--task-space-2);
+}
+
+.plugin-task-project-panel__title {
+    display: flex;
+    align-items: center;
+    gap: var(--task-space-2);
+    font-weight: 600;
+    font-size: var(--task-font-md);
+    color: var(--b3-theme-on-background);
+}
+
+.plugin-task-project-panel__title-icon {
+    font-size: var(--task-font-lg);
+}
+
+/* 操作按钮行 */
+.plugin-task-project-panel__actions-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--task-space-1);
+    flex-wrap: wrap;
+}
+
+/* ---------- 筛选控件区域 ---------- */
+.plugin-task-project-panel__controls {
+    display: flex;
+    gap: var(--task-space-2);
+    width: 100%;
+    align-items: center;
+}
+
+.plugin-task-project-panel__filter-select {
+    flex: 1;
+    min-width: 0;
+}
+
+.plugin-task-project-panel__category-filter {
+    display: inline-block;
+    max-width: 30%;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+    text-align: left;
+}
+
+.plugin-task-project-panel__doing-filter {
+    display: flex;
+    align-items: center;
+    gap: var(--task-space-1);
+    margin: 0;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 0;
+}
+
+.plugin-task-project-panel__doing-filter-text {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface);
+}
+
+/* ---------- 搜索区域 ---------- */
+.plugin-task-project-panel__search {
+    display: flex;
+    gap: var(--task-space-2);
+}
+
+.plugin-task-project-panel__search-input {
+    flex: 1;
+}
+
+/* ---------- 项目列表容器 ---------- */
+.plugin-task-project-panel__list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--task-space-2);
+}
+
+/* 空状态 */
+.plugin-task-project-panel__empty {
+    text-align: center;
+    color: var(--b3-theme-on-surface-light);
+    padding: var(--task-space-5);
+    font-size: var(--task-font-sm);
+}
+
+/* ---------- 状态分组 ---------- */
+.plugin-task-project-group {
+    margin-bottom: var(--task-space-2);
+}
+
+.plugin-task-project-group__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--task-space-2);
+    padding: var(--task-space-2) var(--task-space-1);
+    background: var(--task-surface-soft);
+    border-bottom: 1px solid var(--task-border-default);
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+.plugin-task-project-group__left {
+    display: flex;
+    align-items: center;
+    gap: var(--task-space-2);
+}
+
+.plugin-task-project-group__icon {
+    font-size: var(--task-font-md);
+}
+
+.plugin-task-project-group__title {
+    font-weight: 600;
+    font-size: var(--task-font-sm);
+    color: var(--b3-theme-on-background);
+}
+
+.plugin-task-project-group__right {
+    display: flex;
+    align-items: center;
+    gap: var(--task-space-2);
+}
+
+.plugin-task-project-group__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+}
+
+.plugin-task-project-group__toggle-icon {
+    width: 14px;
+    height: 14px;
+    transition: transform var(--task-motion-fast);
+}
+
+.plugin-task-project-group__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--task-space-1);
+    padding: var(--task-space-1);
+}
+
+/* ---------- 项目项 ---------- */
+.plugin-task-project-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--task-space-2);
+    padding: var(--task-space-3);
+    background: var(--task-surface-muted);
+    border: 1px solid var(--task-border-default);
+    border-radius: var(--task-radius-md);
+    cursor: pointer;
+    transition: all var(--task-motion-fast);
+}
+
+.plugin-task-project-item:hover {
+    background: var(--task-surface-elevated);
+    border-color: var(--task-border-focus);
+    box-shadow: var(--task-shadow-hover);
+    transform: translateY(-1px);
+}
+
+.plugin-task-project-item--overdue {
+    border-left: 3px solid var(--b3-theme-error);
+}
+
+.plugin-task-project-item--archived {
+    opacity: var(--task-priority-none-opacity);
+}
+
+/* 拖拽手柄 */
+.plugin-task-project-item__drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    cursor: grab;
+    opacity: 0;
+    transition: opacity var(--task-motion-fast);
+    font-size: 12px;
+    color: var(--b3-theme-on-surface-light);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.plugin-task-project-item:hover .plugin-task-project-item__drag-handle {
+    opacity: 1;
+}
+
+.plugin-task-project-item__drag-handle:active {
+    cursor: grabbing;
+}
+
+/* 内容区域 */
+.plugin-task-project-item__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--task-space-1);
+}
+
+.plugin-task-project-item__info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--task-space-1);
+}
+
+/* 标题 */
+.plugin-task-project-item__title {
+    font-weight: 500;
+    font-size: var(--task-font-md);
+    color: var(--b3-theme-on-background);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.plugin-task-project-item__title:hover {
+    color: var(--b3-theme-primary);
+}
+
+/* 时间容器 */
+.plugin-task-project-item__time-container {
+    display: flex;
+    align-items: center;
+    gap: var(--task-space-2);
+    flex-wrap: wrap;
+}
+
+.plugin-task-project-item__time {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+}
+
+/* 倒计时/已开始天数标签 */
+.plugin-task-project-item__countdown,
+.plugin-task-project-item__started {
+    font-size: var(--task-font-xs);
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: var(--task-radius-xs);
+}
+
+.plugin-task-project-item__countdown--overdue,
+.plugin-task-project-item__started--future {
+    background: var(--b3-theme-error-lightest);
+    color: var(--b3-theme-error);
+}
+
+.plugin-task-project-item__countdown--today,
+.plugin-task-project-item__started--today {
+    background: var(--b3-theme-warning-lightest);
+    color: var(--b3-theme-warning);
+}
+
+.plugin-task-project-item__countdown--future,
+.plugin-task-project-item__started--past {
+    background: var(--b3-theme-success-lightest);
+    color: var(--b3-theme-success);
+}
+
+/* 优先级标签 */
+.plugin-task-project-item__priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--task-font-xs);
+    padding: 2px 6px;
+    border-radius: var(--task-radius-xs);
+    font-weight: 500;
+}
+
+.plugin-task-project-item__priority--high {
+    background: var(--task-priority-bg-high);
+    opacity: var(--task-priority-high-opacity);
+}
+
+.plugin-task-project-item__priority--medium {
+    background: var(--task-priority-bg-medium);
+    opacity: var(--task-priority-medium-opacity);
+}
+
+.plugin-task-project-item__priority--low {
+    background: var(--task-priority-bg-low);
+    opacity: var(--task-priority-low-opacity);
+}
+
+.plugin-task-project-item__priority-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.plugin-task-project-item__priority-dot--high {
+    background: var(--task-priority-dot-high);
+}
+
+.plugin-task-project-item__priority-dot--medium {
+    background: var(--task-priority-dot-medium);
+}
+
+.plugin-task-project-item__priority-dot--low {
+    background: var(--task-priority-dot-low);
+}
+
+/* 状态标签 */
+.plugin-task-project-item__status {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    padding: 2px 6px;
+    background: var(--task-bg-subtle);
+    border-radius: var(--task-radius-xs);
+    display: inline-block;
+}
+
+/* 计数区域 */
+.plugin-task-project-item__counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--task-space-2);
+    align-items: center;
+}
+
+.plugin-task-project-item__counts-dynamic {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--task-space-2);
+}
+
+.plugin-task-project-item__count {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    padding: 2px 6px;
+    background: var(--task-bg-subtle);
+    border-radius: var(--task-radius-xs);
+}
+
+.plugin-task-project-item__count--pomodoro {
+    color: var(--b3-theme-primary);
+    background: var(--b3-theme-primary-lightest);
+}
+
+/* 进度条 */
+.plugin-task-project-item__progress {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.plugin-task-project-item__progress-bar {
+    height: 4px;
+    background: var(--task-border-default);
+    border-radius: var(--task-radius-xs);
+    overflow: hidden;
+}
+
+.plugin-task-project-item__progress-fill {
+    height: 100%;
+    background: var(--b3-theme-primary);
+    border-radius: var(--task-radius-xs);
+    transition: width var(--task-motion-normal);
+}
+
+.plugin-task-project-item__progress-text {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    text-align: right;
+}
+
+/* 分类标签容器 */
+.plugin-task-project-item__categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--task-space-1);
+}
+
+.plugin-task-project-item__category {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--task-font-xs);
+    padding: 2px 6px;
+    background: var(--task-bg-subtle);
+    border-radius: var(--task-radius-xs);
+    color: var(--b3-theme-on-surface);
+}
+
+.plugin-task-project-item__category-icon {
+    font-size: 10px;
+}
+
+/* 备注 */
+.plugin-task-project-item__note {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: var(--task-space-1);
+    background: var(--task-bg-subtle);
+    border-radius: var(--task-radius-xs);
+}
+
+/* ---------- 拖拽指示器 ---------- */
+.plugin-task-drop-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--b3-theme-primary);
+    z-index: 1000;
+    pointer-events: none;
 }

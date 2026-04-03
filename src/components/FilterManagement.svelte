@@ -997,7 +997,8 @@
 
 <style>
   /* Override dialog container to prevent outer scrolling; applied via class added in ReminderPanel */
-  :global(.filter-management-dialog .b3-dialog__content) {
+  :global(.filter-management-dialog .b3-dialog__content),
+  :global(.plugin-task-dialog--large.filter-management-dialog .b3-dialog__content) {
     overflow: hidden;
     padding: 0; /* remove extra padding so component can control its own spacing */
   }
