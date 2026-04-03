@@ -67,9 +67,15 @@
 .plugin-task-calendar-toolbar {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: var(--task-space-3);
     align-items: center;
     gap: var(--task-space-3);
+    
+    &--dock {
+        justify-content: flex-end;
+        gap: var(--task-space-1);
+        margin-bottom: var(--task-space-1);
+    }
 }
 
 .plugin-task-calendar-toolbar--dock {
@@ -81,10 +87,10 @@
 .plugin-task-calendar-toolbar-collapsible {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 4px 0 8px;
-    border-bottom: 1px solid var(--fc-calendar-border);
-    margin-bottom: 8px;
+    gap: var(--task-space-2);
+    padding: var(--task-space-1) 0 var(--task-space-2);
+    border-bottom: var(--task-divider-width) solid var(--task-divider-color);
+    margin-bottom: var(--task-space-2);
 }
 
 /* 工具栏按钮样式 - 统一为插件按钮风格 */
@@ -277,6 +283,8 @@
 
 /* 月视图单元格 */
 .fc-daygrid-day {
+    padding: var(--fc-day-padding);
+    
     &.fc-day-today {
         background-color: var(--fc-calendar-today-bg);
         
@@ -306,7 +314,7 @@
     cursor: pointer;
     border-radius: var(--task-radius-sm);
     padding: 1px 6px;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color var(--task-motion-fast), color var(--task-motion-fast);
     text-decoration: none !important;
     
     &:hover {
@@ -317,7 +325,7 @@
 
 /* 月视图标题行 */
 .fc-col-header-cell {
-    padding: 8px 4px;
+    padding: var(--task-space-2) var(--task-space-1);
     font-weight: 500;
     font-size: var(--task-font-sm);
     color: var(--fc-calendar-text-secondary);
