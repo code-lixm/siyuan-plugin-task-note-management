@@ -5785,6 +5785,82 @@ export class CalendarView {
         this.calendar.unselect();
     }
 
+    private normalizeCalendarEventDateValue(value: string | Date | null | undefined): string | null {
+        if (!value) {
+            return null;
+        }
+
+        if (value instanceof Date) {
+            return value.toISOString();
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return value;
+        }
+
+        const parsedDate = new Date(value);
+        if (Number.isNaN(parsedDate.getTime())) {
+            return value;
+        }
+
+        return parsedDate.toISOString();
+    }
+
+    private normalizeCalendarEventClassValue(value: string | string[] | null | undefined): string[] {
+        if (!value) {
+            return [];
+        }
+
+        const classNames = Array.isArray(value)
+            ? value
+            : value.split(' ');
+
+        return classNames
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .sort();
+    }
+
+    private getIncomingEventSemanticSignature(eventData: any): string {
+        return JSON.stringify({
+            title: eventData.title || '',
+            start: this.normalizeCalendarEventDateValue(eventData.start),
+            end: this.normalizeCalendarEventDateValue(eventData.end),
+            allDay: !!eventData.allDay,
+            backgroundColor: eventData.backgroundColor || null,
+            borderColor: eventData.borderColor || null,
+            textColor: eventData.textColor || null,
+            classNames: this.normalizeCalendarEventClassValue(eventData.className),
+            editable: eventData.editable !== false,
+            startEditable: eventData.startEditable !== false,
+            durationEditable: eventData.durationEditable !== false,
+            resourceId: eventData.resourceId || null,
+            extendedProps: eventData.extendedProps || {}
+        });
+    }
+
+    private getExistingEventSemanticSignature(event: any): string {
+        const resourceIds = typeof event.getResources === 'function'
+            ? event.getResources().map((resource: any) => resource.id).sort()
+            : [];
+
+        return JSON.stringify({
+            title: event.title || '',
+            start: this.normalizeCalendarEventDateValue(event.startStr || event.start),
+            end: this.normalizeCalendarEventDateValue(event.endStr || event.end),
+            allDay: !!event.allDay,
+            backgroundColor: event.backgroundColor || null,
+            borderColor: event.borderColor || null,
+            textColor: event.textColor || null,
+            classNames: this.normalizeCalendarEventClassValue(event.classNames),
+            editable: event.editable !== false,
+            startEditable: event.startEditable !== false,
+            durationEditable: event.durationEditable !== false,
+            resourceId: resourceIds[0] || null,
+            extendedProps: event.extendedProps || {}
+        });
+    }
+
     private async refreshEvents(force: boolean = false) {
         // 清除之前的刷新超时
         if (this.refreshTimeout) {
@@ -5816,65 +5892,29 @@ export class CalendarView {
                     // 事件源已存在，使用增量更新
                     // 获取当前所有事件
                     const currentEvents = this.calendar.getEvents();
-                    const currentEventIds = new Set(currentEvents.map(e => e.id));
-                    const newEventIds = new Set(events.map(e => e.id));
-                    
-                    // 检查是否有变化
-                    const hasChanges = 
-                        currentEvents.length !== events.length ||
-                        currentEventIds.size !== newEventIds.size ||
-                        [...currentEventIds].some(id => !newEventIds.has(id)) ||
-                        [...newEventIds].some(id => !currentEventIds.has(id));
-                    
-                    if (hasChanges) {
-                        // 有变化，需要更新
-                        // 移除不再存在的事件
-                        for (const event of currentEvents) {
-                            if (!newEventIds.has(event.id)) {
-                                event.remove();
-                            }
-                        }
-                        
-                        // 添加新事件或更新现有事件
-                        for (const eventData of events) {
-                            const existingEvent = this.calendar.getEventById(eventData.id);
-                            if (existingEvent) {
-                                // 更新现有事件的属性
-                                try {
-                                    if (eventData.title !== existingEvent.title) {
-                                        existingEvent.setProp('title', eventData.title);
-                                    }
-                                    if (eventData.start && eventData.start !== existingEvent.start?.toISOString()) {
-                                        existingEvent.setStart(eventData.start);
-                                    }
-                                    if (eventData.end && eventData.end !== existingEvent.end?.toISOString()) {
-                                        existingEvent.setEnd(eventData.end);
-                                    }
-                                    // 更新扩展属性
-                                    const props = eventData.extendedProps || {};
-                                    const existingProps = existingEvent.extendedProps || {};
-                                    if (JSON.stringify(props) !== JSON.stringify(existingProps)) {
-                                        existingEvent.setExtendedProp('extendedProps', props);
-                                    }
-                                    // 更新颜色
-                                    if (eventData.backgroundColor && eventData.backgroundColor !== existingEvent.backgroundColor) {
-                                        existingEvent.setProp('backgroundColor', eventData.backgroundColor);
-                                    }
-                                    if (eventData.borderColor && eventData.borderColor !== existingEvent.borderColor) {
-                                        existingEvent.setProp('borderColor', eventData.borderColor);
-                                    }
-                                } catch (updateError) {
-                                    // 更新失败时移除旧事件并添加新事件
-                                    existingEvent.remove();
-                                    this.calendar.addEvent(eventData, this.eventSourceId);
-                                }
-                            } else {
-                                // 添加新事件
-                                this.calendar.addEvent(eventData, this.eventSourceId);
-                            }
+                    const currentEventsById = new Map(currentEvents.map((event) => [event.id, event]));
+                    const nextEventsById = new Map(events.map((eventData) => [eventData.id, eventData]));
+
+                    for (const event of currentEvents) {
+                        if (!nextEventsById.has(event.id)) {
+                            event.remove();
                         }
                     }
-                    // 如果没有变化，不需要做任何事情
+
+                    for (const eventData of events) {
+                        const existingEvent = currentEventsById.get(eventData.id);
+                        if (!existingEvent) {
+                            this.calendar.addEvent(eventData, this.eventSourceId);
+                            continue;
+                        }
+
+                        const existingSignature = this.getExistingEventSemanticSignature(existingEvent);
+                        const incomingSignature = this.getIncomingEventSemanticSignature(eventData);
+                        if (existingSignature !== incomingSignature) {
+                            existingEvent.remove();
+                            this.calendar.addEvent(eventData, this.eventSourceId);
+                        }
+                    }
                 } else {
                     // 事件源不存在，创建新的事件源
                     if (events.length > 0) {
