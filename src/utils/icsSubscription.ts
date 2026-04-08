@@ -9,6 +9,7 @@ export interface IcsSubscription {
     projectId?: string; // Optional
     categoryId?: string;
     priority?: 'high' | 'medium' | 'low' | 'none';
+    color?: string; // 订阅日历的颜色（十六进制颜色值）
     syncInterval: 'manual' | '15min' | '30min' | 'hourly' | '4hour' | '12hour' | 'daily' | 'dailyAt';
     dailySyncTime?: string; // 每天同步时间点，格式 HH:MM（当 syncInterval 为 'dailyAt' 时使用）
     enabled: boolean;

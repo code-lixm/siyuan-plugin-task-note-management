@@ -873,11 +873,6 @@ export class CalendarView {
         };
 
         // 跨天任务设置
-        displaySettingsDropdown.appendChild(createSwitchItem(i18n("showCrossDayTasks") || "显示跨天任务", this.showCrossDayTasks, async (checked) => {
-            this.showCrossDayTasks = checked;
-            await this.calendarConfigManager.setShowCrossDayTasks(checked);
-            await this.refreshEvents();
-        }));
 
         const thresholdItem = document.createElement('div');
         thresholdItem.className = 'fn__flex-column';
@@ -895,7 +890,9 @@ export class CalendarView {
             this.crossDayThreshold = parseInt(thresholdInput.value);
             if (isNaN(this.crossDayThreshold)) this.crossDayThreshold = -1;
             await this.calendarConfigManager.setCrossDayThreshold(this.crossDayThreshold);
-            await this.refreshEvents();
+            // 强制清理所有事件并重新加载，避免跨天阈值切换时出现重复显示
+            this.colorCache.clear();
+            await this.refreshEvents(true);
         });
         displaySettingsDropdown.appendChild(thresholdItem);
 
@@ -1368,12 +1365,7 @@ export class CalendarView {
                 const propsA = a.extendedProps;
                 const propsB = b.extendedProps;
 
-                // 1. 订阅事件排最前面
-                const subA = propsA.isSubscribed ? 1 : 0;
-                const subB = propsB.isSubscribed ? 1 : 0;
-                if (subA !== subB) return subB - subA;
-
-                // 2. 跨天事件排最前，跨越天数越多越靠上
+                // 1. 跨天事件排最前，跨越天数越多越靠上（无论是否订阅）
                 // 分类：1=跨天(>1天), 2=全天(=1天), 3=非全天(有时刻的事件)
                 const getDurationDays = (event: any) => {
                     const props = event.extendedProps || {};
@@ -1409,6 +1401,13 @@ export class CalendarView {
                     const daysA = getDurationDays(a);
                     const daysB = getDurationDays(b);
                     if (daysA !== daysB) return daysB - daysA;
+                }
+
+                // 2. 不跨天的事件中，订阅事件排最前面
+                if (catA !== 1) { // 只对不跨天的事件进行订阅排序
+                    const subA = propsA.isSubscribed ? 1 : 0;
+                    const subB = propsB.isSubscribed ? 1 : 0;
+                    if (subA !== subB) return subB - subA;
                 }
 
                 // 3. 按开始时间排序：从低到高（早的在前）
@@ -4129,14 +4128,9 @@ export class CalendarView {
                 .map((id) => reminderData[id])
                 .filter((r): r is any => !!r);
 
-            // 按当前可见顺序排序 (订阅在最前，跨天次之，然后按结束时间排序)
+            // 按当前可见顺序排序 (跨天在最前，然后订阅，最后按结束时间排序)
             dayEvents.sort((a, b) => {
-                // 1. 订阅事件排最前面
-                const subA = a.isSubscribed ? 1 : 0;
-                const subB = b.isSubscribed ? 1 : 0;
-                if (subA !== subB) return subB - subA;
-
-                // 2. 跨天事件排最前，跨越天数越多越靠上
+                // 1. 跨天事件排最前，跨越天数越多越靠上（无论是否订阅）
                 const getDurationDays = (reminder: any) => {
                     if (!reminder.endDate) return 1;
                     const start = new Date(reminder.date);
@@ -4149,6 +4143,13 @@ export class CalendarView {
                 const isMultiB = daysB > 1 ? 1 : 0;
                 if (isMultiA !== isMultiB) return isMultiB - isMultiA;
                 if (isMultiA && isMultiB && daysA !== daysB) return daysB - daysA;
+
+                // 2. 不跨天的事件中，订阅事件排最前面
+                if (isMultiA === 0) { // 只对不跨天的事件进行订阅排序
+                    const subA = a.isSubscribed ? 1 : 0;
+                    const subB = b.isSubscribed ? 1 : 0;
+                    if (subA !== subB) return subB - subA;
+                }
 
                 // 3. 按时间排序：结束时间晚的排前面（从高往低）
                 const endA = a.endDate ? new Date(a.endDate).getTime() : Infinity;
@@ -7085,71 +7086,96 @@ export class CalendarView {
         const priority = reminder.priority || 'none';
         const primaryCategoryId = this.getPrimaryCategoryIdByDisplayOrder(reminder.categoryId) || '';
 
+        // 订阅日历统一配色方案
+        const subscriptionColors = [
+            '#3498db', // 蓝色
+            '#9b59b6', // 紫色
+            '#1abc9c', // 青色
+            '#e74c3c', // 红色
+            '#f39c12', // 橙色
+            '#2ecc71', // 绿色
+            '#e67e22', // 深橙色
+            '#16a085', // 深青色
+            '#8e44ad', // 深紫色
+            '#c0392b', // 深红色
+        ];
+
         // 使用缓存获取颜色，避免重复计算
-        const cacheKey = `${this.colorBy}-${reminder.projectId || ''}-${reminder.categoryId || ''}-${primaryCategoryId}-${priority}`;
+        // 如果是订阅事件，使用订阅ID作为缓存键的一部分
+        const cacheKey = reminder.isSubscribed && reminder.subscriptionId
+            ? `subscription-${reminder.subscriptionId}`
+            : `${this.colorBy}-${reminder.projectId || ''}-${reminder.categoryId || ''}-${primaryCategoryId}-${priority}`;
         let colors = this.colorCache.get(cacheKey);
 
         if (!colors) {
             let backgroundColor: string;
             let borderColor: string;
 
-            // 获取优先级颜色（用于边框）
-            let priorityBorderColor: string;
-            switch (priority) {
-                case 'high':
-                    priorityBorderColor = '#ff0000';
-                    break;
-                case 'medium':
-                    priorityBorderColor = '#e67e22';
-                    break;
-                case 'low':
-                    priorityBorderColor = '#2980b9';
-                    break;
-                default:
-                    priorityBorderColor = ''; // 无优先级时返回空，后续使用默认颜色
-                    break;
-            }
-
-            if (this.colorBy === 'project') {
-                if (reminder.projectId) {
-                    const color = this.projectManager.getProjectColor(reminder.projectId);
-                    backgroundColor = color;
-                    // 有优先级时使用优先级颜色作为边框，否则使用项目颜色
-                    borderColor = priorityBorderColor || color;
-                } else {
-                    backgroundColor = '#8f8f8f';
-                    borderColor = priorityBorderColor || '#7f8c8d';
-                }
-            } else if (this.colorBy === 'category') {
-                if (primaryCategoryId) {
-                    // Use the first category for color if multiple are present
-                    const category = this.categoryManager.getCategoryById(primaryCategoryId);
-                    const categoryStyle = this.categoryManager.getCategoryLabelStyle(category);
-                    backgroundColor = categoryStyle.backgroundColor;
-                    // 有优先级时使用优先级颜色作为边框，否则使用分类颜色
-                    borderColor = priorityBorderColor || categoryStyle.borderColor;
-                } else {
-                    backgroundColor = '#8f8f8f';
-                    borderColor = priorityBorderColor || '#7f8c8d';
-                }
-            } else { // colorBy === 'priority'
+            // 如果是订阅事件，使用订阅日历的统一配色
+            if (reminder.isSubscribed && reminder.subscriptionId) {
+                // 尝试从订阅数据中获取颜色
+                const subscriptionOrder = this.subscriptionOrderMap.get(reminder.subscriptionId) || 0;
+                backgroundColor = subscriptionColors[subscriptionOrder % subscriptionColors.length];
+                borderColor = backgroundColor;
+            } else {
+                // 获取优先级颜色（用于边框）
+                let priorityBorderColor: string;
                 switch (priority) {
                     case 'high':
-                        backgroundColor = '#ff0000';
-                        borderColor = '#ff0000';
+                        priorityBorderColor = '#ff0000';
                         break;
                     case 'medium':
-                        backgroundColor = '#f39c12';
-                        borderColor = '#e67e22';
+                        priorityBorderColor = '#e67e22';
                         break;
                     case 'low':
-                        backgroundColor = '#3498db';
-                        borderColor = '#2980b9';
+                        priorityBorderColor = '#2980b9';
                         break;
                     default:
-                        backgroundColor = '#8f8f8f';
-                        borderColor = '#7f8c8d';
+                        priorityBorderColor = ''; // 无优先级时返回空，后续使用默认颜色
                         break;
+                }
+
+                if (this.colorBy === 'project') {
+                    if (reminder.projectId) {
+                        const color = this.projectManager.getProjectColor(reminder.projectId);
+                        backgroundColor = color;
+                        // 有优先级时使用优先级颜色作为边框，否则使用项目颜色
+                        borderColor = priorityBorderColor || color;
+                    } else {
+                        backgroundColor = '#8f8f8f';
+                        borderColor = priorityBorderColor || '#7f8c8d';
+                    }
+                } else if (this.colorBy === 'category') {
+                    if (primaryCategoryId) {
+                        // Use the first category for color if multiple are present
+                        const category = this.categoryManager.getCategoryById(primaryCategoryId);
+                        const categoryStyle = this.categoryManager.getCategoryLabelStyle(category);
+                        backgroundColor = categoryStyle.backgroundColor;
+                        // 有优先级时使用优先级颜色作为边框，否则使用分类颜色
+                        borderColor = priorityBorderColor || categoryStyle.borderColor;
+                    } else {
+                        backgroundColor = '#8f8f8f';
+                        borderColor = priorityBorderColor || '#7f8c8d';
+                    }
+                } else { // colorBy === 'priority'
+                    switch (priority) {
+                        case 'high':
+                            backgroundColor = '#ff0000';
+                            borderColor = '#ff0000';
+                            break;
+                        case 'medium':
+                            backgroundColor = '#f39c12';
+                            borderColor = '#e67e22';
+                            break;
+                        case 'low':
+                            backgroundColor = '#3498db';
+                            borderColor = '#2980b9';
+                            break;
+                        default:
+                            backgroundColor = '#8f8f8f';
+                            borderColor = '#7f8c8d';
+                            break;
+                    }
                 }
             }
 
@@ -7207,7 +7233,8 @@ export class CalendarView {
                 showNoteInCalendar: reminder.showNoteInCalendar,
                 isDisplaySegment: false,
                 displayStartDate: reminder.date || reminder.startDate || reminder.endDate,
-                displayEndDate: reminder.endDate || reminder.date || reminder.startDate || null
+                displayEndDate: reminder.endDate || reminder.date || reminder.startDate || null,
+                url: reminder.url || null // 网页链接
             }
         };
 

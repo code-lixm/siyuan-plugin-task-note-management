@@ -2170,25 +2170,50 @@ export class ProjectKanbanView {
                 const titleEl = document.createElement('div');
                 titleEl.className = 'kanban-task-title';
 
-                if (task.blockId || task.docId) {
+                if (task.blockId || task.docId || task.url) {
                     const targetId = task.blockId || task.docId;
-                    titleEl.setAttribute('data-type', 'a');
-                    titleEl.setAttribute('data-href', `siyuan://blocks/${targetId}`);
-                    titleEl.style.cssText = `
-                        font-weight: 500;
-                        color: var(--b3-theme-primary);
-                        line-height: 1.4;
-                        cursor: pointer;
-                        text-decoration: underline dotted;
-                        text-decoration-style: dotted;
-                        transition: color 0.2s ease;
-                        width: fit-content;
-                    `;
-                    titleEl.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openBlock(targetId);
-                    });
+                    const hasBlock = !!targetId;
+                    const hasUrl = !!task.url;
+                    
+                    if (hasBlock) {
+                        // 优先绑定块
+                        titleEl.setAttribute('data-type', 'a');
+                        titleEl.setAttribute('data-href', `siyuan://blocks/${targetId}`);
+                        titleEl.style.cssText = `
+                            font-weight: 500;
+                            color: var(--b3-theme-primary);
+                            line-height: 1.4;
+                            cursor: pointer;
+                            text-decoration: underline dotted;
+                            text-decoration-style: dotted;
+                            transition: color 0.2s ease;
+                            width: fit-content;
+                        `;
+                        titleEl.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openBlock(targetId);
+                        });
+                    } else if (hasUrl) {
+                        // 如果没有绑定块但有 URL，跳转到 URL
+                        titleEl.setAttribute('data-type', 'a');
+                        titleEl.setAttribute('data-href', task.url);
+                        titleEl.style.cssText = `
+                            font-weight: 500;
+                            color: var(--b3-theme-primary);
+                            line-height: 1.4;
+                            cursor: pointer;
+                            text-decoration: underline dotted;
+                            text-decoration-style: dotted;
+                            transition: color 0.2s ease;
+                            width: fit-content;
+                        `;
+                        titleEl.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.openReminderUrl(task.url);
+                        });
+                    }
                 } else {
                     titleEl.style.cssText = `
                         font-weight: 500;
@@ -9035,28 +9060,55 @@ export class ProjectKanbanView {
         const titleEl = document.createElement('div');
         titleEl.className = 'kanban-task-title';
 
-        if (task.blockId || task.docId) {
-            // 如果有绑定块，标题显示为可点击的超链接
+        if (task.blockId || task.docId || task.url) {
+            // 如果有绑定块或URL，标题显示为可点击的超链接
             const targetId = task.blockId || task.docId;
-            titleEl.setAttribute('data-type', 'a');
-            titleEl.setAttribute('data-href', `siyuan://blocks/${targetId}`);
-            titleEl.style.cssText = `
-                font-weight: 500;
-                color: var(--b3-theme-primary);
-                line-height: 1.4;
-                cursor: pointer;
-                text-decoration: underline dotted;
-                text-decoration-style: dotted;
-                transition: color 0.2s ease;
-                width: fit-content;
-            `;
+            const hasBlock = !!targetId;
+            const hasUrl = !!task.url;
+            
+            if (hasBlock) {
+                // 优先绑定块
+                titleEl.setAttribute('data-type', 'a');
+                titleEl.setAttribute('data-href', `siyuan://blocks/${targetId}`);
+                titleEl.style.cssText = `
+                    font-weight: 500;
+                    color: var(--b3-theme-primary);
+                    line-height: 1.4;
+                    cursor: pointer;
+                    text-decoration: underline dotted;
+                    text-decoration-style: dotted;
+                    transition: color 0.2s ease;
+                    width: fit-content;
+                `;
 
-            // 点击事件：打开块
-            titleEl.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.openBlockTab(targetId);
-            });
+                // 点击事件：打开块
+                titleEl.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.openBlockTab(targetId);
+                });
+            } else if (hasUrl) {
+                // 如果没有绑定块但有URL，跳转到URL
+                titleEl.setAttribute('data-type', 'a');
+                titleEl.setAttribute('data-href', task.url);
+                titleEl.style.cssText = `
+                    font-weight: 500;
+                    color: var(--b3-theme-primary);
+                    line-height: 1.4;
+                    cursor: pointer;
+                    text-decoration: underline dotted;
+                    text-decoration-style: dotted;
+                    transition: color 0.2s ease;
+                    width: fit-content;
+                `;
+
+                // 点击事件：打开URL
+                titleEl.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.openReminderUrl(task.url);
+                });
+            }
 
         } else {
             // 没有绑定块，普通标题样式
