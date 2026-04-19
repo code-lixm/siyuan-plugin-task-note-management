@@ -31,6 +31,39 @@ export class QuickReminderDialog {
     private onSaved?: (modifiedReminder?: any) => void;
     private mode: 'quick' | 'block' | 'edit' | 'batch_edit' | 'note' = 'quick'; // 模式：快速创建、块绑定创建、编辑、批量编辑、仅备注
     private isSimpleCreateMode: boolean = true;
+    // 标志：上次在输入框内按 Enter 时先失焦，第二次按才保存（防止误触）
+    private _enterInInputLastTime: boolean = false;
+
+    private isEnterBlurCandidate(target: HTMLElement | null): boolean {
+        if (!target || !this.dialog?.element?.contains(target)) return false;
+
+        const control = target.closest('input, textarea, select') as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+        if (!control) return false;
+        if ((control as HTMLInputElement).disabled || (control as HTMLInputElement).readOnly) return false;
+
+        if (control instanceof HTMLInputElement) {
+            const excludedTypes = new Set([
+                'button',
+                'submit',
+                'reset',
+                'checkbox',
+                'radio',
+                'range',
+                'color',
+                'file',
+                'image',
+                'hidden'
+            ]);
+            if (excludedTypes.has(control.type)) return false;
+        }
+
+        const excludedIds = new Set([
+            'quickCustomReminderTime',
+            'quickCustomReminderNote'
+        ]);
+
+        return !excludedIds.has(control.id);
+    }
 
     private findMarkRange(doc: any, pos: number, type: any) {
         let $pos = doc.resolve(pos);
@@ -3029,12 +3062,11 @@ export class QuickReminderDialog {
             }
         });
 
-        // 标题输入框回车键禁用换行，改为保存
+        // 标题输入框回车键禁用换行，交给对话框级逻辑处理：
+        // 第一次回车先失焦，第二次回车再保存。
         titleInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.isComposing && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
-                e.stopPropagation();
-                this.saveReminder();
             }
         });
 
@@ -3088,6 +3120,8 @@ export class QuickReminderDialog {
         // 回车键快速确认添加
         customReminderInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
                 confirmCustomTimeBtn?.click();
             }
         });
@@ -3171,34 +3205,53 @@ export class QuickReminderDialog {
             this.saveReminder();
         });
 
-        // 快捷键保存：Ctrl/Cmd+Enter 强制保存；普通 Enter 在核心输入框内快速保存
-        this.dialog.element.addEventListener('keydown', (e) => {
+        const keydownHandler = (e: KeyboardEvent) => {
             if (e.key !== 'Enter') return;
+            if (e.isComposing) return;
 
             const target = e.target as HTMLElement | null;
-            const targetId = target?.id || '';
-            const coreInputIds = [
-                'quickReminderTitle',
-                'quickReminderDate',
-                'quickReminderTime',
-                'quickReminderEndDate',
-                'quickReminderEndTime'
-            ];
+            const activeElement = document.activeElement as HTMLElement | null;
+            const focusedControl = this.isEnterBlurCandidate(activeElement)
+                ? activeElement
+                : this.isEnterBlurCandidate(target)
+                    ? target
+                    : null;
 
             if (e.ctrlKey || e.metaKey) {
                 this.saveReminder();
+                this._enterInInputLastTime = false;
                 e.preventDefault();
                 e.stopPropagation();
                 return;
             }
 
             if (e.shiftKey) return;
-            if (!coreInputIds.includes(targetId)) return;
 
-            this.saveReminder();
+            if (!focusedControl) {
+                this.saveReminder();
+                this._enterInInputLastTime = false;
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            if (this._enterInInputLastTime) {
+                this.saveReminder();
+                this._enterInInputLastTime = false;
+            } else {
+                focusedControl.blur();
+                this._enterInInputLastTime = true;
+            }
             e.preventDefault();
             e.stopPropagation();
-        });
+        };
+
+        this.dialog.element.addEventListener('keydown', keydownHandler);
+
+        const resetEnterFlag = () => {
+            this._enterInInputLastTime = false;
+        };
+        this.dialog.element.addEventListener('blur', resetEnterFlag, true);
 
         // 日期验证
         startDateInput?.addEventListener('change', () => {

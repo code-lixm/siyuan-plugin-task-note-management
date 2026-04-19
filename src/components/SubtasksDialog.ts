@@ -3,6 +3,7 @@ import { } from "../api";
 import { i18n } from "../pluginInstance";
 import { QuickReminderDialog } from "./QuickReminderDialog";
 import { PasteTaskDialog } from "./PasteTaskDialog";
+import { isAdvancedFeaturesEnabled } from "@/core/featureGate";
 
 export class SubtasksDialog {
     private dialog: Dialog;
@@ -87,7 +88,7 @@ export class SubtasksDialog {
 
         try {
             const settings = await this.plugin?.loadSettings?.();
-            if (settings?.showAdvancedFeatures !== true) {
+            if (!isAdvancedFeaturesEnabled(settings)) {
                 const pasteBtn = this.dialog.element.querySelector('#pasteSubtaskBtn') as HTMLElement;
                 if (pasteBtn) {
                     pasteBtn.style.display = 'none';
@@ -1037,7 +1038,7 @@ export class SubtasksDialog {
     private async showPasteSubtaskDialog() {
         try {
             const settings = await this.plugin?.loadSettings?.();
-            if (settings?.showAdvancedFeatures !== true) {
+            if (!isAdvancedFeaturesEnabled(settings)) {
                 showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
                 return;
             }

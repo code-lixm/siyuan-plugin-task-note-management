@@ -1,6 +1,4 @@
 import { showMessage, confirm, Menu, Dialog, getAllModels, platformUtils } from "siyuan";
-import { PomodoroStatsView, getLastStatsMode } from "./PomodoroStatsView";
-import { TaskStatsView } from "./TaskStatsView";
 
 // 添加四象限面板常量
 import { getBlockByID, openBlock } from "../api";
@@ -16,6 +14,8 @@ import { ProjectKanbanView } from "./ProjectKanbanView";
 import { BlockBindingDialog } from "./BlockBindingDialog";
 import { i18n } from "../pluginInstance";
 import { getAllReminders } from "../utils/icsSubscription";
+import { executePluginAction } from "@/core/actions";
+import { isAdvancedFeaturesEnabled } from "@/core/featureGate";
 
 
 export class ProjectPanel {
@@ -90,7 +90,7 @@ export class ProjectPanel {
         this.settingsUpdatedHandler = async () => {
             try {
                 const settings = await this.plugin?.loadSettings?.();
-                const nextShowAdvanced = settings?.showAdvancedFeatures === true;
+                const nextShowAdvanced = isAdvancedFeaturesEnabled(settings);
                 if (nextShowAdvanced !== this.showAdvancedFeatures) {
                     this.showAdvancedFeatures = nextShowAdvanced;
                     this.initUI();
@@ -107,7 +107,7 @@ export class ProjectPanel {
     private async initializeAsync() {
         try {
             const settings = await this.plugin?.loadSettings?.();
-            this.showAdvancedFeatures = settings?.showAdvancedFeatures === true;
+            this.showAdvancedFeatures = isAdvancedFeaturesEnabled(settings);
         } catch (error) {
             console.warn('load showAdvancedFeatures failed:', error);
             this.showAdvancedFeatures = false;
@@ -199,7 +199,7 @@ export class ProjectPanel {
             calendarBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconCalendar"></use></svg>';
             calendarBtn.title = i18n("calendarView") || "日历视图";
             calendarBtn.addEventListener('click', () => {
-                this.plugin.openCalendarTab();
+                void executePluginAction(this.plugin, "openCalendar");
             });
             actionContainer.appendChild(calendarBtn);
 
@@ -213,16 +213,6 @@ export class ProjectPanel {
                     this.openEisenhowerMatrix();
                 });
                 actionContainer.appendChild(eisenhowerBtn);
-
-                // 添加番茄钟看板按钮
-                const pomodoroStatsBtn = document.createElement('button');
-                pomodoroStatsBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon project-toolbar-btn--text-icon';
-                pomodoroStatsBtn.innerHTML = '📊';
-                pomodoroStatsBtn.title = i18n("pomodoroStats") || "番茄钟统计";
-                pomodoroStatsBtn.addEventListener('click', () => {
-                    this.showPomodoroStatsView();
-                });
-                actionContainer.appendChild(pomodoroStatsBtn);
             }
 
             // 添加刷新按钮
@@ -2118,7 +2108,10 @@ export class ProjectPanel {
     private openProjectKanban(project: any) {
         try {
             // 打开项目看板Tab
-            this.plugin.openProjectKanbanTab(project.id, project.title);
+            void executePluginAction(this.plugin, "openProjectKanban", {
+                projectId: project.id,
+                projectTitle: project.title
+            });
         } catch (error) {
             console.error('打开项目看板失败:', error);
             showMessage("打开项目看板失败");
@@ -2164,7 +2157,7 @@ export class ProjectPanel {
     private openEisenhowerMatrix() {
         try {
             if (this.plugin) {
-                this.plugin.openEisenhowerMatrixTab();
+                void executePluginAction(this.plugin, "openEisenhowerMatrix");
             } else {
                 showMessage("插件实例不可用");
             }
@@ -2206,7 +2199,7 @@ export class ProjectPanel {
                 click: () => {
                     try {
                         if (this.plugin && typeof this.plugin.openSetting === 'function') {
-                            this.plugin.openSetting();
+                            void executePluginAction(this.plugin, "openSetting");
                         } else {
                             console.warn('plugin.openSetting is not available');
                         }
@@ -2239,25 +2232,6 @@ export class ProjectPanel {
             }
         } catch (error) {
             console.error('显示更多菜单失败:', error);
-        }
-    }
-
-    /**
-     * 显示番茄钟统计视图
-     */
-    private showPomodoroStatsView() {
-        try {
-            const lastMode = getLastStatsMode();
-            if (lastMode === 'task') {
-                const statsView = new TaskStatsView(this.plugin);
-                statsView.show();
-            } else {
-                const statsView = new PomodoroStatsView(this.plugin);
-                statsView.show();
-            }
-        } catch (error) {
-            console.error('打开番茄钟统计视图失败:', error);
-            showMessage("打开番茄钟统计视图失败");
         }
     }
 

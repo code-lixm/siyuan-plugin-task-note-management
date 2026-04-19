@@ -9,7 +9,7 @@
 import { fetchPost, fetchSyncPost, IWebSocketData, openTab, platformUtils } from "siyuan";
 
 import { getFrontend, openMobileFileById } from 'siyuan';
-import { getPluginInstance, i18n } from "./pluginInstance";
+import { i18n } from "./pluginInstance";
 export async function request(url: string, data: any) {
     let response: IWebSocketData = await fetchSyncPost(url, data);
     let res = response.code === 0 ? response.data : null;
@@ -889,83 +889,6 @@ export async function markNotifiedToday(date: string): Promise<void> {
         await writeNotifyData({ lastNotified: date });
     } catch (error) {
         console.error('标记通知记录失败:', error);
-    }
-}
-
-// 检查某个习惯在特定日期是否已提醒
-export async function hasHabitNotified(habitId: string, date: string, time?: string): Promise<boolean> {
-    try {
-        const plugin = getPluginInstance();
-        if (!plugin) return false;
-        const habitData = await plugin.loadHabitData();
-        if (!habitData || typeof habitData !== 'object') return false;
-
-        const habit = habitData[habitId];
-        if (!habit || typeof habit !== 'object') return false;
-
-        const hasNotify = habit.hasNotify || {};
-        const entry = hasNotify[date];
-        // Backward compatible: entry may be boolean
-        if (!entry) return false;
-        if (typeof entry === 'boolean') {
-            // If time omitted, fallback to boolean; if time provided, return the boolean (we don't know per-time)
-            return entry === true;
-        }
-        // entry is an object mapping time -> boolean
-        if (time) {
-            return !!entry[time];
-        }
-        // If time not provided, return true if any time was notified
-        return Object.values(entry).some(v => !!v);
-    } catch (error) {
-        console.warn('检查习惯通知记录失败:', error);
-        return false;
-    }
-}
-
-// 标记某个习惯在特定日期已提醒
-export async function markHabitNotified(habitId: string, date: string, time?: string): Promise<void> {
-    try {
-        const plugin = getPluginInstance();
-        if (!plugin) return;
-        const habitData = await plugin.loadHabitData();
-        if (!habitData || typeof habitData !== 'object') {
-            console.warn('习惯数据不存在，无法标记通知');
-            return;
-        }
-
-        const habit = habitData[habitId];
-        if (!habit || typeof habit !== 'object') {
-            console.warn('习惯不存在，无法标记通知:', habitId);
-            return;
-        }
-
-        // 确保 hasNotify 对象存在
-        if (!habit.hasNotify) {
-            habit.hasNotify = {};
-        }
-
-        if (time) {
-            // Ensure nested object for date
-            if (typeof habit.hasNotify[date] !== 'object') {
-                // handle legacy boolean -> convert to object mapping
-                const prev = habit.hasNotify[date];
-                habit.hasNotify[date] = {} as any;
-                if (prev === true) {
-                    // mark default key '' as true to preserve information
-                    (habit.hasNotify[date] as any)['__all__'] = true;
-                }
-            }
-            (habit.hasNotify[date] as any)[time] = true;
-        } else {
-            // Backward compatible: mark date as true
-            habit.hasNotify[date] = true;
-        }
-
-        // 写回习惯数据
-        await plugin.saveHabitData(habitData);
-    } catch (error) {
-        console.error('标记习惯通知记录失败:', error);
     }
 }
 

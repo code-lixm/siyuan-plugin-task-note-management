@@ -606,7 +606,6 @@
             <div class="filter-item-name">
               <span
                 class="drag-handle"
-                style="cursor: move; opacity: 0.3; margin-right: 4px;"
               >
                 ⋮⋮
               </span>
@@ -635,7 +634,7 @@
   <div class="filter-editor">
     {#if isEditing}
       <div class="filter-editor-header-input">
-        <div class="b3-form__group" style="margin-bottom: 0;">
+        <div class="b3-form__group filter-header-group">
           <label class="b3-form__label" for="filter-name-input">
             {i18n("filterName")}
           </label>
@@ -745,22 +744,20 @@
             <label class="b3-form__label" for="custom-range-start">
               {i18n("dateRange")}
             </label>
-            <div style="display: flex; gap: 8px; align-items: center;">
+            <div class="filter-inline-row">
               <input
                 id="custom-range-start"
                 type="date"
-                class="b3-text-field"
+                class="b3-text-field filter-date-input"
                 bind:value={customRangeStart}
                 placeholder={i18n("dateRangeFrom")}
-                style="flex: 1;"
               />
               <span>-</span>
               <input
                 type="date"
-                class="b3-text-field"
+                class="b3-text-field filter-date-input"
                 bind:value={customRangeEnd}
                 placeholder={i18n("dateRangeTo")}
-                style="flex: 1;"
               />
             </div>
           </div>
@@ -771,15 +768,14 @@
             <label class="b3-form__label" for="future-days-input">
               {i18n("futureXDaysConfig")}
             </label>
-            <div style="display: flex; gap: 8px; align-items: center;">
+            <div class="filter-inline-row">
               <input
                 id="future-days-input"
                 type="number"
-                class="b3-text-field"
+                class="b3-text-field filter-days-input"
                 bind:value={futureDays}
                 min="1"
                 max="365"
-                style="width: 80px;"
               />
               <span>{i18n("days")}</span>
             </div>
@@ -788,54 +784,48 @@
 
         {#if selectedDateFilters.includes("yearly_date_range")}
           <div class="b3-form__group">
-            <label class="b3-form__label">
+            <span class="b3-form__label">
               {i18n("yearlyDateRangeConfig")}
-            </label>
-            <div
-              style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"
-            >
-              <div style="display: flex; gap: 4px; align-items: center;">
+            </span>
+            <div class="filter-inline-row filter-inline-row--wrap">
+              <div class="filter-inline-row filter-inline-row--compact">
                 <input
                   type="number"
-                  class="b3-text-field"
+                  class="b3-text-field filter-yearly-number-input"
                   bind:value={yearlyStartMonth}
                   min="1"
                   max="12"
                   on:change={clampYearlyDays}
-                  style="width: 60px;"
                 />
                 <span>{i18n("month")}</span>
                 <input
                   type="number"
-                  class="b3-text-field"
+                  class="b3-text-field filter-yearly-number-input"
                   bind:value={yearlyStartDay}
                   min="1"
                   max={maxDayOfMonth(yearlyStartMonth)}
                   on:change={clampYearlyDays}
-                  style="width: 60px;"
                 />
                 <span>{i18n("day")}</span>
               </div>
               <span>-</span>
-              <div style="display: flex; gap: 4px; align-items: center;">
+              <div class="filter-inline-row filter-inline-row--compact">
                 <input
                   type="number"
-                  class="b3-text-field"
+                  class="b3-text-field filter-yearly-number-input"
                   bind:value={yearlyEndMonth}
                   min="1"
                   max="12"
                   on:change={clampYearlyDays}
-                  style="width: 60px;"
                 />
                 <span>{i18n("month")}</span>
                 <input
                   type="number"
-                  class="b3-text-field"
+                  class="b3-text-field filter-yearly-number-input"
                   bind:value={yearlyEndDay}
                   min="1"
                   max={maxDayOfMonth(yearlyEndMonth)}
                   on:change={clampYearlyDays}
-                  style="width: 60px;"
                 />
                 <span>{i18n("day")}</span>
               </div>
@@ -924,7 +914,8 @@
                 on:click={() => toggleCategory(category.id)}
               >
                 <span
-                  style="background: {category.color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px;"
+                  class="filter-category-chip"
+                  style={`--filter-category-color: ${category.color || "var(--b3-theme-primary)"}`}
                 >
                   {category.icon || ""}
                   {category.name}
@@ -1099,6 +1090,12 @@
     text-overflow: ellipsis;
   }
 
+  .drag-handle {
+    cursor: move;
+    opacity: 0.3;
+    margin-right: 4px;
+  }
+
   .filter-badge {
     font-size: 10px;
     padding: 1px 5px;
@@ -1156,6 +1153,10 @@
     border-bottom: 1px solid var(--b3-theme-surface-lighter);
   }
 
+  .filter-header-group {
+    margin-bottom: 0;
+  }
+
   .filter-editor-actions {
     padding: 16px 24px;
     border-top: 1px solid var(--b3-theme-surface-lighter);
@@ -1197,6 +1198,40 @@
     color: var(--b3-theme-on-primary);
     border-color: var(--b3-theme-primary);
     box-shadow: 0 2px 4px rgba(var(--b3-theme-primary-rgb), 0.2);
+  }
+
+  .filter-inline-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .filter-inline-row--wrap {
+    flex-wrap: wrap;
+  }
+
+  .filter-inline-row--compact {
+    gap: 4px;
+  }
+
+  .filter-date-input {
+    flex: 1;
+  }
+
+  .filter-days-input {
+    width: 80px;
+  }
+
+  .filter-yearly-number-input {
+    width: 60px;
+  }
+
+  .filter-category-chip {
+    background: var(--filter-category-color, var(--b3-theme-primary));
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
   }
 
   .b3-form__group {

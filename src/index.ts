@@ -8,10 +8,10 @@ import {
     getBackend,
 } from "siyuan";
 import "./index.scss";
+import "./styles/miniPomodoroRing.scss";
 
 import { QuickReminderDialog } from "./components/QuickReminderDialog";
 import { ReminderPanel } from "./components/ReminderPanel";
-import { HabitPanel } from "./components/HabitPanel";
 import { BatchReminderDialog } from "./components/BatchReminderDialog";
 import { CalendarView } from "./components/CalendarView";
 import { EisenhowerMatrixView } from "./components/EisenhowerMatrixView";
@@ -21,11 +21,12 @@ import { i18n, setPluginInstance } from "./pluginInstance";
 import { SettingUtils } from "./libs/setting-utils";
 import { PomodoroRecordManager } from "./utils/pomodoroRecord";
 import { NotificationDialog } from "./components/NotificationDialog";
-import { DocumentReminderDialog } from "./components/DocumentReminderDialog";
 import { ProjectDialog } from "./components/ProjectDialog";
 import { ProjectPanel } from "./components/ProjectPanel";
 import { ProjectKanbanView } from "./components/ProjectKanbanView";
 import { PomodoroManager } from "./utils/pomodoroManager";
+import { MiniPomodoroRing } from "./components/MiniPomodoroRing";
+import { ContextRemindersDialog } from "./components/ContextRemindersDialog";
 import SettingPanelComponent from "./SettingPanel.svelte";
 import { exportIcsFile } from "./utils/icsUtils";
 import { getFile, sendNotification, cancelNotification, pushMsg } from "./api";
@@ -33,23 +34,33 @@ import { resolveAudioPath } from "./utils/audioUtils";
 import { performDataMigration } from "./utils/dataMigration";
 import { initIcsSync, initIcsSubscriptionSync, handleIcsSyncSettingsChange, cleanupIcsSync } from "./utils/icsSync";
 import { TaskNoteDOMManager } from "./utils/taskNoteDOM";
+import { executePluginAction } from "./core/actions";
+import { isAdvancedFeaturesEnabled, shouldShowDock } from "./core/featureGate";
+import {
+    DEFAULT_SETTINGS,
+    SETTINGS_FILE,
+    PROJECT_DATA_FILE,
+    CATEGORIES_DATA_FILE,
+    REMINDER_DATA_FILE,
+    NOTIFY_DATA_FILE,
+    POMODORO_RECORD_DATA_FILE,
+    STATUSES_DATA_FILE,
+    HOLIDAY_DATA_FILE,
+    type AudioFileItem,
+} from "./core/defaultSettings";
 
-export const SETTINGS_FILE = "reminder-settings.json";
-export const PROJECT_DATA_FILE = "project.json";
-export const CATEGORIES_DATA_FILE = "categories.json";
-export const REMINDER_DATA_FILE = "reminder.json";
-export const HABIT_DATA_FILE = "habit.json";
-export const NOTIFY_DATA_FILE = "notify.json";
-export const POMODORO_RECORD_DATA_FILE = "pomodoro_record.json";
-export const HABIT_GROUP_DATA_FILE = "habitGroup.json";
-export const STATUSES_DATA_FILE = "statuses.json";
-export const HOLIDAY_DATA_FILE = "holiday.json";
-
-export interface AudioFileItem {
-    path: string;
-    removed?: boolean;
-    replaces?: string; // 记录此项替换了哪个原始路径（用于保持排序）
-}
+export {
+    DEFAULT_SETTINGS,
+    SETTINGS_FILE,
+    PROJECT_DATA_FILE,
+    CATEGORIES_DATA_FILE,
+    REMINDER_DATA_FILE,
+    NOTIFY_DATA_FILE,
+    POMODORO_RECORD_DATA_FILE,
+    STATUSES_DATA_FILE,
+    HOLIDAY_DATA_FILE,
+};
+export type { AudioFileItem };
 
 export { exportIcsFile };
 
@@ -60,181 +71,6 @@ const EISENHOWER_TAB_TYPE = "reminder_eisenhower_tab";
 export const PROJECT_KANBAN_TAB_TYPE = "project_kanban_tab";
 const POMODORO_TAB_TYPE = "pomodoro_timer_tab";
 export const STORAGE_NAME = "siyuan-plugin-task-daily";
-
-
-// 默认设置
-export const DEFAULT_SETTINGS = {
-    // 任务笔记设置
-    autoDetectDateTime: false, // 新增：是否自动识别日期时间
-    removeDateAfterDetection: 'all', // 从bool改为option：'none' | 'date' | 'all'
-    newDocNotebook: '', // 新增：新建文档的笔记本ID
-    newDocPath: '/{{now | date "2006/200601"}}/', // 新增：新建文档的路径模板，支持sprig语法
-    groupDefaultHeadingLevel: 1, // 新增：新建标题分组的默认层级（1-6），默认为1级标题
-    milestoneDefaultHeadingLevel: 2, // 新增：新建标题里程碑的默认层级（1-6），默认为2级标题
-    defaultHeadingLevel: 3, // 新增：新建标题的默认层级（1-6），默认为3级标题
-    defaultHeadingPosition: 'prepend', // 新增：新建标题的默认位置（'prepend' | 'append'），默认为最前
-    enableOutlinePrefix: true, // 是否在大纲中为绑定标题添加任务状态前缀
-
-    // 控制侧边栏显示
-    showAdvancedFeatures: false, // 是否显示高级功能入口（四象限/习惯侧栏/高级设置分组）
-    enableReminderDock: true, // 侧边栏：提醒（任务管理）
-    enableProjectDock: true, // 侧边栏：项目管理
-    enableHabitDock: false, // 侧边栏：习惯管理（默认隐藏，需开启高级功能）
-    enableCalendarDock: true, // 侧边栏：日历视图
-    // 停靠栏徽章显示控制
-    enableDockBadge: true, // 是否在停靠栏显示数字徽章
-    // 单独控制每个侧栏是否显示徽章（优先级高于 enableDockBadge）
-    enableReminderDockBadge: true,
-    enableProjectDockBadge: true,
-    enableHabitDockBadge: true,
-
-    // 日历配置
-    calendarAutoOpen: true, // 新增：是否默认打开日历视图
-    calendarShowCategoryAndProject: true, // 新增：是否显示分类图标和项目信息
-    calendarColorBy: 'priority',
-    calendarViewMode: 'timeGridWeek',
-    dayStartTime: '08:00', // 日历视图一天的起始时间
-    todayStartTime: '03:00', // 日常任务/习惯的一天起始时间
-    calendarShowLunar: (window as any).siyuan?.config?.lang === 'zh_CN' ? true : false, // 日历显示农历
-    calendarShowHoliday: true, // 是否显示节假日
-    calendarShowPomodoro: true, // 是否显示番茄专注时间
-    calendarHolidayIcsUrl: 'https://www.shuyz.com/githubfiles/china-holiday-calender/master/holidayCal.ics?token=cb429c2a-81a6-4c26-8f35-4f4bf0c84b2c&compStart=*&compEnd=*', // 节假日ICS URL
-    calendarMultiDaysCount: 3, // 多天视图默认显示天数
-    weekStartDay: 1, // 新增：周视图的一周开始日 (0=周日, 1=周一，默认周一)
-    // 日历摘要设置
-    showPomodoroInSummary: true,
-    showHabitInSummary: true,
-    // 任务管理侧栏排序配置
-    sortMethod: "priority",
-    sortOrder: "desc",
-    // 四象限设置
-    eisenhowerImportanceThreshold: 'medium',
-    eisenhowerUrgencyDays: 3,
-    // 项目排序配置
-    projectSortOrder: [],
-    projectSortMode: 'custom',
-    // 项目面板筛选与排序
-    projectPanelSort: 'priority',
-    projectPanelSortOrder: 'desc',
-    projectPanelShowOnlyDoing: false,
-    projectPanelSelectedCategories: [] as string[],
-    reminderPanelSelectedCategories: [] as string[],
-    // 习惯面板筛选与排序
-    habitPanelSortKey: 'priority',
-    habitPanelSortOrder: 'desc',
-    habitPanelSelectedGroups: [] as string[],
-    // 日历上传：ICS云端同步配置
-    icsSyncInterval: 'daily', // 'manual' | '15min' | 'hourly' | '4hour' | '12hour' | 'daily' | 'dailyAt'
-    icsDailySyncTime: '08:00', // 每天同步时间点（当 syncInterval 为 'dailyAt' 时使用），格式 HH:MM
-    icsCloudUrl: '',
-    icsLastSyncAt: '', // 上一次上传时间
-    icsSyncEnabled: false, // 是否启用ICS云端同步
-    icsFileName: '', // ICS文件名，默认为空时自动生成
-    icsSilentUpload: false, // 是否静默上传ICS文件，不显示成功提示
-    icsTaskFilter: 'all', // 'all' | 'completed' | 'uncompleted' - 任务筛选
-    // ICS 同步方式配置
-    icsSyncMethod: 'siyuan', // 'siyuan' | 's3' | 'webdav' - 同步方式
-    // WebDAV 配置
-    webdavUrl: '',
-    webdavUsername: '',
-    webdavPassword: '',
-    // S3 配置
-    s3UseSiyuanConfig: false, // 是否使用思源的S3配置
-    s3Bucket: '',
-    s3Endpoint: '',
-    s3Region: 'auto', // S3 区域，默认为 auto
-    s3AccessKeyId: '',
-    s3AccessKeySecret: '',
-    s3StoragePath: '/calendar/', // S3存储路径，例如: /calendar/
-    s3ForcePathStyle: false, // S3 Addressing风格，true为Path-style，false为Virtual hosted style（默认）
-    s3TlsVerify: true, // S3 TLS证书验证，true为启用验证（默认），false为禁用验证
-    s3CustomDomain: '', // S3 自定义域名，用于生成外链
-    enableOutlinePrefix: true, // 是否在大纲中为绑定标题添加任务状态前缀
-    calendarShowHoliday: true, // 是否显示节假日
-    calendarShowPomodoro: true, // 是否显示番茄专注时间
-    calendarHolidayIcsUrl: 'https://www.shuyz.com/githubfiles/china-holiday-calender/master/holidayCal.ics?token=cb429c2a-81a6-4c26-8f35-4f4bf0c84b2c&compStart=*&compEnd=*', // 节假日ICS URL
-    calendarMultiDaysCount: 3, // 多天视图默认显示天数
-    calendarDefaultNotebookId: '', // 日历默认笔记本ID
-    // 数据迁移标记
-    datatransfer: {
-        bindblockAddAttr: false, // 是否已迁移绑定块的 custom-bind-reminders 属性
-        termTypeTransfer: false, // 是否已迁移 termType -> kanbanStatus 的转换
-        audioFileTransfer: false, // 是否已迁移音频文件列表
-    },
-
-
-    // 番茄钟
-    dailyFocusGoal: 6,
-    workVolume: 0.5,
-    breakVolume: 0.5,
-    longBreakVolume: 0.5,
-    workEndVolume: 0.5,
-    breakEndVolume: 0.5,
-    randomRestVolume: 0.5,
-    randomRestEndVolume: 0.5,
-    pomodoroWorkDuration: 45,
-    pomodoroDurationPresets: [5, 10, 15, 25],
-    pomodoroBreakDuration: 10,
-    pomodoroLongBreakDuration: 30,
-    pomodoroLongBreakInterval: 4,
-    pomodoroAutoMode: false,
-    pomodoroSystemNotification: true, // 新增：番茄结束后系统弹窗
-    pomodoroEndPopupWindow: true, // 新增：番茄钟结束弹窗提醒，默认关闭
-    pomodoroDockPosition: 'top', // 新增：番茄钟吸附位置 'right' | 'left' | 'top'
-    reminderSystemNotification: true, // 新增：事件到期提醒系统弹窗
-    showInternalNotification: false, // 新增：是否显示内部通知框
-    dailyNotificationTime: '08:00', // 新增：每日通知时间，默认08:00
-    dailyNotificationEnabled: false, // 新增：是否启用每日统一通知
-    randomRestEnabled: false,
-    randomRestMinInterval: 3,
-    randomRestMaxInterval: 5,
-    randomRestBreakDuration: 10,
-    randomRestSystemNotification: true, // 新增：随机微休息系统通知
-    randomRestPopupWindow: true, // 新增：随机微休息弹窗提醒，默认关闭
-    // 每个声音设置项各自的音频文件列表 { settingKey: [{path: url, removed: false}, ...] }
-    audioFileLists: {
-        notificationSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/notify.mp3' }],
-        pomodoroWorkSound: [
-            { path: '/plugins/siyuan-plugin-task-daily/audios/background_music.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/campfire.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/river.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/animals/crickets.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/animals/birds.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/places/library.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/places/office.mp3' }
-
-        ],
-        pomodoroBreakSound: [
-            { path: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/droplets.mp3' }
-        ],
-        pomodoroLongBreakSound: [
-            { path: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3' },
-            { path: 'https://cdn.jsdelivr.net/gh/remvze/moodist@main/public/sounds/nature/droplets.mp3' }
-        ],
-        pomodoroWorkEndSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/work_end.mp3' }],
-        pomodoroBreakEndSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/end_music.mp3' }],
-        randomRestSounds: [{ path: '/plugins/siyuan-plugin-task-daily/audios/random_start.mp3' }],
-        randomRestEndSound: [{ path: '/plugins/siyuan-plugin-task-daily/audios/random_end.mp3' }],
-    } as Record<string, AudioFileItem[]>,
-    // 每个声音设置项当前的选中项 { settingKey: url }
-    audioSelected: {
-        notificationSound: '/plugins/siyuan-plugin-task-daily/audios/notify.mp3',
-        pomodoroWorkSound: '/plugins/siyuan-plugin-task-daily/audios/background_music.mp3',
-        pomodoroBreakSound: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3',
-        pomodoroLongBreakSound: '/plugins/siyuan-plugin-task-daily/audios/relax_background.mp3',
-        pomodoroWorkEndSound: '/plugins/siyuan-plugin-task-daily/audios/work_end.mp3',
-        pomodoroBreakEndSound: '/plugins/siyuan-plugin-task-daily/audios/end_music.mp3',
-        randomRestSounds: '/plugins/siyuan-plugin-task-daily/audios/random_start.mp3',
-        randomRestEndSound: '/plugins/siyuan-plugin-task-daily/audios/random_end.mp3',
-    } as Record<string, string>,
-    // 数据迁移标记
-    datatransfer: {
-        bindblockAddAttr: false, // 是否已迁移绑定块的 custom-bind-reminders 属性
-        termTypeTransfer: false, // 是否已迁移 termType -> kanbanStatus 的转换
-        audioFileTransfer: false, // 是否已迁移音频文件列表
-    },
-};
 
 export default class ReminderPlugin extends Plugin {
     private reminderPanel: ReminderPanel;
@@ -250,11 +86,6 @@ export default class ReminderPlugin extends Plugin {
     private projectPanel: ProjectPanel;
     private projectDockElement: HTMLElement;
     private taskNoteDOM: TaskNoteDOMManager;
-    private processingBlockButtons: Set<string> = new Set();
-    private outlinePrefixCache: Map<string, string> = new Map();
-    private protyleObservers: WeakMap<Element, MutationObserver> = new WeakMap();
-    private protyleDebounceTimers: WeakMap<Element, number> = new WeakMap();
-    private currentHeadingIds: Set<string> = new Set();
 
     // ICS 云端同步相关
     // ICS 订阅同步相关
@@ -268,8 +99,6 @@ export default class ReminderPlugin extends Plugin {
     private projectDataCache: any = null;
     private statusDataCache: any = null;
     private categoriesDataCache: any = null;
-    private habitDataCache: any = null;
-    private habitGroupDataCache: any = null;
     private subscriptionCache: any = null;
     private subscriptionTasksCache: { [id: string]: any } = {};
     private holidayDataCache: any = null;
@@ -288,9 +117,6 @@ export default class ReminderPlugin extends Plugin {
     // 内存中的提醒记录，用于避免同一会话中重复提醒
     // 格式: "reminderId_date_time" -> true
     private notifiedReminders: Map<string, boolean> = new Map();
-    // 格式: "habitId_date_time" -> true
-    private notifiedHabits: Map<string, boolean> = new Map();
-
     private instanceId: string = Math.random().toString(36).substring(2, 11);
     private coordinatorChannel: BroadcastChannel;
 
@@ -397,58 +223,6 @@ export default class ReminderPlugin extends Plugin {
     public async saveCategories(data: any): Promise<void> {
         this.categoriesDataCache = data;
         await this.saveData(CATEGORIES_DATA_FILE, data);
-    }
-
-    /**
-     * 加载习惯数据，支持缓存
-     * @param update 是否强制更新（从文件读取）
-     */
-    public async loadHabitData(update: boolean = false): Promise<any> {
-        if (update || !this.habitDataCache) {
-            try {
-                const data = await this.loadData(HABIT_DATA_FILE);
-                this.habitDataCache = data || {};
-            } catch (error) {
-                console.error('Failed to load habit data:', error);
-                this.habitDataCache = {};
-            }
-        }
-        return this.habitDataCache;
-    }
-
-    /**
-     * 保存习惯数据，并更新缓存
-     * @param data 习惯数据
-     */
-    public async saveHabitData(data: any): Promise<void> {
-        this.habitDataCache = data;
-        await this.saveData(HABIT_DATA_FILE, data);
-    }
-
-    /**
-     * 加载习惯分组数据，支持缓存
-     * @param update 是否强制更新（从文件读取）
-     */
-    public async loadHabitGroupData(update: boolean = false): Promise<any[]> {
-        if (update || !this.habitGroupDataCache) {
-            try {
-                const data = await this.loadData(HABIT_GROUP_DATA_FILE);
-                this.habitGroupDataCache = Array.isArray(data) ? data : [];
-            } catch (error) {
-                console.error('Failed to load habit group data:', error);
-                this.habitGroupDataCache = [];
-            }
-        }
-        return this.habitGroupDataCache;
-    }
-
-    /**
-     * 保存习惯分组数据，并更新缓存
-     * @param data 习惯分组数据
-     */
-    public async saveHabitGroupData(data: any[]): Promise<void> {
-        this.habitGroupDataCache = data;
-        await this.saveData(HABIT_GROUP_DATA_FILE, data);
     }
 
     /**
@@ -1012,8 +786,6 @@ export default class ReminderPlugin extends Plugin {
         await this.initializeUI();
 
         // 初始化数据并缓存
-        await this.loadHabitData();
-        await this.loadHabitGroupData();
         await this.loadHolidayData();
 
 
@@ -1033,20 +805,16 @@ export default class ReminderPlugin extends Plugin {
         const onSettingsUpdated = async () => {
             try {
                 const settings = await this.loadSettings();
-                const showAdvancedFeatures = settings.showAdvancedFeatures === true;
-                this.toggleDockVisibility('project_dock', settings.enableProjectDock !== false);
-                this.toggleDockVisibility('reminder_dock', settings.enableReminderDock !== false);
-                this.toggleDockVisibility('habit_dock', showAdvancedFeatures && settings.enableHabitDock !== false);
-                this.toggleDockVisibility('calendar_dock', showAdvancedFeatures && settings.enableCalendarDock !== false);
+                this.toggleDockVisibility('project_dock', shouldShowDock(settings, 'project_dock'));
+                this.toggleDockVisibility('reminder_dock', shouldShowDock(settings, 'reminder_dock'));
+                this.toggleDockVisibility('calendar_dock', shouldShowDock(settings, 'calendar_dock'));
                 this.updateBadges();
                 this.updateProjectBadges();
-                this.updateHabitBadges();
                 this.taskNoteDOM.updateOutlinePrefixes();
                 try {
                     window.dispatchEvent(new CustomEvent('reminderUpdated'));
-                    window.dispatchEvent(new CustomEvent('habitUpdated'));
                 } catch (err) {
-                    console.warn('Dispatch reminder/habit update event failed:', err);
+                    console.warn('Dispatch reminder update event failed:', err);
                 }
                 // 更新所有打开的番茄钟实例，使其应用新的番茄钟设置
                 try {
@@ -1180,40 +948,8 @@ export default class ReminderPlugin extends Plugin {
         //     this.showReminderSystemNotification('测试系统通知标题', '测试系统通知内容，用于手机端测试', testReminder);
         // }, 3000);
 
-        if (!isMobileDevice && !isBrowserDesktop) {
-            // 尝试恢复已存在的番茄钟独立窗口
-            // 先询问其他窗口是否已有活跃番茄钟，避免多窗口同时恢复导致重复计时
-            import("./components/PomodoroTimer").then(async ({ PomodoroTimer }) => {
-                try {
-                    const hasActiveInOtherWindow = await new Promise<boolean>(resolve => {
-                        const timeout = setTimeout(() => resolve(false), 500);
-                        const handler = (event: MessageEvent) => {
-                            if (event.data?.type === 'pomodoroActiveConfirm') {
-                                clearTimeout(timeout);
-                                this.coordinatorChannel.removeEventListener('message', handler);
-                                resolve(true);
-                            }
-                        };
-                        this.coordinatorChannel.addEventListener('message', handler);
-                        this.coordinatorChannel.postMessage({ type: 'pomodoroQueryActive' });
-                    });
-                    if (hasActiveInOtherWindow) {
-                        console.log('[PomodoroRecovery] 其他窗口已有活跃番茄钟，跳过本窗口恢复');
-                        return;
-                    }
-                    const settings = await this.getPomodoroSettings();
-                    const timer = await PomodoroTimer.recoverOrphanedWindow(this, settings);
-                    if (timer) {
-                        PomodoroManager.getInstance().setCurrentPomodoroTimer(timer);
-                    }
-                } catch (e) {
-                    console.warn('恢复独立番茄钟窗口失败:', e);
-                }
-            });
         }
 
-
-    }
 
     private enableAudioOnUserInteraction() {
         const enableAudio = async () => {
@@ -1581,28 +1317,6 @@ export default class ReminderPlugin extends Plugin {
             }
         });
 
-        // 创建习惯打卡 Dock 面板
-        this.addDock({
-            config: {
-                position: "LeftTop",
-                size: { width: 300, height: 0 },
-                icon: "iconCheck",
-                title: "习惯打卡",
-                hotkey: ""
-            },
-            data: {
-                text: "Habit tracking dock"
-            },
-            resize() {
-            },
-            update() {
-            },
-            type: "habit_dock",
-            init: (dock) => {
-                new HabitPanel(dock.element as HTMLElement, this);
-            }
-        });
-
         // 创建日历视图 Dock 面板
         this.addDock({
             config: {
@@ -1642,7 +1356,7 @@ export default class ReminderPlugin extends Plugin {
             type: EISENHOWER_TAB_TYPE,
             init: (async (tab) => {
                 const settings = await this.loadSettings();
-                if (settings.showAdvancedFeatures !== true) {
+                if (!isAdvancedFeaturesEnabled(settings)) {
                     tab.element.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--b3-theme-on-surface-light);">${i18n('showAdvancedFeaturesDesc')}</div>`;
                     return;
                 }
@@ -1672,55 +1386,11 @@ export default class ReminderPlugin extends Plugin {
             }) as any
         });
 
-        // 注册番茄钟标签页
-        this.addTab({
-            type: POMODORO_TAB_TYPE,
-            init: (async (tab) => {
-                const settingsGlobal = await this.loadSettings();
-                if (settingsGlobal.showAdvancedFeatures !== true) {
-                    tab.element.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--b3-theme-on-surface-light);">${i18n('showAdvancedFeaturesDesc')}</div>`;
-                    return;
-                }
-
-                const reminder = tab.data?.reminder;
-                const settings = tab.data?.settings;
-                const isCountUp = tab.data?.isCountUp || false;
-                const inheritState = tab.data?.inheritState;
-
-                if (!reminder || !settings) {
-                    console.error('番茄钟Tab缺少必要数据');
-                    tab.element.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--b3-theme-error);">错误：缺少番茄钟数据</div>';
-                    return;
-                }
-
-
-                // 动态导入PomodoroTimer避免循环依赖
-                import("./components/PomodoroTimer").then(({ PomodoroTimer }) => {
-                    const pomodoroTimer = new PomodoroTimer(reminder, settings, isCountUp, inheritState, this, tab.element);
-
-                    // 使用统一的tabId格式保存番茄钟实例引用
-                    const standardTabId = this.name + POMODORO_TAB_TYPE;
-                    this.tabViews.set(standardTabId, pomodoroTimer);
-                });
-            }) as any,
-            destroy: (() => {
-                // 当番茄钟Tab关闭时，清除标记
-
-                // 清理tabViews中的引用
-                const standardTabId = this.name + POMODORO_TAB_TYPE;
-                if (this.tabViews.has(standardTabId)) {
-                    this.tabViews.delete(standardTabId);
-                }
-            }) as any
-        });
-
         // 根据设置隐藏或显示停靠栏图标
         try {
-            const showAdvancedFeatures = settings.showAdvancedFeatures === true;
-            this.toggleDockVisibility('project_dock', settings.enableProjectDock !== false);
-            this.toggleDockVisibility('reminder_dock', settings.enableReminderDock !== false);
-            this.toggleDockVisibility('habit_dock', showAdvancedFeatures && settings.enableHabitDock !== false);
-            this.toggleDockVisibility('calendar_dock', showAdvancedFeatures && settings.enableCalendarDock !== false);
+            this.toggleDockVisibility('project_dock', shouldShowDock(settings, 'project_dock'));
+            this.toggleDockVisibility('reminder_dock', shouldShowDock(settings, 'reminder_dock'));
+            this.toggleDockVisibility('calendar_dock', shouldShowDock(settings, 'calendar_dock'));
         } catch (err) {
             console.warn('初始化停靠栏可见性失败:', err);
         }
@@ -1741,13 +1411,11 @@ export default class ReminderPlugin extends Plugin {
         // 初始化顶栏徽章和停靠栏徽章
         this.updateBadges();
         this.updateProjectBadges();
-        this.updateHabitBadges();
 
         // 延迟一些时间后再次更新徽章，确保停靠栏已渲染
         const badgeTimer = setTimeout(() => {
             this.updateBadges();
             this.updateProjectBadges();
-            this.updateHabitBadges();
         }, 2000);
         this.addCleanup(() => clearTimeout(badgeTimer));
 
@@ -1771,13 +1439,6 @@ export default class ReminderPlugin extends Plugin {
         };
         window.addEventListener('projectUpdated', onProjectUpdated);
         this.addCleanup(() => window.removeEventListener('projectUpdated', onProjectUpdated));
-
-        // 监听习惯更新事件，更新习惯徽章
-        const onHabitUpdated = () => {
-            this.updateHabitBadges();
-        };
-        window.addEventListener('habitUpdated', onHabitUpdated);
-        this.addCleanup(() => window.removeEventListener('habitUpdated', onHabitUpdated));
     }
 
     async onLayoutReady() {
@@ -1824,7 +1485,7 @@ export default class ReminderPlugin extends Plugin {
         this.taskNoteDOM.addBreadcrumbButtonsToExistingProtyles();
 
         // 初始化大纲前缀监听
-        this.initOutlinePrefixObserver();
+        this.taskNoteDOM.initOutlinePrefixObserver();
 
         // 默认打开日历视图逻辑
         const settings = await this.loadSettings();
@@ -1834,130 +1495,6 @@ export default class ReminderPlugin extends Plugin {
             }, 500);
         }
     }
-
-    private initOutlinePrefixObserver() {
-        let updateTimeout: number | null = null;
-        let lastObservedElement: Element | null = null;
-        let currentObserver: MutationObserver | null = null;
-
-        // 防抖更新函数，只要检测到变化就更新所有前缀
-        const debouncedUpdate = () => {
-            if (updateTimeout) clearTimeout(updateTimeout);
-            updateTimeout = window.setTimeout(() => {
-                const outline = document.querySelector('.file-tree.sy__outline');
-                if (!outline) return;
-                this.updateOutlinePrefixes();
-            }, 0);
-        };
-
-        // 创建观察器函数
-        const createObserver = (element: Element) => {
-            const observer = new MutationObserver((mutations) => {
-                const hasSignificantChange = mutations.some(mutation => {
-                    if (mutation.type === 'childList') {
-                        return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-                    }
-                    if (mutation.type === 'attributes') {
-                        return mutation.attributeName === 'data-node-id' || mutation.attributeName === 'aria-label';
-                    }
-                    if (mutation.type === 'characterData') {
-                        return true;
-                    }
-                    return false;
-                });
-                if (hasSignificantChange) debouncedUpdate();
-            });
-
-            observer.observe(element, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                characterData: true,
-                attributeFilter: ['data-node-id', 'aria-label']
-            });
-            return observer;
-        };
-
-        // 监听 ws-main 事件，处理属性变化 (bookmark)
-        const wsMainHandler = (event: CustomEvent) => {
-            const data = event.detail;
-            if (data.cmd === "transactions" && data.data) {
-                let shouldUpdate = false;
-                for (const transaction of data.data) {
-                    if (transaction.doOperations) {
-                        for (const op of transaction.doOperations) {
-                            if (op.action === "updateAttrs") {
-                                let hasBookmarkUpdate = false;
-                                if (op.data?.new && 'bookmark' in op.data.new) {
-                                    hasBookmarkUpdate = true;
-                                }
-                                if (op.data && 'bookmark' in op.data && !op.data.new) {
-                                    hasBookmarkUpdate = true;
-                                }
-                                if (hasBookmarkUpdate && this.currentHeadingIds.has(op.id)) {
-                                    shouldUpdate = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (shouldUpdate) break;
-                }
-                if (shouldUpdate) debouncedUpdate();
-            }
-        };
-
-        this.eventBus.on('ws-main', wsMainHandler);
-
-        // 定期检查 DOM 并重新绑定 Observer（应对 Siyuan UI 销毁/重建大纲元素的情况）
-        const checkInterval = setInterval(() => {
-            const outlineContainer = document.querySelector('.file-tree.sy__outline');
-            if (outlineContainer !== lastObservedElement) {
-                if (currentObserver) {
-                    currentObserver.disconnect();
-                }
-                lastObservedElement = outlineContainer;
-                if (outlineContainer) {
-                    currentObserver = createObserver(outlineContainer);
-                    debouncedUpdate();
-                }
-            }
-        }, 2000);
-
-        // 初始绑定尝试
-        setTimeout(() => {
-            const outlineContainer = document.querySelector('.file-tree.sy__outline');
-            if (outlineContainer && !currentObserver) {
-                lastObservedElement = outlineContainer;
-                currentObserver = createObserver(outlineContainer);
-                debouncedUpdate();
-            } else if (outlineContainer) {
-                debouncedUpdate();
-            }
-        }, 500);
-
-        // 注册资源清理
-        this.addCleanup(() => {
-            if (currentObserver) currentObserver.disconnect();
-            this.eventBus.off('ws-main', wsMainHandler);
-            clearInterval(checkInterval);
-            if (updateTimeout) clearTimeout(updateTimeout);
-        });
-    }
-
-    private addBreadcrumbButtonsToExistingProtyles() {
-        // 查找所有现有的protyle并添加按钮
-        document.querySelectorAll('.protyle').forEach(protyleElement => {
-            // 尝试从元素中获取protyle实例
-            const protyle = (protyleElement as any).protyle;
-            if (protyle) {
-                this.addBreadcrumbReminderButton(protyle);
-                this.addBlockProjectButtonsToProtyle(protyle);
-            }
-        });
-        this.taskNoteDOM.initOutlinePrefixObserver();
-    }
-
 
     private async updateBadges() {
         try {
@@ -2236,264 +1773,6 @@ export default class ReminderPlugin extends Plugin {
         }
     }
 
-    private async updateHabitBadges() {
-        try {
-            const habitData = await this.loadHabitData();
-
-            if (!habitData || typeof habitData !== 'object') {
-                this.setHabitDockBadge(0);
-                return;
-            }
-
-            const today = getLogicalDateString();
-            let pendingCount = 0;
-
-            Object.values(habitData).forEach((habit: any) => {
-                if (!habit || typeof habit !== 'object') {
-                    return;
-                }
-
-                // 检查是否在有效期内
-                if (habit.startDate > today) return;
-                if (habit.endDate && habit.endDate < today) return;
-
-                // 检查今天是否应该打卡
-                if (!this.shouldCheckInOnDate(habit, today)) return;
-
-                // 检查今天是否已完成
-                const checkIn = habit.checkIns?.[today];
-                const currentCount = checkIn?.count || 0;
-                const targetCount = habit.target || 1;
-
-                if (currentCount < targetCount) {
-                    pendingCount++;
-                }
-            });
-
-            this.setHabitDockBadge(pendingCount);
-        } catch (error) {
-            console.error('更新习惯徽章失败:', error);
-            this.setHabitDockBadge(0);
-        }
-    }
-
-    private async updateOutlinePrefixes() {
-        try {
-            const settings = await this.loadSettings();
-            if (!settings.enableOutlinePrefix) return;
-
-            const outline = document.querySelector('.file-tree.sy__outline');
-            if (!outline) return;
-
-            const headingLis = outline.querySelectorAll('li[data-type="NodeHeading"]');
-            if (headingLis.length === 0) return;
-
-            // 收集块 ID 和 li 映射
-            const blockIds: string[] = [];
-            const liMap = new Map<string, HTMLElement>();
-            headingLis.forEach(li => {
-                const blockId = (li as HTMLElement).getAttribute('data-node-id');
-                if (blockId) {
-                    blockIds.push(blockId);
-                    liMap.set(blockId, li as HTMLElement);
-                }
-            });
-
-            if (blockIds.length === 0) return;
-
-            // 更新当前标题块ID集合
-            this.currentHeadingIds = new Set(blockIds);
-
-            // 使用 SQL 批量查询块属性（只查询 bookmark）
-            const { sql } = await import('./api');
-            const idsStr = blockIds.map(id => `'${id}'`).join(',');
-            const sqlQuery = `SELECT block_id, value FROM attributes WHERE block_id IN (${idsStr}) AND name = 'bookmark' LIMIT -1`;
-            const attrsResults = await sql(sqlQuery);
-
-            // 构建 block_id -> bookmark 映射
-            const bookmarkMap = new Map<string, string>();
-            if (attrsResults && Array.isArray(attrsResults)) {
-                attrsResults.forEach((row: any) => {
-                    bookmarkMap.set(row.block_id, row.value || '');
-                });
-            }
-
-            // 更新 DOM
-            blockIds.forEach(blockId => {
-                const li = liMap.get(blockId);
-                if (!li) return;
-
-                const textElement = li.querySelector('.b3-list-item__text') as HTMLElement;
-                if (!textElement) return;
-
-                // 获取该块的 bookmark 属性
-                const hasAttribute = bookmarkMap.has(blockId);
-                const isManaged = this.outlinePrefixCache.has(blockId);
-
-                // 如果该块目前没有相关属性，且之前也不在管理列表中，则视为“非管理块”，跳过处理
-                // 这样可以保留用户自己在标题文本中手动添加的  或 ⏰
-                if (!hasAttribute && !isManaged) {
-                    return;
-                }
-
-                const bookmark = hasAttribute ? (bookmarkMap.get(blockId) || '') : '';
-
-                // 确定应有的前缀
-                let prefix = '';
-                if (bookmark === '') {
-                    prefix = ' ';
-                } else if (bookmark === '⏰') {
-                    prefix = '⏰ ';
-                }
-
-                // 更新管理标记：
-                // 如果属性被彻底移除（!hasAttribute），则下次不再管理。
-                // 如果属性还存在（即使是空值），则继续根据当前 prefix 更新。
-                if (!hasAttribute) {
-                    this.outlinePrefixCache.delete(blockId);
-                } else {
-                    this.outlinePrefixCache.set(blockId, prefix);
-                }
-
-                // 计算更新后的文本：移除现有前缀并添加正确前缀
-                const currentText = textElement.textContent || '';
-                const textWithoutPrefix = currentText.replace(/^[⏰]\s*/, '');
-                const targetText = prefix + textWithoutPrefix;
-
-                // 只有当文本确实需要改变时才更新，避免产生不必要的 DOM 操作和 Observer 回调
-                if (currentText !== targetText) {
-                    textElement.textContent = targetText;
-                }
-            });
-
-            // 清理缓存中不再在大纲中出现的块，避免内存泄漏
-            const currentBlockIdSet = new Set(blockIds);
-            for (const cachedId of this.outlinePrefixCache.keys()) {
-                if (!currentBlockIdSet.has(cachedId)) {
-                    this.outlinePrefixCache.delete(cachedId);
-                }
-            }
-
-        } catch (error) {
-            console.error('[大纲前缀] 更新失败:', error);
-        }
-    }
-
-    private shouldCheckInOnDate(habit: any, date: string): boolean {
-        const { frequency } = habit;
-        const checkDate = new Date(date);
-        const startDate = new Date(habit.startDate);
-
-        switch (frequency.type) {
-            case 'daily':
-                if (frequency.interval) {
-                    const daysDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / 86400000);
-                    return daysDiff % frequency.interval === 0;
-                }
-                return true;
-
-            case 'weekly':
-                if (frequency.weekdays && frequency.weekdays.length > 0) {
-                    return frequency.weekdays.includes(checkDate.getDay());
-                }
-                if (frequency.interval) {
-                    const weeksDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / (86400000 * 7));
-                    return weeksDiff % frequency.interval === 0 && checkDate.getDay() === startDate.getDay();
-                }
-                return checkDate.getDay() === startDate.getDay();
-
-            case 'monthly':
-                if (frequency.monthDays && frequency.monthDays.length > 0) {
-                    return frequency.monthDays.includes(checkDate.getDate());
-                }
-                if (frequency.interval) {
-                    const monthsDiff = (checkDate.getFullYear() - startDate.getFullYear()) * 12 +
-                        (checkDate.getMonth() - startDate.getMonth());
-                    return monthsDiff % frequency.interval === 0 && checkDate.getDate() === startDate.getDate();
-                }
-                return checkDate.getDate() === startDate.getDate();
-
-            case 'yearly':
-                if (frequency.interval) {
-                    const yearsDiff = checkDate.getFullYear() - startDate.getFullYear();
-                    return yearsDiff % frequency.interval === 0 &&
-                        checkDate.getMonth() === startDate.getMonth() &&
-                        checkDate.getDate() === startDate.getDate();
-                }
-                return checkDate.getMonth() === startDate.getMonth() &&
-                    checkDate.getDate() === startDate.getDate();
-
-            case 'custom':
-                // 自定义频率：如果设置了周重复则按周判断，如果设置了月重复则按月判断；默认返回true
-                if (frequency.weekdays && frequency.weekdays.length > 0) {
-                    return frequency.weekdays.includes(checkDate.getDay());
-                }
-                if (frequency.monthDays && frequency.monthDays.length > 0) {
-                    return frequency.monthDays.includes(checkDate.getDate());
-                }
-                return true;
-
-            default:
-                return true;
-        }
-    }
-
-    private async setHabitDockBadge(count: number) {
-        const settings = await this.loadSettings();
-        const showBadge = settings.enableDockBadge !== false && (settings.enableHabitDockBadge !== false);
-        if (!showBadge) {
-            const existingBadge = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]')?.querySelector('.habit-dock-badge');
-            if (existingBadge) {
-                existingBadge.remove();
-            }
-            return;
-        }
-        try {
-            // 等待习惯停靠栏图标出现
-            const dockIcon = await this.whenElementExist('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]') as HTMLElement;
-
-            // 移除现有徽章
-            const existingBadge = dockIcon.querySelector('.habit-dock-badge');
-            if (existingBadge) {
-                existingBadge.remove();
-            }
-
-            // 如果计数大于0，添加徽章
-            if (count > 0) {
-                const badge = document.createElement('span');
-                badge.className = 'habit-dock-badge';
-                badge.textContent = count.toString();
-                badge.style.cssText = `
-                    position: absolute;
-                    top: 2px;
-                    right: 2px;
-                    background: var(--b3-theme-primary);
-                    color: white;
-                    border-radius: 50%;
-                    min-width: 14px;
-                    height: 14px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 10px;
-                    font-weight: bold;
-                    line-height: 1;
-                    z-index: 1;
-                    pointer-events: none;
-                `;
-
-                // 确保父元素有相对定位
-                dockIcon.style.position = 'relative';
-                dockIcon.appendChild(badge);
-            }
-        } catch (error) {
-            console.warn('设置习惯停靠栏徽章失败:', error);
-            // 如果等待超时或出错，尝试传统方法作为后备
-            await this.setHabitDockBadgeFallback(count);
-            return;
-        }
-    }
-
     // 控制停靠栏可见性：通过隐藏停靠栏图标实现启用/禁用（不注销注册）
     private async toggleDockVisibility(dockKey: string, visible: boolean) {
         try {
@@ -2542,54 +1821,21 @@ export default class ReminderPlugin extends Plugin {
         dockIcon.addEventListener('click', suppressClick, true);
     }
 
-    private async setHabitDockBadgeFallback(count: number) {
-        const settings = await this.loadSettings();
-        const showBadge = settings.enableDockBadge !== false && (settings.enableHabitDockBadge !== false);
-        if (!showBadge) {
-            const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]');
-            if (!dockIcon) return;
-            const existingBadge = dockIcon.querySelector('.habit-dock-badge');
-            if (existingBadge) existingBadge.remove();
-            return;
-        }
-        // 查找习惯停靠栏图标（传统方法作为后备）
-        const dockIcon = document.querySelector('.dock__item[data-type="siyuan-plugin-task-dailyhabit_dock"]');
-        if (!dockIcon) return;
-
-        // 移除现有徽章
-        const existingBadge = dockIcon.querySelector('.habit-dock-badge');
-        if (existingBadge) {
-            existingBadge.remove();
+    private async ensureAdvancedFeatureEnabled(options?: { fallbackToCalendar?: boolean }): Promise<boolean> {
+        try {
+            const settings = await this.loadSettings();
+            if (isAdvancedFeaturesEnabled(settings)) {
+                return true;
+            }
+        } catch (error) {
+            console.warn('检查高级功能开关失败，按默认简化模式处理:', error);
         }
 
-        // 如果计数大于0，添加徽章
-        if (count > 0) {
-            const badge = document.createElement('span');
-            badge.className = 'habit-dock-badge';
-            badge.textContent = count.toString();
-            badge.style.cssText = `
-                position: absolute;
-                top: 2px;
-                right: 2px;
-                background: var(--b3-theme-primary);
-                color: white;
-                border-radius: 50%;
-                min-width: 14px;
-                height: 14px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 10px;
-                font-weight: bold;
-                line-height: 1;
-                z-index: 1;
-                pointer-events: none;
-            `;
-
-            // 确保父元素有相对定位
-            (dockIcon as HTMLElement).style.position = 'relative';
-            dockIcon.appendChild(badge);
+        showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+        if (options?.fallbackToCalendar) {
+            this.openCalendarTab();
         }
+        return false;
     }
 
     // 获取已继承的项目、分组、里程碑和分类
@@ -2800,9 +2046,7 @@ export default class ReminderPlugin extends Plugin {
                 i18n("setTimeReminder"),
             click: async () => {
                 if (documentIds.length > 1) {
-                    const settings = await this.loadSettings();
-                    if (settings.showAdvancedFeatures !== true) {
-                        showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+                    if (!(await this.ensureAdvancedFeatureEnabled())) {
                         return;
                     }
                     // 确保 batchReminderDialog 已初始化
@@ -2846,9 +2090,8 @@ export default class ReminderPlugin extends Plugin {
             detail.menu.addItem({
                 iconHTML: "",
                 label: i18n("viewDocumentAllReminders"),
-                click: () => {
-                    const documentReminderDialog = new DocumentReminderDialog(documentIds[0], this);
-                    documentReminderDialog.show();
+                click: async () => {
+                    await ContextRemindersDialog.showForDocument(documentIds[0], this);
                 }
             });
         }
@@ -2863,10 +2106,10 @@ export default class ReminderPlugin extends Plugin {
                 const isProject = projectData && projectData.hasOwnProperty(firstDocumentId);
                 if (isProject) {
                     // 打开项目看板
-                    this.openProjectKanbanTab(
-                        projectData[firstDocumentId].blockId,
-                        projectData[firstDocumentId].title
-                    );
+                    await executePluginAction(this, "openProjectKanban", {
+                        projectId: projectData[firstDocumentId].blockId,
+                        projectTitle: projectData[firstDocumentId].title,
+                    });
                 } else {
                     // 循环传递所有id
                     for (const docId of documentIds) {
@@ -2916,10 +2159,9 @@ export default class ReminderPlugin extends Plugin {
         detail.menu.addItem({
             iconHTML: "",
             label: i18n("documentReminderManagement"),
-            click: () => {
+            click: async () => {
                 if (documentId) {
-                    const documentReminderDialog = new DocumentReminderDialog(documentId, this);
-                    documentReminderDialog.show();
+                    await ContextRemindersDialog.showForDocument(documentId, this);
                 }
             }
         });
@@ -2935,10 +2177,10 @@ export default class ReminderPlugin extends Plugin {
 
                     if (isProject) {
                         // 打开项目看板
-                        this.openProjectKanbanTab(
-                            projectData[documentId].blockId,
-                            projectData[documentId].title
-                        );
+                        await executePluginAction(this, "openProjectKanban", {
+                            projectId: projectData[documentId].blockId,
+                            projectTitle: projectData[documentId].title,
+                        });
                     } else {
                         const dialog = new ProjectDialog(documentId, this);
                         dialog.show();
@@ -3017,9 +2259,7 @@ export default class ReminderPlugin extends Plugin {
                     iconHTML: "",
                     label: "查看绑定任务",
                     click: async () => {
-                        const { BlockRemindersDialog } = await import("./components/BlockRemindersDialog");
-                        const dialog = new BlockRemindersDialog(blockId, this);
-                        await dialog.show();
+                        await ContextRemindersDialog.showForBlock(blockId, this);
                     }
                 });
             }
@@ -3076,9 +2316,7 @@ export default class ReminderPlugin extends Plugin {
                 dialog.show();
             }
         } else {
-            const settings = await this.loadSettings();
-            if (settings.showAdvancedFeatures !== true) {
-                showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
+            if (!(await this.ensureAdvancedFeatureEnabled())) {
                 return;
             }
 
@@ -3112,13 +2350,12 @@ export default class ReminderPlugin extends Plugin {
         // 监听来自其他窗口的消息
         this.coordinatorChannel.onmessage = (event) => {
             const type = event.data?.type;
-            if (type === 'reminderUpdated' || type === 'habitUpdated') {
+            if (type === 'reminderUpdated') {
                 // 转发给当前窗口的其他组件，附带标记避免循环发送
                 window.dispatchEvent(new CustomEvent(type, { detail: { _fromSync: true } }));
                 // 刷新徽章
                 this.updateBadges();
                 this.updateProjectBadges();
-                this.updateHabitBadges();
             } else if (type === 'pomodoroQueryActive') {
                 // 若本窗口有活跃的番茄钟，通知询问方无需再次恢复
                 if (PomodoroManager.getInstance().hasActivePomodoroTimer()) {
@@ -3134,11 +2371,9 @@ export default class ReminderPlugin extends Plugin {
         };
 
         window.addEventListener('reminderUpdated', broadcastEvent as any);
-        window.addEventListener('habitUpdated', broadcastEvent as any);
 
         this.addCleanup(() => {
             window.removeEventListener('reminderUpdated', broadcastEvent as any);
-            window.removeEventListener('habitUpdated', broadcastEvent as any);
         });
     }
 
@@ -3241,13 +2476,6 @@ export default class ReminderPlugin extends Plugin {
                 console.warn('加载订阅任务失败，跳过订阅提醒检查:', err);
             }
             await this.checkTimeReminders(reminderDataForTimeCheck, getLocalDateString(), currentTime);
-
-            // 检查习惯提醒（当有习惯在今日设置了 reminderTime 时，也应触发提醒）
-            try {
-                await this.checkHabitReminders(today, currentTime);
-            } catch (err) {
-                console.warn('检查习惯提醒失败:', err);
-            }
 
             // 只在设置的时间后进行全天事项的每日汇总提醒检查
             if (currentTimeNumber < dailyNotificationTimeNumber) {
@@ -3883,188 +3111,6 @@ export default class ReminderPlugin extends Plugin {
         return hours * 100 + minutes;
     }
 
-    /**
-     * 检查习惯是否在给定日期应该打卡（基于 HabitPanel 的实现复制）
-     */
-    private shouldCheckHabitOnDate(habit: any, date: string): boolean {
-        const frequency = habit.frequency || { type: 'daily' };
-        const checkDate = new Date(date);
-        const startDate = new Date(habit.startDate);
-
-        switch (frequency.type) {
-            case 'daily':
-                if (frequency.interval) {
-                    const daysDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / 86400000);
-                    return daysDiff % frequency.interval === 0;
-                }
-                return true;
-
-            case 'weekly':
-                if (frequency.weekdays && frequency.weekdays.length > 0) {
-                    return frequency.weekdays.includes(checkDate.getDay());
-                }
-                if (frequency.interval) {
-                    const weeksDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / (86400000 * 7));
-                    return weeksDiff % frequency.interval === 0 && checkDate.getDay() === startDate.getDay();
-                }
-                return checkDate.getDay() === startDate.getDay();
-
-            case 'monthly':
-                if (frequency.monthDays && frequency.monthDays.length > 0) {
-                    return frequency.monthDays.includes(checkDate.getDate());
-                }
-                if (frequency.interval) {
-                    const monthsDiff = (checkDate.getFullYear() - startDate.getFullYear()) * 12 +
-                        (checkDate.getMonth() - startDate.getMonth());
-                    return monthsDiff % frequency.interval === 0 && checkDate.getDate() === startDate.getDate();
-                }
-                return checkDate.getDate() === startDate.getDate();
-
-            case 'yearly':
-                if (frequency.interval) {
-                    const yearsDiff = checkDate.getFullYear() - startDate.getFullYear();
-                    return yearsDiff % frequency.interval === 0 &&
-                        checkDate.getMonth() === startDate.getMonth() &&
-                        checkDate.getDate() === startDate.getDate();
-                }
-                return checkDate.getMonth() === startDate.getMonth() &&
-                    checkDate.getDate() === startDate.getDate();
-
-            case 'custom':
-                if (frequency.weekdays && frequency.weekdays.length > 0) {
-                    return frequency.weekdays.includes(checkDate.getDay());
-                }
-                if (frequency.monthDays && frequency.monthDays.length > 0) {
-                    return frequency.monthDays.includes(checkDate.getDate());
-                }
-                return true;
-
-            default:
-                return true;
-        }
-    }
-
-    private isHabitCompletedOnDate(habit: any, date: string): boolean {
-        const checkIn = habit.checkIns?.[date];
-        if (!checkIn) return false;
-        return (checkIn.count || 0) >= (habit.target || 1);
-    }
-
-    // 检查习惯的时间提醒并触发通知
-    private async checkHabitReminders(today: string, currentTime: string) {
-        try {
-            const habitData = await this.loadHabitData();
-            if (!habitData || typeof habitData !== 'object') return;
-
-            const currentNum = this.timeStringToNumber(currentTime);
-            let playSoundOnce = false;
-
-            for (const habit of Object.values(habitData) as any[]) {
-                try {
-                    if (!habit || typeof habit !== 'object') continue;
-
-                    // 需要设置 reminder times 才会被触发（兼容旧属性 reminderTime）
-                    const times: { time: string; note?: string }[] = [];
-                    if (Array.isArray(habit.reminderTimes) && habit.reminderTimes.length > 0) {
-                        habit.reminderTimes.forEach((rt: any) => {
-                            if (typeof rt === 'string') {
-                                times.push({ time: rt });
-                            } else if (typeof rt === 'object' && rt.time) {
-                                times.push(rt);
-                            }
-                        });
-                    } else if (habit.reminderTime) {
-                        times.push({ time: habit.reminderTime });
-                    }
-                    if (times.length === 0) continue;
-
-                    // 如果不在起止日期内，跳过
-                    if (habit.startDate && habit.startDate > today) continue;
-                    if (habit.endDate && habit.endDate < today) continue;
-
-                    // 频率检查
-                    if (!this.shouldCheckHabitOnDate(habit, today)) continue;
-
-                    // 如果今日已经打卡完成，则不再提醒
-                    if (this.isHabitCompletedOnDate(habit, today)) continue;
-
-
-                    // 对每个提醒时间进行判断（可能为时间或带日期的时间）
-                    for (const rtObj of times) {
-                        const rt = rtObj.time;
-                        const parsed = this.extractDateAndTime(rt);
-                        if (parsed.date && parsed.date !== today) continue;
-                        const habitTimeNum = this.timeStringToNumber(rt);
-                        if (habitTimeNum === 0) continue; // 无法解析的时间
-                        // 只检测当前分钟，不检测过期提醒
-                        if (currentNum !== habitTimeNum) continue;
-
-                        // 使用内存中的标记避免重复提醒
-                        const notifyKey = `${habit.id}_${today}_${parsed.time || rt}`;
-                        if (this.notifiedHabits.has(notifyKey)) continue;
-
-                        // 二次检查持久化记录
-                        if (await this.hasReminderNotified(notifyKey)) {
-                            this.notifiedHabits.set(notifyKey, true);
-                            continue;
-                        }
-
-                        // 触发通知（仅第一次触发时播放音效）
-                        if (!playSoundOnce) {
-                            await this.playNotificationSound();
-                            playSoundOnce = true;
-                        }
-
-                        // 构建提醒信息并显示内部通知对话框
-                        const reminderInfo = {
-                            id: habit.id,
-                            blockId: habit.blockId || '',
-                            title: habit.title || i18n('unnamedNote'),
-                            note: rtObj.note || habit.note || '',
-                            priority: habit.priority || 'none',
-                            categoryId: habit.groupId || undefined,
-                            time: parsed.time || rt,
-                            date: today,
-                            isAllDay: false
-                        };
-
-                        // 显示系统弹窗（如果启用）
-                        const systemNotificationEnabled = await this.getReminderSystemNotificationEnabled();
-                        const isMobileDevice = getFrontend().endsWith('mobile') || getBackend().endsWith('android') || getBackend().endsWith('ios');
-                        const showInternalNotification = await this.getShowInternalNotificationEnabled();
-
-                        // 根据设置决定是否显示内部通知框
-                        if (showInternalNotification) {
-                            NotificationDialog.show(reminderInfo as any);
-                        }
-
-                        // 桌面端：如果启用了系统通知，显示浏览器通知
-                        // 移动端：系统定时通知由 scheduleMobileNotification 设置，不在此处处理
-                        if (systemNotificationEnabled && !isMobileDevice) {
-                            // 统一标题格式：习惯提醒
-                            const title = `⏰ ${i18n('habitReminder')}`;
-                            let message = `${reminderInfo.title}`;
-                            if (reminderInfo.time) {
-                                message += `\n⏰ ${reminderInfo.time}`;
-                            }
-                            if (reminderInfo.note) {
-                                message += `\n📝 ${reminderInfo.note}`;
-                            }
-                            await this.showReminderSystemNotification(title, message, reminderInfo);
-                        }
-
-                        // 标记已通知，避免重复通知
-                        this.notifiedHabits.set(notifyKey, true);
-                        await this.markReminderNotified(notifyKey);
-                    }
-                } catch (err) {
-                    console.warn('处理单个习惯时出错', err);
-                }
-            }
-        } catch (error) {
-            console.error('检查习惯提醒失败:', error);
-        }
-    }
     // 显示时间提醒
     private async showTimeReminder(reminder: any, triggerField: 'time' | 'customReminderTime' = 'time') {
         try {
@@ -4309,17 +3355,7 @@ export default class ReminderPlugin extends Plugin {
 
     // 打开四象限矩阵标签页
     async openEisenhowerMatrixTab() {
-        try {
-            const settings = await this.loadSettings();
-            if (settings.showAdvancedFeatures !== true) {
-                showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
-                this.openCalendarTab();
-                return;
-            }
-        } catch (error) {
-            console.warn('检查高级功能开关失败，按默认简化模式处理:', error);
-            showMessage(i18n('showAdvancedFeaturesDesc'), 3000, 'info');
-            this.openCalendarTab();
+        if (!(await this.ensureAdvancedFeatureEnabled({ fallbackToCalendar: true }))) {
             return;
         }
 
@@ -4367,629 +3403,6 @@ export default class ReminderPlugin extends Plugin {
         }
     }
 
-    private async addBreadcrumbReminderButton(protyle: any) {
-        if (!protyle || !protyle.element) return;
-
-        const breadcrumb = protyle.element.querySelector('.protyle-breadcrumb');
-        if (!breadcrumb) return;
-
-        // 查找文档按钮
-        const docButton = breadcrumb.querySelector('button[data-type="doc"]');
-        if (!docButton) return;
-
-
-        // --- Project Button ---
-        const documentId = protyle.block?.rootID;
-        if (!documentId) return;
-
-        const projectData = await this.loadProjectData();
-        const isProject = projectData && projectData.hasOwnProperty(documentId);
-
-        const existingProjectButton = breadcrumb.querySelector('.project-breadcrumb-btn');
-        if (isProject) {
-            if (!existingProjectButton) {
-                const projectBtn = document.createElement('button');
-                projectBtn.className = 'project-breadcrumb-btn block__icon fn__flex-center ariaLabel';
-                projectBtn.setAttribute('aria-label', i18n("projectManagement"));
-                projectBtn.innerHTML = `<svg class="b3-list-item__graphic"><use xlink:href="#iconProject"></use></svg>`;
-                projectBtn.style.cssText = `
-                    margin-right: 4px;
-                    padding: 4px;
-                    border: none;
-                    background: transparent;
-                    cursor: pointer;
-                    border-radius: 4px;
-                    color: var(--b3-theme-on-background);
-                    opacity: 0.7;
-                    transition: all 0.2s ease;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 24px;
-                    height: 24px;
-                `;
-
-                projectBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.openProjectKanbanTab(
-                        projectData[documentId].blockId,
-                        projectData[documentId].title
-                    );
-                });
-                breadcrumb.insertBefore(projectBtn, docButton);
-            }
-        } else {
-            if (existingProjectButton) {
-                existingProjectButton.remove();
-            }
-        }
-
-    }
-
-    /**
-     * 处理单个 Node 的按钮（用于 MutationObserver 的快速响应）
-     */
-    private _processSingleBlock(protyle: any, node: Element) {
-        if (!node || !node.getAttribute) return;
-
-        // 总是找到最近的块元素
-        const blockEl = (node.hasAttribute('data-node-id') ? node : node.closest('[data-node-id]')) as HTMLElement;
-        if (!blockEl) return;
-
-        const blockId = blockEl.getAttribute('data-node-id');
-        if (!blockId) return;
-
-        // 在块元素上检查属性
-        const rawAttr = blockEl.getAttribute('custom-task-projectid');
-        const hasBind = blockEl.hasAttribute('custom-bind-reminders');
-        const rawMilestones = blockEl.getAttribute('custom-bind-milestones');
-        const milestoneProjectId = blockEl.getAttribute('custom-task-projectid');
-
-        const projectIds = rawAttr ? rawAttr.split(',').map(s => s.trim()).filter(s => s) : [];
-        const milestoneIds = rawMilestones ? rawMilestones.split(',').map(s => s.trim()).filter(s => s) : [];
-
-        const info = {
-            projectIds,
-            hasBind,
-            milestoneIds,
-            milestoneProjectId: milestoneProjectId || undefined,
-            element: blockEl // 传递块元素本身作为 sourceElement
-        };
-
-        // 如果既没有项目引用也没有绑定也没有里程碑，且存在旧按钮，则需要移除
-        if (!rawAttr && !hasBind && !rawMilestones) {
-            const btns = protyle.element.querySelectorAll(`[data-block-id="${blockId}"][data-plugin-added="reminder-plugin"]`);
-            if (btns.length > 0) {
-                btns.forEach((b: Element) => b.remove());
-            }
-            return;
-        }
-
-        // Prevent redundant processing if logic is already running for this block
-        if (this.processingBlockButtons.has(blockId)) return;
-
-        this.processingBlockButtons.add(blockId);
-        try {
-            this._processBlockButtons(protyle, blockId, info);
-        } finally {
-            this.processingBlockButtons.delete(blockId);
-        }
-    }
-
-    /**
-     * 在当前 protyle 的每个块旁边（protyle-attr）添加项目打开按钮
-     * 优化版本：使用延迟执行和更高效的DOM操作，有属性即显示按钮
-     */
-    /**
-     * 扫描 Protyle 内容并更新项目/绑定/里程碑按钮
-     */
-    private _scanProtyleForButtons(protyle: any) {
-        try {
-            if (!protyle || !protyle.element) return;
-
-            // 仅扫描具有自定义项目属性或绑定属性或里程碑属性的节点
-            const selector = 'div[data-node-id][custom-task-projectid], .protyle-wysiwyg[custom-task-projectid], div[data-node-id][custom-bind-reminders], .protyle-wysiwyg[custom-bind-reminders], div[data-node-id][custom-bind-milestones], .protyle-wysiwyg[custom-bind-milestones]';
-            const allBlocks = Array.from(protyle.element.querySelectorAll(selector)) as Element[];
-
-            if (allBlocks.length === 0) {
-                this._cleanupOrphanedButtons(protyle);
-                return;
-            }
-
-            // 预处理：收集所有需要处理的块信息
-            const blocksToProcess = new Map<string, { projectIds: string[], hasBind: boolean, milestoneIds: string[], milestoneProjectId?: string, element: Element }>();
-
-            for (const node of allBlocks) {
-                const blockId = node.getAttribute('data-node-id') || this._getBlockIdFromElement(node);
-                if (!blockId) continue;
-
-                const rawAttr = node.getAttribute('custom-task-projectid');
-                const projectIds = rawAttr ? rawAttr.split(',').map(s => s.trim()).filter(s => s) : [];
-                const hasBind = node.hasAttribute('custom-bind-reminders');
-                const rawMilestones = node.getAttribute('custom-bind-milestones');
-                const milestoneIds = rawMilestones ? rawMilestones.split(',').map(s => s.trim()).filter(s => s) : [];
-                const milestoneProjectId = node.getAttribute('custom-task-projectid') || undefined;
-
-                blocksToProcess.set(blockId, {
-                    projectIds,
-                    hasBind,
-                    milestoneIds,
-                    milestoneProjectId,
-                    element: node
-                });
-            }
-
-            // 批量清理旧按钮
-            this._cleanupOrphanedButtons(protyle, blocksToProcess);
-
-            // 批量处理块
-            for (const [blockId, info] of blocksToProcess) {
-                if (this.processingBlockButtons.has(blockId)) continue;
-                this.processingBlockButtons.add(blockId);
-                try {
-                    this._processBlockButtons(protyle, blockId, info);
-                } finally {
-                    this.processingBlockButtons.delete(blockId);
-                }
-            }
-        } catch (error) {
-            console.error('扫描块按钮失败:', error);
-        }
-    }
-
-    /**
-     * 在当前 protyle 的每个块旁边（protyle-attr）添加项目打开按钮
-     * 优化版本：使用 MutationObserver 监听 DOM 变化，确保按钮及时更新
-     */
-    private async addBlockProjectButtonsToProtyle(protyle: any) {
-        if (!protyle || !protyle.element) return;
-
-        // 1. 立即执行一次扫描
-        this._scanProtyleForButtons(protyle);
-
-        // 2. 设置 MutationObserver 监听后续变化
-        if (!this.protyleObservers.has(protyle.element)) {
-            const observer = new MutationObserver((mutations) => {
-                let shouldUpdate = false;
-                for (const mutation of mutations) {
-                    if (mutation.type === 'attributes') {
-                        // 监听关键属性变化，立即处理目标节点，减少 flicker
-                        shouldUpdate = true;
-                        const target = mutation.target as Element;
-                        this._processSingleBlock(protyle, target);
-                    } else if (mutation.type === 'childList') {
-                        if (mutation.addedNodes.length > 0) {
-                            shouldUpdate = true;
-                            // 对添加的节点进行快速检查
-                            mutation.addedNodes.forEach((node) => {
-                                if (node.nodeType === 1) { // Element
-                                    const el = node as Element;
-                                    // 检查节点本身
-                                    this._processSingleBlock(protyle, el);
-                                    // 检查子节点（限制层级或仅查找特定选择器以保证性能）
-                                    const relevantChildren = el.querySelectorAll?.('div[data-node-id][custom-task-projectid], div[data-node-id][custom-bind-reminders], .protyle-wysiwyg[custom-task-projectid], .protyle-wysiwyg[custom-bind-reminders]');
-                                    if (relevantChildren && relevantChildren.length > 0) {
-                                        relevantChildren.forEach(child => this._processSingleBlock(protyle, child));
-                                    }
-                                }
-                            });
-                        }
-                        if (mutation.removedNodes.length > 0) {
-                            shouldUpdate = true;
-                        }
-                    }
-                }
-
-                if (shouldUpdate) {
-                    const element = protyle.element;
-                    const existingTimer = this.protyleDebounceTimers.get(element);
-                    if (existingTimer) {
-                        window.clearTimeout(existingTimer);
-                    }
-
-                    const timer = window.setTimeout(() => {
-                        this._scanProtyleForButtons(protyle);
-                    }, 50); // 降低防抖时间到 50ms 以加快一致性检查
-
-                    this.protyleDebounceTimers.set(element, timer);
-                }
-            });
-
-            observer.observe(protyle.element, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                // 监听更多属性以应对思源对 DOM 的重构
-                attributeFilter: ['custom-task-projectid', 'custom-bind-reminders', 'custom-bind-milestones', 'updated', 'bookmark']
-            });
-
-            // 额外监听属性栏本身的变化，有些时候思源会重写 protyle-attr
-            const attrObserver = new MutationObserver((mutations) => {
-                for (const m of mutations) {
-                    if (m.target instanceof Element && m.target.classList.contains('protyle-attr')) {
-                        const block = m.target.closest('[data-node-id]');
-                        if (block) this._processSingleBlock(protyle, block);
-                    }
-                }
-            });
-            attrObserver.observe(protyle.element, {
-                childList: true,
-                subtree: true
-            });
-
-            this.protyleObservers.set(protyle.element, observer);
-
-            // 注册清理逻辑 (当插件卸载时)
-            this.addCleanup(() => {
-                observer.disconnect();
-                attrObserver.disconnect();
-                this.protyleObservers.delete(protyle.element);
-            });
-        }
-    }
-
-    // 从元素获取块ID的辅助方法
-    private _getBlockIdFromElement(element: Element): string | null {
-        // 优先使用 data-node-id
-        let id = element.getAttribute('data-node-id');
-        if (id) return id;
-
-        // 处理 protyle-wysiwyg 情况
-        if (element.classList.contains('protyle-wysiwyg')) {
-            const prev = element.previousElementSibling;
-            if (prev?.classList.contains('protyle-top')) {
-                const titleEl = prev.querySelector('.protyle-title');
-                id = titleEl?.getAttribute('data-node-id') || titleEl?.closest('[data-node-id]')?.getAttribute('data-node-id') || null;
-            }
-        }
-
-        // 回退到最近的祖先
-        if (!id) {
-            id = element.closest('[data-node-id]')?.getAttribute('data-node-id') || null;
-        }
-
-        return id;
-    }
-
-    // 清理孤立的按钮
-    private _cleanupOrphanedButtons(protyle: any, activeBlocks?: Map<string, any>) {
-        if (!activeBlocks) return; // 如果没有提供活跃块列表（例如初始全量扫描），则不执行移除逻辑，由 _processBlockButtons 处理
-
-        const activeBlockIds = new Set(activeBlocks.keys());
-
-        // 清理并去重项目按钮：对于同一 (blockId, projectId) 只保留第一个
-        const projectButtons = Array.from(protyle.element.querySelectorAll('.block-project-btn')) as HTMLElement[];
-        const seen = new Set<string>();
-        for (const btn of projectButtons) {
-            const blockId = btn.dataset.blockId || btn.closest('[data-node-id]')?.getAttribute('data-node-id');
-            const projectId = btn.dataset.projectId || btn.getAttribute('data-project-id') || '';
-            const key = `${blockId || ''}|${projectId}`;
-
-            if (!blockId || !activeBlockIds.has(blockId)) {
-                btn.remove();
-                continue;
-            }
-
-            if (seen.has(key)) {
-                btn.remove();
-                continue;
-            }
-            seen.add(key);
-        }
-
-        // 清理并去重绑定按钮：对于同一 blockId 只保留一个
-        const bindButtons = Array.from(protyle.element.querySelectorAll('.block-bind-reminders-btn')) as HTMLElement[];
-        const seenBind = new Set<string>();
-        for (const btn of bindButtons) {
-            const blockId = btn.dataset.blockId || btn.closest('[data-node-id]')?.getAttribute('data-node-id');
-            if (!blockId || !activeBlockIds.has(blockId)) {
-                btn.remove();
-                continue;
-            }
-            if (seenBind.has(blockId)) {
-                btn.remove();
-                continue;
-            }
-            seenBind.add(blockId);
-        }
-
-        // 清理并去重里程碑按钮：对于同一 blockId 只保留一个
-        const milestoneButtons = Array.from(protyle.element.querySelectorAll('.block-milestone-btn')) as HTMLElement[];
-        const seenMilestone = new Set<string>();
-        for (const btn of milestoneButtons) {
-            const blockId = btn.dataset.blockId || btn.closest('[data-node-id]')?.getAttribute('data-node-id');
-            if (!blockId || !activeBlockIds.has(blockId)) {
-                btn.remove();
-                continue;
-            }
-            if (seenMilestone.has(blockId)) {
-                btn.remove();
-                continue;
-            }
-            seenMilestone.add(blockId);
-        }
-    }
-
-    // 处理单个块的按钮
-    private _processBlockButtons(protyle: any, blockId: string, info: { projectIds: string[], hasBind: boolean, milestoneIds?: string[], milestoneProjectId?: string, element: Element }) {
-        // 使用已知的 blockEl 或者在容器内查找
-        const blockEl = (info.element && info.element.getAttribute('data-node-id') === blockId) ?
-            info.element as HTMLElement :
-            protyle.element.querySelector(`[data-node-id="${blockId}"]`) as HTMLElement;
-
-        if (!blockEl) return;
-
-        const container = this._findButtonContainer(blockEl, info.element);
-        if (!container) return;
-
-        // 处理项目按钮
-        const existingProjectButtons = new Map<string, HTMLElement>();
-        container.querySelectorAll(`.block-project-btn[data-block-id="${blockId}"]`).forEach((btn: HTMLElement) => {
-            const pid = btn.dataset.projectId;
-            if (pid) existingProjectButtons.set(pid, btn);
-        });
-
-        // 添加或更新项目按钮
-        for (const pid of info.projectIds) {
-            const existingBtn = existingProjectButtons.get(pid);
-            if (!existingBtn) {
-                const btn = this._createProjectButton(pid, blockId);
-                container.appendChild(btn);
-            } else {
-                // 如果已存在但位置发生了微调或不在当前容器（虽然 container.querySelectorAll 已限制范围，但为了严谨性），确保其仍在
-                if (existingBtn.parentElement !== container) {
-                    container.appendChild(existingBtn);
-                }
-            }
-        }
-
-        // 移除不需要的项目按钮
-        for (const [pid, btn] of existingProjectButtons) {
-            if (!info.projectIds.includes(pid)) {
-                btn.remove();
-            }
-        }
-
-        // 处理绑定按钮
-        const existingBindBtn = container.querySelector(`.block-bind-reminders-btn[data-block-id="${blockId}"]`) as HTMLElement;
-        if (info.hasBind) {
-            if (!existingBindBtn) {
-                const bindBtn = this._createBindButton(blockId);
-                container.appendChild(bindBtn);
-            } else if (existingBindBtn.parentElement !== container) {
-                container.appendChild(existingBindBtn);
-            }
-        } else if (existingBindBtn) {
-            existingBindBtn.remove();
-        }
-
-        // 处理里程碑按钮
-        const existingMilestoneBtn = container.querySelector(`.block-milestone-btn[data-block-id="${blockId}"]`) as HTMLElement;
-        if (info.milestoneIds && info.milestoneIds.length > 0 && info.milestoneProjectId) {
-            if (!existingMilestoneBtn) {
-                const milestoneBtn = this._createMilestoneButton(blockId, info.milestoneProjectId, info.milestoneIds);
-                container.appendChild(milestoneBtn);
-            } else {
-                // 更新现有按钮的数据
-                existingMilestoneBtn.dataset.milestoneIds = info.milestoneIds.join(',');
-                existingMilestoneBtn.dataset.projectId = info.milestoneProjectId;
-                if (existingMilestoneBtn.parentElement !== container) {
-                    container.appendChild(existingMilestoneBtn);
-                }
-            }
-        } else if (existingMilestoneBtn) {
-            existingMilestoneBtn.remove();
-        }
-    }
-
-    // 查找按钮容器
-    private _findButtonContainer(blockEl: HTMLElement, sourceElement: Element): HTMLElement | null {
-        // 检查是否为文档级
-        const isDocumentLevel = sourceElement.classList.contains('protyle-wysiwyg');
-
-        if (isDocumentLevel) {
-            // 文档级：查找标题区域
-            const protyleRoot = sourceElement.closest('.protyle');
-            if (protyleRoot) {
-                const titleElement = protyleRoot.querySelector('.protyle-top .protyle-title.protyle-wysiwyg--attr') ||
-                    protyleRoot.querySelector('.protyle-top .protyle-title');
-                if (!titleElement) return null;
-                // 查找直接子级属性栏
-                const attr = Array.from(titleElement.children).find(c => c.classList.contains('protyle-attr'));
-                return (attr || titleElement) as HTMLElement;
-            }
-        } else {
-            // 普通块：优先使用直属属性栏 (protyle-attr)，避免查找到嵌套块（如列表项中的第一段）的属性栏
-            const directAttr = Array.from(blockEl.children).find(child => child.classList.contains('protyle-attr'));
-            if (directAttr) return directAttr as HTMLElement;
-
-            // 回退逻辑
-            return (blockEl.querySelector('.protyle-title') ||
-                blockEl.firstElementChild) as HTMLElement;
-        }
-
-        return null;
-    }
-
-    // 创建项目按钮
-    private _createProjectButton(projectId: string, blockId: string): HTMLElement {
-        const btn = document.createElement('button');
-        btn.className = 'block-project-btn block__icon fn__flex-center ariaLabel';
-        btn.setAttribute('aria-label', `打开项目看板: ${this.projectDataCache[projectId]?.title}`);
-        btn.style.cssText = `
-            margin-left: 6px;
-            padding: 2px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            border-radius: 3px;
-            color: var(--b3-theme-on-background);
-            opacity: 0.85;
-            transition: all 0.12s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 22px;
-            height: 22px;
-        `;
-        btn.innerHTML = `<svg class="b3-list-item__graphic" style="width:14px;height:14px"><use xlink:href="#iconProject"></use></svg>`;
-        btn.dataset.projectId = projectId;
-        btn.dataset.blockId = blockId;
-        btn.setAttribute('data-plugin-added', 'reminder-plugin');
-        btn.title = i18n('openProjectKanban');
-
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            try {
-                const projectData = await this.loadProjectData();
-                const project = projectData[projectId];
-                const title = project ? project.title : projectId;
-                this.openProjectKanbanTab(projectId, title);
-            } catch (error) {
-                console.error('打开项目看板失败:', error);
-                this.openProjectKanbanTab(projectId, projectId);
-            }
-        });
-
-        return btn;
-    }
-
-    // 创建绑定按钮
-    private _createBindButton(blockId: string): HTMLElement {
-        const btn = document.createElement('button');
-        btn.className = 'block-bind-reminders-btn block__icon fn__flex-center ariaLabel';
-        btn.setAttribute('aria-label', '查看绑定任务');
-        btn.style.cssText = `
-            margin-left: 6px;
-            padding: 2px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            border-radius: 3px;
-            color: var(--b3-theme-on-background);
-            opacity: 0.85;
-            transition: all 0.12s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 22px;
-            height: 22px;
-        `;
-        btn.innerHTML = `<span style="font-size:14px;line-height:1"></span>`;
-        btn.dataset.blockId = blockId;
-        btn.setAttribute('data-plugin-added', 'reminder-plugin');
-        btn.title = '查看绑定任务';
-
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            try {
-                const { BlockRemindersDialog } = await import('./components/BlockRemindersDialog');
-                const dialog = new BlockRemindersDialog(blockId, this);
-                await dialog.show();
-            } catch (err) {
-                console.error('打开块绑定任务对话框失败:', err);
-            }
-        });
-
-        return btn;
-    }
-
-    // 创建里程碑按钮
-    private _createMilestoneButton(blockId: string, projectId: string, milestoneIds: string[]): HTMLElement {
-        const btn = document.createElement('button');
-        btn.className = 'block-milestone-btn block__icon fn__flex-center ariaLabel';
-        btn.setAttribute('aria-label', '查看里程碑任务');
-        btn.style.cssText = `
-            margin-left: 6px;
-            padding: 2px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            border-radius: 3px;
-            color: var(--b3-theme-on-background);
-            opacity: 0.85;
-            transition: all 0.12s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 22px;
-            height: 22px;
-        `;
-        btn.innerHTML = `<span style="font-size:14px;line-height:1">🚩</span>`;
-        btn.dataset.blockId = blockId;
-        btn.dataset.projectId = projectId;
-        btn.dataset.milestoneIds = milestoneIds.join(',');
-        btn.setAttribute('data-plugin-added', 'reminder-plugin');
-        btn.title = '查看里程碑任务';
-
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            try {
-                // 获取第一个里程碑ID来显示对话框
-                const firstMilestoneId = milestoneIds[0];
-                if (!firstMilestoneId) return;
-
-                // 加载项目数据获取里程碑信息
-                const projectData = await this.loadProjectData();
-                const project = projectData[projectId];
-
-                // 查找里程碑
-                let milestone: any = null;
-                let groupId: string | null = null;
-
-                // 先从项目里程碑中查找
-                if (project?.milestones) {
-                    milestone = project.milestones.find((m: any) => m.id === firstMilestoneId);
-                }
-
-                // 如果没找到，从分组里程碑中查找
-                if (!milestone) {
-                    const { ProjectManager } = await import('./utils/projectManager');
-                    const projectManager = ProjectManager.getInstance(this);
-                    const groups = await projectManager.getProjectCustomGroups(projectId);
-
-                    for (const group of groups) {
-                        if (group.milestones) {
-                            milestone = group.milestones.find((m: any) => m.id === firstMilestoneId);
-                            if (milestone) {
-                                groupId = group.id;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!milestone) {
-                    console.warn('Milestone not found:', firstMilestoneId);
-                    return;
-                }
-
-                // 获取或创建项目看板视图实例
-                const tabId = this.name + PROJECT_KANBAN_TAB_TYPE + projectId;
-                let kanbanView = this.tabViews.get(tabId);
-
-                if (kanbanView && typeof kanbanView.showMilestoneTasksDialog === 'function') {
-                    // 如果看板视图已存在，直接调用
-                    await kanbanView.showMilestoneTasksDialog(milestone, groupId);
-                } else {
-                    // 否则动态导入并创建临时实例
-                    const { ProjectKanbanView } = await import('./components/ProjectKanbanView');
-                    const tempContainer = document.createElement('div');
-                    const tempView = new ProjectKanbanView(tempContainer, this, projectId);
-                    await tempView.showMilestoneTasksDialog(milestone, groupId);
-                }
-            } catch (err) {
-                console.error('打开里程碑任务对话框失败:', err);
-            }
-        });
-
-        return btn;
-    }
-
     /**
      * 注册快捷键命令
      */
@@ -4999,16 +3412,16 @@ export default class ReminderPlugin extends Plugin {
             langKey: "shortcutOpenCalendarView",
             hotkey: "",
             editorCallback: () => {
-                this.openCalendarTab();
+                void executePluginAction(this, "openCalendar");
             },
             callback: () => {
-                this.openCalendarTab();
+                void executePluginAction(this, "openCalendar");
             },
             fileTreeCallback: () => {
-                this.openCalendarTab();
+                void executePluginAction(this, "openCalendar");
             },
             dockCallback: () => {
-                this.openCalendarTab();
+                void executePluginAction(this, "openCalendar");
             }
         });
 
@@ -5102,10 +3515,10 @@ export default class ReminderPlugin extends Plugin {
 
                     if (isProject) {
                         // 打开项目看板
-                        this.openProjectKanbanTab(
-                            projectData[documentId].blockId,
-                            projectData[documentId].title
-                        );
+                        await executePluginAction(this, "openProjectKanban", {
+                            projectId: projectData[documentId].blockId,
+                            projectTitle: projectData[documentId].title,
+                        });
                     } else {
                         const dialog = new ProjectDialog(documentId, this);
                         dialog.show();
@@ -5117,7 +3530,45 @@ export default class ReminderPlugin extends Plugin {
             }
         });
 
+        this.addCommand({
+            langKey: "shortcutMiniPomodoro",
+            hotkey: "",
+            callback: () => {
+                void executePluginAction(this, "toggleMiniPomodoro");
+            },
+            editorCallback: () => {
+                void executePluginAction(this, "toggleMiniPomodoro");
+            },
+            fileTreeCallback: () => {
+                void executePluginAction(this, "toggleMiniPomodoro");
+            },
+            dockCallback: () => {
+                void executePluginAction(this, "toggleMiniPomodoro");
+            }
+        });
 
+
+    }
+
+    private miniPomodoroRing: MiniPomodoroRing | null = null;
+
+    public async toggleMiniPomodoroRing() {
+        if (this.miniPomodoroRing && this.miniPomodoroRing.isVisible()) {
+            this.miniPomodoroRing.destroy();
+            this.miniPomodoroRing = null;
+            showMessage(i18n('miniPomodoroClosed') || '迷你番茄钟已关闭');
+        } else {
+            this.miniPomodoroRing = MiniPomodoroRing.getInstance(this);
+            await this.miniPomodoroRing.showAndStart();
+            showMessage(i18n('miniPomodoroOpened') || '迷你番茄钟已启动');
+        }
+    }
+
+    public async showMiniPomodoroRing(taskTitle?: string, taskId?: string) {
+        if (!this.miniPomodoroRing) {
+            this.miniPomodoroRing = MiniPomodoroRing.getInstance(this);
+        }
+        await this.miniPomodoroRing.showAndStart(taskTitle, taskId);
     }
 
     onunload() {
@@ -5179,13 +3630,10 @@ export default class ReminderPlugin extends Plugin {
                 this.loadProjectData(true),
                 this.loadProjectStatus(true),
                 this.loadCategories(true),
-                this.loadHabitData(true),
-                this.loadHabitGroupData(true),
                 this.loadPomodoroRecords(true),
                 this.isMobileDevice() ? this.loadMobileNotifyData() : Promise.resolve(),
             ]);
             window.dispatchEvent(new CustomEvent('reminderUpdated'));
-            window.dispatchEvent(new CustomEvent('habitUpdated'));
 
             // 移动端：数据变化时（包括从其他设备同步），清空当前设备的通知记录并重新生成。
             if (this.isMobileDevice()) {
@@ -5857,528 +4305,5 @@ export default class ReminderPlugin extends Plugin {
     async getRemoveDateAfterDetectionEnabled(): Promise<boolean> {
         const mode = await this.getRemoveDateAfterDetectionMode();
         return mode !== 'none';
-    }
-
-    /**
-     * 打开番茄钟独立窗口
-     * @param reminder 提醒对象
-     * @param settings 番茄钟设置
-     * @param isCountUp 是否正计时模式
-     * @param inheritState 继承的状态
-     */
-    // 初始化ICS云端同步
-    private async initIcsSync() {
-        const settings = await this.loadSettings();
-        if (settings.icsSyncEnabled && settings.icsSyncInterval && settings.icsSyncInterval !== 'manual') {
-            // 启用时执行：如果是 dailyAt 模式，不立即执行，等待到指定时间点
-            const executeImmediately = settings.icsSyncInterval !== 'dailyAt';
-            await this.scheduleIcsSync(settings.icsSyncInterval as any, executeImmediately);
-        }
-    }
-
-    // 调度ICS同步
-    private async scheduleIcsSync(interval: 'manual' | '15min' | 'hourly' | '4hour' | '12hour' | 'daily' | 'dailyAt', executeImmediately: boolean = true) {
-        // 如果是手动模式，不启动定时同步
-        if (interval === 'manual') {
-            if (this.icsSyncTimer) {
-                clearInterval(this.icsSyncTimer);
-                this.icsSyncTimer = null;
-            }
-            return;
-        }
-        // 使用短轮询（例如每30s）比较时间是否达到预定的下次同步时间，避免长期 setInterval 被后台杀死的问题
-        if (this.icsSyncTimer) {
-            clearInterval(this.icsSyncTimer);
-        }
-
-        const intervalMsMap: Record<string, number> = {
-            '15min': 15 * 60 * 1000,
-            'hourly': 60 * 60 * 1000,
-            '4hour': 4 * 60 * 60 * 1000,
-            '12hour': 12 * 60 * 60 * 1000,
-            'daily': 24 * 60 * 60 * 1000,
-            'dailyAt': 24 * 60 * 60 * 1000, // 每天同步一次，按指定时间点
-        };
-        const intervalMs = intervalMsMap[interval] || 24 * 60 * 60 * 1000;
-        const shortPollMs = 30 * 1000; // 30s 检查一次
-
-        // 计算下次同步时间的函数
-        const calculateNextDueMs = async (): Promise<number> => {
-            const settings = await this.loadSettings();
-
-            // dailyAt 模式：按每天指定时间点
-            if (interval === 'dailyAt') {
-                const syncTime = settings.icsDailySyncTime || '08:00';
-                const [hours, minutes] = syncTime.split(':').map(Number);
-                const now = new Date();
-                const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
-
-                // 如果今天的时间已过，设置为明天
-                if (target.getTime() <= now.getTime()) {
-                    target.setDate(target.getDate() + 1);
-                }
-                return target.getTime();
-            }
-
-            // 其他模式：基于上次同步时间 + 间隔
-            if (settings && settings.icsLastSyncAt) {
-                const last = Date.parse(settings.icsLastSyncAt);
-                if (!isNaN(last)) {
-                    return last + intervalMs;
-                }
-            }
-            return Date.now() + intervalMs;
-        };
-
-        // 计算首次的 nextDue 时间
-        let nextDueMs: number;
-        try {
-            if (interval === 'dailyAt') {
-                // dailyAt 模式单独处理首次同步时间
-                const settings = await this.loadSettings();
-                const syncTime = settings.icsDailySyncTime || '08:00';
-                const [hours, minutes] = syncTime.split(':').map(Number);
-                const now = new Date();
-                const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
-
-                if (executeImmediately) {
-                    // 如果开启了立即执行，且今天的时间还没到，则等到指定时间
-                    nextDueMs = target.getTime();
-                } else {
-                    // 不立即执行：如果今天时间已过，设置为明天
-                    if (target.getTime() <= now.getTime()) {
-                        target.setDate(target.getDate() + 1);
-                    }
-                    nextDueMs = target.getTime();
-                }
-            } else if (interval === 'hourly' || interval === '4hour' || interval === '12hour') {
-                // 对齐到下一个整点或多个小时边界（例如每4小时、每12小时）
-                const d = new Date();
-                const h = d.getHours();
-                let step = 1;
-                if (interval === '4hour') step = 4;
-                else if (interval === '12hour') step = 12;
-                // 计算下一个 step 的边界小时（例如当前小时为 5，step=4 则下一个为 8）
-                const nextHour = Math.ceil((h + 1) / step) * step;
-                d.setHours(nextHour, 0, 0, 0);
-                nextDueMs = d.getTime();
-            } else {
-                // 其他间隔模式
-                const settings = await this.loadSettings();
-                if (settings && settings.icsLastSyncAt) {
-                    const last = Date.parse(settings.icsLastSyncAt);
-                    if (!isNaN(last)) {
-                        nextDueMs = last + intervalMs;
-                    } else {
-                        nextDueMs = Date.now() + intervalMs;
-                    }
-                } else {
-                    nextDueMs = executeImmediately ? Date.now() : Date.now() + intervalMs;
-                }
-            }
-        } catch (e) {
-            console.warn('计算 ICS 下次同步时间失败，使用默认策略:', e);
-            nextDueMs = Date.now() + intervalMs;
-        }
-
-        // 立即触发（当需要时）
-        if (executeImmediately && Date.now() >= nextDueMs) {
-            await this.performIcsSync();
-            nextDueMs = await calculateNextDueMs();
-        }
-
-        // 启动短轮询，比较当前时间与 nextDue
-        this.icsSyncTimer = window.setInterval(async () => {
-            if (!this.isPrimaryInstance()) return;
-            try {
-                const now = Date.now();
-                if (now < nextDueMs) return;
-
-                if (this.isPerformingIcsSync) return;
-                await this.performIcsSync();
-
-                // 同步成功后，重新计算下一次触发时间
-                nextDueMs = await calculateNextDueMs();
-            } catch (e) {
-                console.warn('短轮询触发 ICS 同步失败:', e);
-            }
-        }, shortPollMs);
-    }
-
-    // 执行ICS同步
-    private async performIcsSync() {
-        if (this.isPerformingIcsSync) return;
-        this.isPerformingIcsSync = true;
-        try {
-            const settings = await this.loadSettings();
-            if (!settings.icsSyncEnabled) return;
-
-            // 检查reminder.json是否有新事件
-            const reminderPath = 'data/storage/petal/siyuan-plugin-task-daily/reminder.json';
-            const stat = await getFileStat(reminderPath);
-            const lastSync = settings.icsLastSyncAt ? new Date(settings.icsLastSyncAt).getTime() : 0;
-            if (stat && stat.mtime <= lastSync) {
-                // 没有新事件，只更新同步时间
-                settings.icsLastSyncAt = new Date().toISOString();
-                await this.saveSettings(settings);
-                return;
-            }
-
-            await uploadIcsToCloud(this, settings, settings.icsSilentUpload);
-        } catch (error) {
-            console.error('ICS自动同步失败:', error);
-        } finally {
-            this.isPerformingIcsSync = false;
-        }
-    }
-
-    // 初始化ICS订阅同步
-    private async initIcsSubscriptionSync() {
-        try {
-
-            // 启动定时检查 (参考 ICS 云端同步的短轮询机制)
-            this.scheduleIcsSubscriptionSync();
-        } catch (error) {
-            console.error('初始化ICS订阅同步失败:', error);
-        }
-    }
-
-    // 安排ICS订阅定时同步
-    private async scheduleIcsSubscriptionSync() {
-        if (this.icsSubscriptionSyncTimer) {
-            window.clearInterval(this.icsSubscriptionSyncTimer);
-            this.icsSubscriptionSyncTimer = null;
-        }
-
-        const shortPollMs = 60 * 1000; // 每分钟检查一次是否需要同步
-        this.icsSubscriptionSyncTimer = window.setInterval(async () => {
-            if (!this.isPrimaryInstance()) return;
-            try {
-                await this.performIcsSubscriptionSync();
-            } catch (error) {
-                console.error('ICS订阅轮询同步检查失败:', error);
-            }
-        }, shortPollMs);
-    }
-
-    // 执行到期的订阅同步
-    private async performIcsSubscriptionSync() {
-        const { loadSubscriptions, syncSubscription, getSyncIntervalMs, saveSubscriptions } = await import('./utils/icsSubscription');
-
-        let data;
-        try {
-            data = await loadSubscriptions(this);
-        } catch (e) {
-            return;
-        }
-
-        const subscriptions = Object.values(data.subscriptions).filter((sub: any) => sub.enabled);
-        if (subscriptions.length === 0) return;
-
-        let changed = false;
-        const now = Date.now();
-
-        for (const sub of subscriptions as any[]) {
-            // 跳过手动模式的订阅
-            if (sub.syncInterval === 'manual') {
-                continue;
-            }
-
-            let shouldSync = false;
-
-            if (sub.syncInterval === 'dailyAt') {
-                // dailyAt 模式：按指定时间点同步
-                const syncTime = sub.dailySyncTime || '08:00';
-                const [hours, minutes] = syncTime.split(':').map(Number);
-                const nowTime = new Date();
-                const todaySyncTime = new Date(nowTime.getFullYear(), nowTime.getMonth(), nowTime.getDate(), hours, minutes, 0, 0).getTime();
-                const lastSyncMs = sub.lastSync ? Date.parse(sub.lastSync) : 0;
-
-                // 如果已经过了今天的同步时间点，且上次同步是在这个时间点之前
-                if (now >= todaySyncTime && lastSyncMs < todaySyncTime) {
-                    shouldSync = true;
-                }
-            } else {
-                // 其他模式：基于间隔时间
-                const intervalMs = getSyncIntervalMs(sub.syncInterval);
-                const lastSyncMs = sub.lastSync ? Date.parse(sub.lastSync) : 0;
-                shouldSync = now >= lastSyncMs + intervalMs;
-            }
-
-            // 如果到了同步时间
-            if (shouldSync) {
-                console.log(`[Timer] Syncing ICS subscription: ${sub.name}`);
-                const result = await syncSubscription(this, sub);
-
-                // 更新订阅状态信息
-                sub.lastSync = new Date().toISOString();
-                sub.lastSyncStatus = result.success ? 'success' : 'error';
-                if (!result.success) {
-                    sub.lastSyncError = result.error;
-                } else {
-                    sub.lastSyncError = undefined;
-                }
-
-                data.subscriptions[sub.id] = sub;
-                changed = true;
-            }
-        }
-
-        if (changed) {
-            await saveSubscriptions(this, data);
-        }
-    }
-
-    /**
-     * 执行数据迁移
-     */
-    private async performDataMigration() {
-        try {
-            const settings = await this.loadSettings();
-
-            // 检查是否需要迁移绑定块属性
-            if (!settings.datatransfer?.bindblockAddAttr) {
-                console.log('开始迁移绑定块属性...');
-                await this.migrateBindBlockAttributes();
-                console.log('绑定块属性迁移完成');
-
-                // 标记迁移完成
-                settings.datatransfer = settings.datatransfer || {};
-                settings.datatransfer.bindblockAddAttr = true;
-                await this.saveSettings(settings);
-            }
-
-            // 检查是否需要迁移 termType -> kanbanStatus 并删除 termType 键
-            if (!settings.datatransfer?.termTypeTransfer) {
-                try {
-                    console.log('开始迁移 termType 到 kanbanStatus 并删除 termType 键...');
-                    const reminderData = await this.loadReminderData(true);
-                    if (reminderData && typeof reminderData === 'object') {
-                        let mappedCount = 0;
-                        let removedCount = 0;
-                        for (const [id, item] of Object.entries(reminderData) as [string, any][]) {
-                            try {
-                                if (!item || typeof item !== 'object') continue;
-
-                                // 如果当前状态是 todo 且 termType 为 short_term/long_term，则将 kanbanStatus 设置为 termType
-                                if (item.kanbanStatus === 'todo' && (item.termType === 'short_term' || item.termType === 'long_term')) {
-                                    item.kanbanStatus = item.termType;
-                                    mappedCount++;
-                                }
-
-                                // 无论是否做了映射，都删除 termType 键（按要求移除该键）
-                                if ('termType' in item) {
-                                    try {
-                                        delete item.termType;
-                                        removedCount++;
-                                    } catch (e) {
-                                        // 某些情况下 item 可能是不可写对象，尝试设置为 undefined 再删除
-                                        try {
-                                            (item as any).termType = undefined;
-                                            delete (item as any).termType;
-                                            removedCount++;
-                                        } catch (ee) {
-                                            console.warn(`无法删除提醒 ${id} 的 termType 键:`, ee);
-                                        }
-                                    }
-                                }
-                            } catch (err) {
-                                console.warn(`迁移提醒 ${id} 时出错:`, err);
-                            }
-                        }
-
-                        if (mappedCount > 0 || removedCount > 0) {
-                            await this.saveReminderData(reminderData);
-                            console.log(`termType 迁移完成，映射 ${mappedCount} 条，删除 ${removedCount} 条 termType 键`);
-                        } else {
-                            console.log('termType 迁移完成，未发现需要映射或删除的项');
-                        }
-                    } else {
-                        console.log('没有找到提醒数据，跳过 termType 迁移');
-                    }
-
-                    settings.datatransfer = settings.datatransfer || {};
-                    settings.datatransfer.termTypeTransfer = true;
-                    await this.saveSettings(settings);
-                } catch (err) {
-                    console.error('termType 到 kanbanStatus 的迁移失败:', err);
-                }
-            }
-
-            // 检查是否需要迁移随机休息相关的设置项名称 (randomNotification -> randomRest)
-            if (!settings.datatransfer?.randomRestTransfer) {
-                console.log('开始迁移随机休息设置项...');
-                let migratedCount = 0;
-                const mapping = {
-                    'randomNotificationEnabled': 'randomRestEnabled',
-                    'randomNotificationMinInterval': 'randomRestMinInterval',
-                    'randomNotificationMaxInterval': 'randomRestMaxInterval',
-                    'randomNotificationBreakDuration': 'randomRestBreakDuration',
-                    'randomNotificationSystemNotification': 'randomRestSystemNotification',
-                    'randomNotificationPopupWindow': 'randomRestPopupWindow',
-                    'randomNotificationSounds': 'randomRestSounds',
-                    'randomNotificationEndSound': 'randomRestEndSound'
-                };
-
-                for (const [oldKey, newKey] of Object.entries(mapping)) {
-                    if (oldKey in settings) {
-                        (settings as any)[newKey] = (settings as any)[oldKey];
-                        delete (settings as any)[oldKey];
-                        migratedCount++;
-                    }
-                }
-
-                // 迁移 audioFileLists 和 audioSelected 中的键名
-                const audioMapping = {
-                    'randomNotificationSounds': 'randomRestSounds',
-                    'randomNotificationEndSound': 'randomRestEndSound'
-                };
-
-                if (settings.audioFileLists) {
-                    for (const [oldKey, newKey] of Object.entries(audioMapping)) {
-                        if (settings.audioFileLists[oldKey]) {
-                            settings.audioFileLists[newKey] = settings.audioFileLists[oldKey];
-                            delete settings.audioFileLists[oldKey];
-                            migratedCount++;
-                        }
-                    }
-                }
-
-                if (settings.audioSelected) {
-                    for (const [oldKey, newKey] of Object.entries(audioMapping)) {
-                        if (settings.audioSelected[oldKey]) {
-                            settings.audioSelected[newKey] = settings.audioSelected[oldKey];
-                            delete settings.audioSelected[oldKey];
-                            migratedCount++;
-                        }
-                    }
-                }
-
-                if (migratedCount > 0) {
-                    settings.datatransfer = settings.datatransfer || {};
-                    settings.datatransfer.randomRestTransfer = true;
-                    await this.saveSettings(settings);
-                    console.log(`随机休息设置项迁移完成，共迁移 ${migratedCount} 项`);
-                }
-            }
-
-            // 检查是否需要迁移 removeDateAfterDetection 从 bool 到 string
-            if (typeof settings.removeDateAfterDetection === 'boolean') {
-                console.log('开始迁移 removeDateAfterDetection...');
-                const oldVal = (settings as any).removeDateAfterDetection;
-                settings.removeDateAfterDetection = oldVal ? 'all' : 'none';
-                await this.saveSettings(settings);
-                console.log('removeDateAfterDetection 迁移完成');
-            }
-
-            // 检查是否需要迁移音频文件列表
-            if (!settings.datatransfer?.audioFileTransfer) {
-                console.log('开始迁移音频文件列表...');
-                const audioKeys = [
-                    'notificationSound',
-                    'pomodoroWorkSound',
-                    'pomodoroBreakSound',
-                    'pomodoroLongBreakSound',
-                    'pomodoroWorkEndSound',
-                    'pomodoroBreakEndSound',
-                    'randomRestSounds',
-                    'randomRestEndSound',
-                ];
-                if (!settings.audioFileLists) settings.audioFileLists = {};
-                if (!settings.audioSelected) settings.audioSelected = {};
-
-                let audioMigratedCount = 0;
-                for (const key of audioKeys) {
-                    const existing = (settings as any)[key] as string | undefined;
-                    if (existing) {
-                        const list: any[] = settings.audioFileLists[key] ?? [];
-                        // 确保 list 是 AudioFileItem[]
-                        const itemList: AudioFileItem[] = list.map(item =>
-                            typeof item === 'string' ? { path: item } : item
-                        );
-
-                        if (!itemList.some(i => i.path === existing)) {
-                            itemList.push({ path: existing }); // 保持原有顺序，加到后面
-                            audioMigratedCount++;
-                        }
-                        settings.audioFileLists[key] = itemList;
-                        // 记录当前选中
-                        settings.audioSelected[key] = existing;
-                        // 迁移后从根部删除旧键
-                        delete (settings as any)[key];
-                    } else if (settings.audioFileLists[key]) {
-                        // 如果没有旧键，但存在旧的 string[] 列表，也需要转换
-                        const list = settings.audioFileLists[key];
-                        if (list.length > 0 && typeof list[0] === 'string') {
-                            settings.audioFileLists[key] = (list as any).map((p: string) => ({ path: p }));
-                        }
-                    }
-                }
-
-                settings.datatransfer = settings.datatransfer || {};
-                settings.datatransfer.audioFileTransfer = true;
-                await this.saveSettings(settings);
-                console.log(`音频文件列表迁移完成，更新了 ${audioMigratedCount} 个项`);
-            }
-        } catch (error) {
-            console.error('数据迁移失败:', error);
-        }
-    }
-
-    /**
-     * 迁移绑定块属性：为绑定了提醒的块添加 custom-bind-reminders 属性
-     */
-    private async migrateBindBlockAttributes() {
-        try {
-            const { setBlockAttrs } = await import('./api');
-            const reminderData = await this.loadReminderData();
-
-            if (!reminderData || typeof reminderData !== 'object') {
-                console.log('没有找到提醒数据，跳过迁移');
-                return;
-            }
-
-            let migratedCount = 0;
-
-            // 遍历所有提醒，找到绑定到块的提醒
-            for (const [reminderId, reminder] of Object.entries(reminderData) as [string, any][]) {
-                if (!reminder || !reminder.blockId) continue;
-
-                try {
-                    // 检查块是否已经有 custom-bind-reminders 属性
-                    const blockElement = document.querySelector(`[data-node-id="${reminder.blockId}"]`);
-                    if (!blockElement) continue;
-
-                    const existingAttr = blockElement.getAttribute('custom-bind-reminders');
-                    if (existingAttr) {
-                        // 如果已经存在，检查是否包含当前提醒ID
-                        const existingIds = existingAttr.split(',').map(s => s.trim());
-                        if (existingIds.includes(reminderId)) {
-                            continue; // 已经包含，跳过
-                        }
-                        // 添加新的提醒ID
-                        existingIds.push(reminderId);
-                        await setBlockAttrs(reminder.blockId, {
-                            'custom-bind-reminders': existingIds.join(',')
-                        });
-                    } else {
-                        // 不存在，设置新的属性
-                        await setBlockAttrs(reminder.blockId, {
-                            'custom-bind-reminders': reminderId
-                        });
-                    }
-
-                    migratedCount++;
-                } catch (error) {
-                    console.warn(`迁移块 ${reminder.blockId} 的属性失败:`, error);
-                }
-            }
-
-            console.log(`成功迁移了 ${migratedCount} 个绑定块的属性`);
-
-        } catch (error) {
-            console.error('迁移绑定块属性时出错:', error);
-            throw error;
-        }
     }
 }

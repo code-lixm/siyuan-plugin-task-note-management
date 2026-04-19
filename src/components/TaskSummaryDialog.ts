@@ -17,6 +17,10 @@ export class TaskSummaryDialog {
 
   private currentDialog: Dialog;
   private currentFilter: string = 'current'; // 'current', 'today', 'tomorrow', 'yesterday', 'thisWeek', 'nextWeek', 'lastWeek', 'thisMonth', 'lastMonth'
+  private currentFocusFilter: string = 'all'; // 'all', 'open', 'high', 'overdue', 'undated'
+  private currentSemanticFilter: string = 'auto'; // 'auto', 'today', 'next7', 'overdue', 'history'
+  private shouldAutoPickFocus: boolean = true;
+  private completedSectionsExpanded: boolean = false;
   private lastGroupedTasks: Map<string, Map<string, any[]>> | null = null;
   private lastStats: any = null;
 
@@ -190,6 +194,10 @@ export class TaskSummaryDialog {
   public async showTaskSummaryDialog() {
     try {
       this.currentFilter = 'current';
+      this.currentFocusFilter = 'all';
+      this.currentSemanticFilter = 'auto';
+      this.shouldAutoPickFocus = true;
+      this.completedSectionsExpanded = false;
 
       // 创建弹窗
       this.currentDialog = new Dialog({
@@ -213,6 +221,11 @@ export class TaskSummaryDialog {
     container.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%;"><svg class="ft__loading"><use xlink:href="#iconLoading"></use></svg></div>`;
 
     const dateRange = this.getFilterDateRange();
+    const logicalToday = getLogicalDateString();
+    if (this.shouldAutoPickFocus) {
+      // 智能默认：当前/未来优先看未完成，纯历史范围回到全部视图
+      this.currentFocusFilter = dateRange.end < logicalToday ? 'all' : 'open';
+    }
     const events = await this.getEventsForRange(dateRange.start, dateRange.end);
 
     // 获取统计数据 (stats need to be calculated first to identify tasks worked on)
@@ -234,11 +247,66 @@ export class TaskSummaryDialog {
   }
 
   private getFilterDateRange(): { start: string, end: string, label: string } {
+    if (this.currentSemanticFilter !== 'auto') {
+      return this.getSemanticRange(this.currentSemanticFilter);
+    }
     if (this.currentFilter === 'current') {
       const range = this.getCurrentViewDateRange();
       return { ...range, label: this.getCurrentViewInfo() };
     }
     return this.getRange(this.currentFilter);
+  }
+
+  private getSemanticRange(type: string): { start: string, end: string, label: string } {
+    const logicalToday = getLogicalDateString();
+    const todayDate = new Date(logicalToday);
+
+    switch (type) {
+      case 'today':
+        return {
+          start: logicalToday,
+          end: logicalToday,
+          label: i18n('summarySemanticTodayLabel') || i18n('today')
+        };
+      case 'next3': {
+        const endDate = new Date(todayDate);
+        endDate.setDate(endDate.getDate() + 2);
+        return {
+          start: logicalToday,
+          end: getLocalDateString(endDate),
+          label: i18n('summarySemanticNext3Label') || '未来3天'
+        };
+      }
+      case 'next7': {
+        const endDate = new Date(todayDate);
+        endDate.setDate(endDate.getDate() + 6);
+        return {
+          start: logicalToday,
+          end: getLocalDateString(endDate),
+          label: i18n('summarySemanticNext7Label') || (i18n('nextWeek') || '未来7天')
+        };
+      }
+      case 'overdue': {
+        const startDate = new Date(todayDate);
+        startDate.setDate(startDate.getDate() - 30);
+        return {
+          start: getLocalDateString(startDate),
+          end: logicalToday,
+          label: i18n('summarySemanticOverdueLabel') || '近30天（含今天）'
+        };
+      }
+      case 'history': {
+        const startDate = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
+        const endDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
+        return {
+          start: getLocalDateString(startDate),
+          end: getLocalDateString(endDate),
+          label: i18n('summarySemanticHistoryLabel') || i18n('lastMonth')
+        };
+      }
+      default:
+        return this.getRange(this.currentFilter);
+    }
   }
 
   private async getEventsForRange(startDate: string, endDate: string) {
@@ -458,67 +526,9 @@ export class TaskSummaryDialog {
       current.setDate(current.getDate() + 1);
     }
 
-    // 2. 习惯打卡统计
-    const habitData = await this.plugin.loadHabitData();
-    let totalHabitTargetDays = 0;
-    let completedHabitDays = 0;
-    const habitsByDate: { [date: string]: any[] } = {};
-
-    const habits = Object.values(habitData) as any[];
-
-    const dateList: string[] = [];
-    const tempDate = new Date(start);
-    while (tempDate <= end) {
-      dateList.push(getLocalDateString(tempDate));
-      tempDate.setDate(tempDate.getDate() + 1);
-    }
-
-    habits.forEach(habit => {
-      dateList.forEach(dateStr => {
-        if (this.shouldCheckInOnDate(habit, dateStr)) {
-          totalHabitTargetDays++;
-          const isComplete = this.isHabitComplete(habit, dateStr);
-          if (isComplete) {
-            completedHabitDays++;
-          }
-
-          if (!habitsByDate[dateStr]) habitsByDate[dateStr] = [];
-
-          // 获取当天的打卡emoji
-          const checkIn = habit.checkIns?.[dateStr];
-          const emojis: string[] = [];
-          if (checkIn) {
-            if (checkIn.entries && checkIn.entries.length > 0) {
-              checkIn.entries.forEach((entry: any) => {
-                if (entry.emoji) emojis.push(entry.emoji);
-              });
-            } else if (checkIn.status && checkIn.status.length > 0) {
-              emojis.push(...checkIn.status);
-            }
-          }
-
-          // 获取成功打卡的次数
-          const successCount = emojis.filter(emoji => {
-            const emojiConfig = habit.checkInEmojis?.find((e: any) => e.emoji === emoji);
-            return emojiConfig ? (emojiConfig.countsAsSuccess !== false) : true;
-          }).length;
-
-          habitsByDate[dateStr].push({
-            title: habit.title,
-            completed: isComplete,
-            target: habit.target || 1,
-            successCount,
-            emojis: emojis.slice(0, 10), // 最多显示10个
-            frequencyLabel: this.getFrequencyLabel(habit)
-          });
-        }
-      });
-    });
-
     return {
       settings: {
-        showPomodoro: settings.showPomodoroInSummary !== false,
-        showHabit: settings.showHabitInSummary !== false
+        showPomodoro: settings.showPomodoroInSummary !== false
       },
       pomodoro: {
         totalCount: totalPomodoros,
@@ -526,129 +536,8 @@ export class TaskSummaryDialog {
         totalMinutes: totalMinutes,
         byDate: pomodoroByDate,
         allTimeTaskStats: allTimeTaskStats // Return all-time stats
-      },
-      habit: {
-        total: totalHabitTargetDays,
-        completed: completedHabitDays,
-        byDate: habitsByDate
       }
     };
-  }
-
-  private getFrequencyLabel(habit: any): string {
-    const { frequency } = habit;
-    if (!frequency) return i18n('daily');
-
-    let label = '';
-    const interval = frequency.interval || 1;
-
-    switch (frequency.type) {
-      case 'daily':
-        label = interval === 1 ? i18n('daily') : `${i18n('every')}${interval}${i18n('days')}`;
-        break;
-      case 'weekly':
-        if (frequency.weekdays && frequency.weekdays.length > 0) {
-          const days = frequency.weekdays.map((d: number) => {
-            const keys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            return i18n(keys[d]);
-          }).join('、');
-          label = `${i18n('weekly')} (${days})`;
-        } else {
-          label = interval === 1 ? i18n('weekly') : `${i18n('every')}${interval}${i18n('weeks')}`;
-        }
-        break;
-      case 'monthly':
-        if (frequency.monthDays && frequency.monthDays.length > 0) {
-          label = `${i18n('monthly')} (${frequency.monthDays.join('、')}${i18n('day')})`;
-        } else {
-          label = interval === 1 ? i18n('monthly') : `${i18n('every')}${interval}${i18n('months')}`;
-        }
-        break;
-      case 'yearly':
-        label = i18n('yearly');
-        break;
-      default:
-        label = i18n('daily');
-    }
-    return label;
-  }
-
-  private shouldCheckInOnDate(habit: any, date: string): boolean {
-    if (habit.startDate > date) return false;
-    if (habit.endDate && habit.endDate < date) return false;
-
-    const { frequency } = habit;
-    const checkDate = new Date(date);
-    const startDate = new Date(habit.startDate);
-
-    switch (frequency?.type) {
-      case 'daily':
-        if (frequency.interval) {
-          const daysDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / 86400000);
-          return daysDiff % frequency.interval === 0;
-        }
-        return true;
-
-      case 'weekly':
-        if (frequency.weekdays && frequency.weekdays.length > 0) {
-          return frequency.weekdays.includes(checkDate.getDay());
-        }
-        if (frequency.interval) {
-          const weeksDiff = Math.floor((checkDate.getTime() - startDate.getTime()) / (86400000 * 7));
-          return weeksDiff % frequency.interval === 0 && checkDate.getDay() === startDate.getDay();
-        }
-        return checkDate.getDay() === startDate.getDay();
-
-      case 'monthly':
-        if (frequency.monthDays && frequency.monthDays.length > 0) {
-          return frequency.monthDays.includes(checkDate.getDate());
-        }
-        if (frequency.interval) {
-          const monthsDiff = (checkDate.getFullYear() - startDate.getFullYear()) * 12 +
-            (checkDate.getMonth() - startDate.getMonth());
-          return monthsDiff % frequency.interval === 0 && checkDate.getDate() === startDate.getDate();
-        }
-        return checkDate.getDate() === startDate.getDate();
-
-      case 'yearly':
-        if (frequency.months && frequency.months.length > 0) {
-          if (!frequency.months.includes(checkDate.getMonth() + 1)) return false;
-          if (frequency.monthDays && frequency.monthDays.length > 0) {
-            return frequency.monthDays.includes(checkDate.getDate());
-          }
-          return checkDate.getDate() === startDate.getDate();
-        }
-        if (frequency.interval) {
-          const yearsDiff = checkDate.getFullYear() - startDate.getFullYear();
-          return yearsDiff % frequency.interval === 0 &&
-            checkDate.getMonth() === startDate.getMonth() &&
-            checkDate.getDate() === startDate.getDate();
-        }
-        return checkDate.getMonth() === startDate.getMonth() &&
-          checkDate.getDate() === startDate.getDate();
-    }
-    return true;
-  }
-
-  private isHabitComplete(habit: any, dateStr: string): boolean {
-    const checkIn = habit.checkIns?.[dateStr];
-    if (!checkIn) return false;
-
-    const emojis: string[] = [];
-    if (checkIn.entries && checkIn.entries.length > 0) {
-      checkIn.entries.forEach((entry: any) => {
-        if (entry.emoji) emojis.push(entry.emoji);
-      });
-    } else if (checkIn.status && checkIn.status.length > 0) {
-      emojis.push(...checkIn.status);
-    }
-
-    const successEmojis = emojis.filter(emoji => {
-      const emojiConfig = habit.checkInEmojis?.find((e: any) => e.emoji === emoji);
-      return emojiConfig ? (emojiConfig.countsAsSuccess !== false) : true;
-    });
-
-    return successEmojis.length >= (habit.target || 1);
   }
 
   private getRange(type: string): { start: string, end: string, label: string } {
@@ -1362,104 +1251,309 @@ export class TaskSummaryDialog {
    * 生成摘要内容HTML
    */
   public generateSummaryContent(groupedTasks: Map<string, Map<string, any[]>>, dateRange: { start: string, end: string, label: string }, stats: any): string {
-    const filters = [
-      { id: 'current', label: i18n('currentView') },
-      { id: 'today', label: i18n('today') },
-      { id: 'tomorrow', label: i18n('tomorrow') },
-      { id: 'yesterday', label: i18n('yesterday') },
-      { id: 'thisWeek', label: i18n('thisWeek') },
-      { id: 'nextWeek', label: i18n('nextWeek') },
-      { id: 'lastWeek', label: i18n('lastWeek') },
-      { id: 'thisMonth', label: i18n('thisMonth') },
-      { id: 'lastMonth', label: i18n('lastMonth') },
+    const rangeFilters = [
+      { id: 'yesterday', label: i18n('yesterday'), mode: 'time', group: 'daily' },
+      { id: 'today', label: i18n('today'), mode: 'semantic', group: 'daily' },
+      { id: 'tomorrow', label: i18n('tomorrow'), mode: 'time', group: 'daily' },
+      { id: 'next3', label: i18n('summarySemanticNext3') || '3天内', mode: 'semantic', group: 'multi' },
+      { id: 'next7', label: i18n('summarySemanticNext7') || '7天内', mode: 'semantic', group: 'multi' },
+      { id: 'lastWeek', label: i18n('lastWeek'), mode: 'time', group: 'week' },
+      { id: 'thisWeek', label: i18n('thisWeek'), mode: 'time', group: 'week' },
+      { id: 'nextWeek', label: i18n('nextWeek'), mode: 'time', group: 'week' },
+      { id: 'thisMonth', label: i18n('thisMonth'), mode: 'time', group: 'month' },
+      { id: 'lastMonth', label: i18n('lastMonth'), mode: 'time', group: 'month' },
+      { id: 'overdue', label: i18n('summarySemanticOverdue') || '已过期', mode: 'semantic', group: 'other' },
+      { id: 'history', label: i18n('summarySemanticHistory') || '历史回顾', mode: 'semantic', group: 'other' },
+      { id: 'current', label: i18n('currentView'), mode: 'time', group: 'other' },
+    ];
+    const focusFilters = [
+      { id: 'all', label: i18n('summaryFocusAll') || '全部' },
+      { id: 'open', label: i18n('summaryFocusOpen') || '仅未完成' },
+      { id: 'high', label: i18n('summaryFocusHigh') || '高优先级' },
+      { id: 'overdue', label: i18n('summaryFocusOverdue') || '延期' },
+      { id: 'undated', label: i18n('summaryFocusUndated') || '无日期' },
     ];
 
-    // 统计任务完成/总数（按显示实例计数）
-    let totalTasks = 0;
-    let completedTasks = 0;
-    groupedTasks.forEach((projMap) => {
-      projMap.forEach((tasks) => {
-        totalTasks += tasks.length;
-        tasks.forEach((t: any) => { if (t.completed) completedTasks++; });
+    const logicalToday = getLogicalDateString();
+    const future7EndDate = new Date(logicalToday);
+    future7EndDate.setDate(future7EndDate.getDate() + 6);
+    const future7End = getLocalDateString(future7EndDate);
+    const isHistoricalRange = dateRange.end < logicalToday;
+    const isTaskOverdue = (task: any, fallbackDate: string): boolean => {
+      if (task.completed) return false;
+      const dueDate = task.fullEndDate || task.fullStartDate || fallbackDate;
+      if (!dueDate) return false;
+      return dueDate < logicalToday;
+    };
+    const isTaskUndated = (task: any): boolean => {
+      return !task.fullStartDate && !task.fullEndDate;
+    };
+    const matchesFocusFilter = (task: any, date: string): boolean => {
+      switch (this.currentFocusFilter) {
+        case 'open':
+          return !task.completed;
+        case 'high':
+          return !task.completed && task.priority === 'high';
+        case 'overdue':
+          return isTaskOverdue(task, date);
+        case 'undated':
+          return isTaskUndated(task);
+        default:
+          return true;
+      }
+    };
+
+    const uniqueTaskMap = new Map<string, { task: any; date: string }>();
+    groupedTasks.forEach((projectMap, date) => {
+      projectMap.forEach((tasks) => {
+        tasks.forEach(task => {
+          if (!uniqueTaskMap.has(task.id)) {
+            uniqueTaskMap.set(task.id, { task, date });
+          }
+        });
       });
     });
+
+    let overdueCount = 0;
+    let undatedCount = 0;
+    let highPriorityCount = 0;
+    let todayDueCount = 0;
+    let next7DueCount = 0;
+    uniqueTaskMap.forEach(({ task, date }) => {
+      if (task.completed) return;
+      const dueDate = task.fullEndDate || task.fullStartDate || date;
+      if (isTaskOverdue(task, date)) overdueCount++;
+      if (isTaskUndated(task)) undatedCount++;
+      if (task.priority === 'high') highPriorityCount++;
+      if (dueDate === logicalToday) todayDueCount++;
+      if (dueDate >= logicalToday && dueDate <= future7End) next7DueCount++;
+    });
+
+    const filteredGrouped = new Map<string, Map<string, any[]>>();
+    groupedTasks.forEach((projectMap, date) => {
+      const filteredProjects = new Map<string, any[]>();
+      projectMap.forEach((tasks, projectName) => {
+        const filteredTasks = tasks.filter(task => matchesFocusFilter(task, date));
+        if (filteredTasks.length > 0) {
+          filteredProjects.set(projectName, filteredTasks);
+        }
+      });
+      if (filteredProjects.size > 0) {
+        filteredGrouped.set(date, filteredProjects);
+      }
+    });
+
+    let totalTasks = 0;
+    let completedTasks = 0;
+    filteredGrouped.forEach((projectMap) => {
+      projectMap.forEach((tasks) => {
+        totalTasks += tasks.length;
+        tasks.forEach(task => {
+          if (task.completed) completedTasks++;
+        });
+      });
+    });
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     const completionText = i18n('completionStats').replace('${completed}', completedTasks.toString()).replace('${total}', totalTasks.toString());
 
+    const renderTaskItem = (task: any, date: string, extraClass = '') => {
+      const completedClass = task.completed ? 'completed' : '';
+      const priorityClass = `priority-${task.priority || 'none'}`;
+      let timeText = '';
+      if (task.depth > 0 && !task.time) {
+        timeText = '';
+      } else if (task.fullEndDate && task.fullEndDate !== task.fullStartDate) {
+        timeText = `${this.formatMonthDay(task.fullStartDate)}-${this.formatMonthDay(task.fullEndDate)}`;
+      } else {
+        timeText = this.getDisplayTimeForDate(task, date).trim().replace(/^\(/, '').replace(/\)$/, '');
+      }
+
+      const dayStats = stats?.pomodoro?.byDate?.[date];
+      let dailyCount = 0;
+      let dailyMinutes = 0;
+      if (dayStats?.taskStats?.[task.id]) {
+        const tStat = dayStats.taskStats[task.id];
+        dailyCount = tStat.count;
+        dailyMinutes = tStat.minutes;
+      }
+
+      let focusText = '';
+      const isRepeated = task.extendedProps?.isRepeated;
+      const isRecurring = task.repeat && task.repeat.enabled;
+      const originalId = task.extendedProps?.originalId;
+      const statsId = (isRepeated && originalId) ? originalId : task.id;
+      const allStat = stats?.pomodoro?.allTimeTaskStats?.[statsId];
+      if (dailyCount > 0 || dailyMinutes > 0) {
+        focusText = `${dailyCount} 🍅 · ${this.formatDuration(dailyMinutes)}`;
+        if (allStat) {
+          if (isRecurring || isRepeated) {
+            focusText += ` · ${i18n('series')}: ${allStat.count} 🍅 / ${this.formatDuration(allStat.minutes)}`;
+          } else if (allStat.minutes > dailyMinutes + 1) {
+            focusText += ` · ${i18n('totalStats')}: ${allStat.count} 🍅 / ${this.formatDuration(allStat.minutes)}`;
+          }
+        }
+      } else if (allStat && allStat.minutes > 0) {
+        const label = (isRecurring || isRepeated) ? i18n('series') : i18n('totalStats');
+        focusText = `${label}: ${allStat.count} 🍅 / ${this.formatDuration(allStat.minutes)}`;
+      }
+
+      const completedTimeText = task.completed && task.completedTime
+        ? this.formatCompletedTime(task.completedTime, date).trim().replace(/^\(/, '').replace(/\)$/, '')
+        : '';
+
+      const metaChips: string[] = [];
+      if (task.repeatLabel) metaChips.push(`<span class="task-meta-chip repeat">${task.repeatLabel.replace(/^🔄\s*/, '')}</span>`);
+      if (timeText) metaChips.push(`<span class="task-meta-chip">${timeText}</span>`);
+      if (task.estimatedPomodoroDuration) metaChips.push(`<span class="task-meta-chip">${i18n('estimatedTime').replace('${duration}', task.estimatedPomodoroDuration)}</span>`);
+      if (focusText) metaChips.push(`<span class="task-meta-chip focus">${focusText}</span>`);
+      if (completedTimeText) metaChips.push(`<span class="task-meta-chip done-time">${completedTimeText}</span>`);
+      if (task.docTitle) metaChips.push(`<span class="task-meta-chip doc">${task.docTitle}</span>`);
+
+      const indent = Math.max(0, task.depth || 0) * 18;
+      const checkboxSymbol = task.completed ? '✓' : '⬜';
+
+      return `
+        <li class="task-item ${completedClass} ${priorityClass} ${extraClass}" data-depth="${task.depth}" style="--task-indent:${indent}px;">
+          <span class="task-checkbox">${checkboxSymbol}</span>
+          <div class="task-body">
+            <div class="task-title-line">
+              <span class="task-title">${task.title}</span>
+            </div>
+            ${metaChips.length > 0 ? `<div class="task-meta">${metaChips.join('')}</div>` : ''}
+            ${task.note ? `<div class="task-note">${this.lute ? this.lute.Md2HTML(task.note) : task.note}</div>` : ''}
+          </div>
+        </li>
+      `;
+    };
+
+    const alertChips: string[] = [];
+    if (overdueCount > 0) {
+      alertChips.push(`<button class="summary-alert-chip" data-focus="overdue">${i18n('summaryRiskOverdue') || '延期'} ${overdueCount}</button>`);
+    }
+    if (highPriorityCount > 0) {
+      alertChips.push(`<button class="summary-alert-chip" data-focus="high">${i18n('summaryRiskHigh') || '高优先级'} ${highPriorityCount}</button>`);
+    }
+    if (undatedCount > 0) {
+      alertChips.push(`<button class="summary-alert-chip" data-focus="undated">${i18n('summaryRiskUndated') || '无日期'} ${undatedCount}</button>`);
+    }
+
+    const dateTaskTextTpl = i18n('summaryDateTaskStats') || '未完成 ${open} · 已完成 ${done}';
+    const completedCollapsedTpl = i18n('summaryCompletedCollapsed') || '已完成 ${count} 条';
+    const todayDueTextTpl = i18n('summaryTodayDueSub') || '今天到期 ${count} 条';
+    const overdueTextTpl = i18n('summaryOverdueSub') || '已过期 ${count} 条';
+    const next7TextTpl = i18n('summaryNext7Sub') || '7天内 ${count} 条';
+    const completedOnlyTextTpl = i18n('summaryCompletedOnly') || '已完成 ${count} 条';
     let html = `
-        <div class="task-summary-wrapper" style="display: flex; flex-direction: column; height: 100%; padding: 16px;">
-            <div class="task-summary-toolbar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-                <div class="filter-buttons" style="display: flex; gap: 4px; flex-wrap: wrap;">
-                    ${filters.map(f => `
-                        <button class="b3-button ${this.currentFilter === f.id ? '' : 'b3-button--outline'}" 
-                                data-filter="${f.id}" 
-                                style="padding: 4px 8px; font-size: 12px;">
-                            ${f.label}
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="action-buttons" style="display: flex; gap: 8px;">
-                    <button class="b3-button b3-button--outline" id="copy-rich-text-btn" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; height: 28px;">
-                        <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconCopy"></use></svg>
-                        ${i18n("copyRichText")}
-                    </button>
-                    <button class="b3-button b3-button--outline" id="copy-markdown-btn" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; height: 28px;">
-                        <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconCopy"></use></svg>
-                        ${i18n("copyAll")}
-                    </button>
-                    <button class="b3-button b3-button--outline" id="copy-plain-btn" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; height: 28px;">
-                        <svg class="b3-button__icon" style="width: 14px; height: 14px;"><use xlink:href="#iconCopy"></use></svg>
-                        ${i18n("copyPlainText")}
-                    </button>
-                </div>
+      <div class="task-summary-wrapper">
+        <div class="task-summary-toolbar">
+          <div class="task-summary-toolbar-main">
+            <h2 class="task-summary-title">${i18n('taskSummary')}</h2>
+            <div class="semantic-filter-buttons">
+              ${rangeFilters.map((f, index) => {
+      const isActive = f.mode === 'semantic'
+        ? (this.currentSemanticFilter === f.id)
+        : (this.currentSemanticFilter === 'auto' && this.currentFilter === f.id);
+      const needDivider = index > 0 && rangeFilters[index - 1].group !== f.group;
+      return `
+                  ${needDivider ? '<span class="range-divider">|</span>' : ''}
+                  <button class="b3-button task-summary-toolbar-btn ${isActive ? '' : 'b3-button--outline'}" data-range-mode="${f.mode}" data-range-id="${f.id}">
+                    ${f.label}
+                  </button>
+                `;
+    }).join('')}
             </div>
-
-            <div class="task-summary-info-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
-              <div class="info-card" style="padding: 12px; background: var(--b3-theme-surface); border-radius: 8px; border: 1px solid var(--b3-border-color);">
-                <div style="font-size: 12px; color: var(--b3-theme-on-surface-light);">${i18n('currentRange')}</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 4px;">${dateRange.label}</div>
+            <button class="b3-button b3-button--outline task-summary-toolbar-btn" id="export-summary-btn">
+              <svg class="b3-button__icon"><use xlink:href="#iconCopy"></use></svg>
+              ${i18n('summaryExport') || '导出'}
+            </button>
+          </div>
+          <div class="task-summary-toolbar-sub">
+            <div class="task-summary-left-controls">
+              <div class="task-summary-range">
+                <span class="range-label">${i18n('currentRange')}</span>
+                <span class="range-value">${dateRange.label}</span>
               </div>
-              <div class="info-card" id="task-completion-card" style="padding: 12px; background: var(--b3-theme-surface); border-radius: 8px; border: 1px solid var(--b3-border-color);">
-                <div style="font-size: 12px; color: var(--b3-theme-on-surface-light);">${i18n('taskStatsCompletion')}</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 4px;">${completionText}</div>
+              <div class="summary-expand-controls">
+                <button class="b3-button b3-button--outline task-summary-toolbar-btn" id="expand-all-sections-btn">${i18n('summaryExpandAll') || '全部展开'}</button>
+                <button class="b3-button b3-button--outline task-summary-toolbar-btn" id="collapse-all-sections-btn">${i18n('summaryCollapseAll') || '全部收起'}</button>
               </div>
-                ${stats.settings.showPomodoro ? `
-                <div class="info-card" style="padding: 12px; background: var(--b3-theme-surface); border-radius: 8px; border: 1px solid var(--b3-border-color);">
-                    <div style="font-size: 12px; color: var(--b3-theme-on-surface-light);">${i18n('pomodoroFocusCard')}</div>
-                    <div style="font-size: 14px; font-weight: bold; margin-top: 4px;">
-                        ${i18n('pomodoroStatsValue').replace('${count}', stats.pomodoro.totalCount.toString()).replace('${duration}', this.formatDuration(stats.pomodoro.totalMinutes))}
-                    </div>
-                </div>
-                ` : ''}
-                ${stats.settings.showHabit ? `
-                <div class="info-card" style="padding: 12px; background: var(--b3-theme-surface); border-radius: 8px; border: 1px solid var(--b3-border-color);">
-                    <div style="font-size: 12px; color: var(--b3-theme-on-surface-light);">${i18n('habitCheckInCard')}</div>
-                    <div style="font-size: 14px; font-weight: bold; margin-top: 4px;">
-                        ${i18n('habitStatsValue').replace('${completed}', stats.habit.completed.toString()).replace('${total}', stats.habit.total.toString())}
-                    </div>
-                </div>
-                ` : ''}
             </div>
+            <div class="focus-filter-buttons">
+              ${focusFilters.map(f => `
+                <button class="b3-button task-summary-toolbar-btn ${this.currentFocusFilter === f.id ? '' : 'b3-button--outline'}" data-focus="${f.id}">
+                  ${f.label}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
 
-            <div class="task-summary-content" id="summary-content" style="flex: 1; overflow-y: auto;">
+        <div class="task-summary-info-cards">
+          ${isHistoricalRange ? `
+            <div class="info-card summary-metric-card card-completion">
+              <div class="metric-label">${i18n('summaryCompletionRate') || '完成率'}</div>
+              <div class="metric-value">${completionRate}%</div>
+              <div class="metric-sub">${completionText}</div>
+            </div>
+            <div class="info-card summary-metric-card card-done">
+              <div class="metric-label">${i18n('summaryCompletedTasks') || '已完成任务'}</div>
+              <div class="metric-value">${completedTasks}</div>
+              <div class="metric-sub">${completedOnlyTextTpl.replace('${count}', completedTasks.toString())}</div>
+            </div>
+            <div class="info-card summary-metric-card card-focus">
+              <div class="metric-label">${i18n('pomodoroFocusCard')}</div>
+              <div class="metric-value">${stats.settings.showPomodoro ? stats.pomodoro.totalCount : 0}</div>
+              <div class="metric-sub">${stats.settings.showPomodoro ? this.formatDuration(stats.pomodoro.totalMinutes) : (i18n('summaryPomodoroOff') || '未启用专注统计')}</div>
+            </div>
+          ` : `
+            <div class="info-card summary-metric-card card-today">
+              <div class="metric-label">${i18n('summaryTodayDue') || '今日待办'}</div>
+              <div class="metric-value">${todayDueCount}</div>
+              <div class="metric-sub">${todayDueTextTpl.replace('${count}', todayDueCount.toString())}</div>
+            </div>
+            <div class="info-card summary-metric-card card-overdue">
+              <div class="metric-label">${i18n('summaryOverdueTasks') || '已过期'}</div>
+              <div class="metric-value">${overdueCount}</div>
+              <div class="metric-sub">${overdueTextTpl.replace('${count}', overdueCount.toString())}</div>
+            </div>
+            <div class="info-card summary-metric-card card-next7">
+              <div class="metric-label">${i18n('summaryNext7Tasks') || '7天内'}</div>
+              <div class="metric-value">${next7DueCount}</div>
+              <div class="metric-sub">${next7TextTpl.replace('${count}', next7DueCount.toString())}</div>
+            </div>
+          `}
+        </div>
+
+        <div class="summary-alert-bar">
+          ${isHistoricalRange
+        ? `<span class="summary-alert-ok">${i18n('summaryHistoricalHint') || '当前为历史范围，风险提醒已弱化，可切换到“今天/7天内/已过期”查看实时风险'}</span>`
+        : (
+          alertChips.length > 0
+            ? `<span class="summary-alert-label">${i18n('summaryRiskHint') || '风险提示'}</span>${alertChips.join('')}`
+            : `<span class="summary-alert-ok">${i18n('summaryRiskNone') || '当前范围内没有明显风险任务'}</span>`
+        )
+      }
+        </div>
+
+        <div class="task-summary-content" id="summary-content">
     `;
 
-    // 获取所有涉及的日期 (任务日期 + 习惯/番茄统计日期)
     const allDates = new Set<string>();
-    groupedTasks.forEach((_, date) => allDates.add(date));
-    if (stats.settings.showPomodoro) Object.keys(stats.pomodoro.byDate).forEach(date => allDates.add(date));
-    if (stats.settings.showHabit) Object.keys(stats.habit.byDate).forEach(date => allDates.add(date));
-
-    // 按日期排序
+    filteredGrouped.forEach((_, date) => allDates.add(date));
+    if (stats.settings.showPomodoro && this.currentFocusFilter === 'all') {
+      Object.keys(stats.pomodoro.byDate).forEach(date => allDates.add(date));
+    }
     const sortedDates = Array.from(allDates).sort();
 
-
-
     if (sortedDates.length === 0) {
-      html += `<div style="text-align: center; padding: 40px; color: var(--b3-theme-on-surface-light);">${i18n('noTasks')}</div>`;
+      html += `<div class="task-summary-empty">${i18n('summaryNoTasksForFilter') || i18n('noTasks')}</div>`;
     }
 
     sortedDates.forEach(date => {
-      const dateProjects = groupedTasks.get(date);
+      const dateProjects = filteredGrouped.get(date);
+      const datePomodoroStats = stats.settings.showPomodoro ? stats.pomodoro.byDate[date] : null;
+      if (!dateProjects && !datePomodoroStats) return;
+
       const dateObj = new Date(date);
       const locale = (window as any).siyuan?.config?.lang === 'zh_CN' ? 'zh-CN' : 'en-US';
       const formattedDate = dateObj.toLocaleDateString(locale, {
@@ -1469,234 +1563,462 @@ export class TaskSummaryDialog {
         weekday: 'long'
       });
 
-      html += `<div class="task-date-group">`;
-      html += `<h3 class="task-date-title">${formattedDate}</h3>`;
+      let dayTotal = 0;
+      let dayCompleted = 0;
+      if (dateProjects) {
+        dateProjects.forEach(tasks => {
+          dayTotal += tasks.length;
+          dayCompleted += tasks.filter(t => t.completed).length;
+        });
+      }
+      const dayOpen = Math.max(0, dayTotal - dayCompleted);
 
-      // 1. 显示番茄钟统计
-      if (stats.settings.showPomodoro && stats.pomodoro.byDate[date]) {
-        const pRecord = stats.pomodoro.byDate[date];
+      html += `<div class="task-date-group">`;
+      html += `
+        <div class="task-date-head">
+          <h3 class="task-date-title">${formattedDate}</h3>
+          <div class="task-date-meta">${dateTaskTextTpl.replace('${open}', dayOpen.toString()).replace('${done}', dayCompleted.toString())}</div>
+        </div>
+      `;
+
+      if (datePomodoroStats) {
         html += `
-          <div class="summary-stat-row" style="margin-bottom: 8px; font-size: 13px; color: var(--b3-theme-on-surface-light); padding-left: 16px;">
-            ${i18n('focusStatLine').replace('${count}', pRecord.count.toString()).replace('${duration}', this.formatDuration(pRecord.minutes))}
+          <div class="summary-stat-row">
+            ${i18n('focusStatLine').replace('${count}', datePomodoroStats.count.toString()).replace('${duration}', this.formatDuration(datePomodoroStats.minutes))}
           </div>
         `;
       }
 
-      // 2. 显示习惯打卡情况
-      if (stats.settings.showHabit && stats.habit.byDate[date]) {
-        const hList = stats.habit.byDate[date];
-        html += `<div class="task-project-group">`;
-        html += `<h4 class="task-project-title">${i18n('habitCheckInTitle')}</h4>`;
-        html += `<ul class="task-list">`;
-        hList.forEach(habit => {
-          // 只需要显示一个和⬜，代表打卡完成和打卡未完成
-          const progress = habit.completed ? '' : '⬜';
+      const completedProjectGroups: Array<{ projectName: string; tasks: any[] }> = [];
+      let completedCount = 0;
 
-          // 习惯打卡名称后改为：名称（频率：xxx，目标次数，今天打卡： emoji），如果今日没打卡，今日打卡改为无
-          const emojiStr = habit.emojis.length > 0 ? habit.emojis.join('') : i18n('noneVal');
-          const completedClass = habit.completed ? 'completed' : '';
-
-          const freqText = i18n('frequency');
-          const targetText = i18n('targetTimes');
-          const todayCheckInText = i18n('todayCheckIn');
-
-          html += `
-            <li class="task-item habit-item ${completedClass}">
-              <span class="task-checkbox">${progress}</span>
-              <span class="task-title">${habit.title} (${freqText}: ${habit.frequencyLabel}, ${targetText}: ${habit.target}, ${todayCheckInText}: ${emojiStr})</span>
-            </li>
-          `;
-        });
-        html += `</ul></div>`;
-      }
-
-      // 3. 按项目分组显示任务
       if (dateProjects) {
         dateProjects.forEach((tasks, projectName) => {
+          const activeTasks = tasks.filter(t => !t.completed);
+          const doneTasks = tasks.filter(t => t.completed);
+          completedCount += doneTasks.length;
+          if (doneTasks.length > 0) {
+            completedProjectGroups.push({ projectName, tasks: doneTasks });
+          }
+          if (activeTasks.length === 0) return;
+
           html += `<div class="task-project-group">`;
           html += `<h4 class="task-project-title">${projectName}</h4>`;
           html += `<ul class="task-list">`;
-
-          tasks.forEach(task => {
-            const completedClass = task.completed ? 'completed' : '';
-            const priorityClass = `priority-${task.priority}`;
-            let timeStr = '';
-            if (task.depth > 0 && !task.time) {
-              timeStr = '';
-            } else if (task.fullEndDate && task.fullEndDate !== task.fullStartDate) {
-              timeStr = ` (${this.formatMonthDay(task.fullStartDate)}-${this.formatMonthDay(task.fullEndDate)})`;
-            } else {
-              timeStr = this.getDisplayTimeForDate(task, date);
-            }
-
-            // 获取番茄钟统计
-            let pomodoroStr = '';
-            // 当天统计
-            const dayStats = stats.pomodoro.byDate[date];
-            let dailyCount = 0;
-            let dailyMinutes = 0;
-
-            if (dayStats && dayStats.taskStats && dayStats.taskStats[task.id]) {
-              const tStat = dayStats.taskStats[task.id];
-              dailyCount = tStat.count;
-              dailyMinutes = tStat.minutes;
-            }
-
-            if (dailyCount > 0 || dailyMinutes > 0) {
-              // 显示本次番茄钟
-              pomodoroStr = ` ( ${dailyCount} | 🕒 ${this.formatDuration(dailyMinutes)}`;
-
-              // 如果是重复任务，或者是普通任务但历史总计大于今日，则显示系列/总计
-              const isRepeated = task.extendedProps?.isRepeated;
-              const isRecurring = task.repeat && task.repeat.enabled;
-              const originalId = task.extendedProps?.originalId;
-              const statsId = (isRepeated && originalId) ? originalId : task.id;
-
-              if (stats.pomodoro.allTimeTaskStats && stats.pomodoro.allTimeTaskStats[statsId]) {
-                const allStat = stats.pomodoro.allTimeTaskStats[statsId];
-
-                // 重复任务（无论是实例还是原始头任务）：总是显示系列总计
-                if (isRecurring || isRepeated) {
-                  pomodoroStr += ` / ${i18n('series')}:  ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)}`;
-                }
-                // 普通任务：只有当总计大于今日时显示
-                else if (allStat.minutes > dailyMinutes + 1) {
-                  pomodoroStr += ` / ${i18n('totalStats')}:  ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)}`;
-                }
-              }
-              pomodoroStr += `)`;
-            } else {
-              // 补充检查：如果是重复任务，即使今日无数据，如果系列有数据也显示
-              const isRepeated = task.extendedProps?.isRepeated;
-              const isRecurring = task.repeat && task.repeat.enabled;
-              const originalId = task.extendedProps?.originalId;
-              const statsId = (isRepeated && originalId) ? originalId : task.id;
-
-              if (stats.pomodoro.allTimeTaskStats && stats.pomodoro.allTimeTaskStats[statsId]) {
-                const allStat = stats.pomodoro.allTimeTaskStats[statsId];
-                if (allStat.minutes > 0) {
-                  const label = (isRecurring || isRepeated) ? i18n('series') : i18n('totalStats');
-                  pomodoroStr = ` (${label}:  ${allStat.count} | 🕒 ${this.formatDuration(allStat.minutes)})`;
-                }
-              }
-            }
-
-            // 预计番茄时长
-            let estStr = '';
-            if (task.estimatedPomodoroDuration) {
-              estStr = ` <span style="color:#888; font-size:12px;">(${i18n('estimatedTime').replace('${duration}', task.estimatedPomodoroDuration)})</span>`;
-            }
-
-            // 完成时间
-            let completedTimeStr = '';
-            if (task.completed && task.completedTime) {
-              completedTimeStr = ` <span style="color:#888; font-size:12px;">${this.formatCompletedTime(task.completedTime, date)}</span>`;
-            }
-
-            // 缩进
-            // 基础缩进0，每级深度增加20px
-            // task-item 默认 padding 是 6px 0，我们添加 padding-left
-            const indentStyle = task.depth > 0 ? `padding-left: ${task.depth * 20}px;` : '';
-
-            html += `
-                  <li class="task-item ${completedClass} ${priorityClass}" style="${indentStyle}" data-depth="${task.depth}">
-                    <span class="task-checkbox">${task.completed ? '' : '⬜'}</span>
-                    <div class="task-body" style="flex:1; display:flex; flex-direction:column;">
-                      <div class="task-line">
-                        <span class="task-title">${task.title}${task.repeatLabel ? ` <span style="color:#888; font-size:12px;">(${task.repeatLabel})</span>` : ''}${timeStr}${estStr}${pomodoroStr}${completedTimeStr}</span>
-                      </div>
-                      ${task.note ? `<div class="task-note">${this.lute ? this.lute.Md2HTML(task.note) : task.note}</div>` : ''}
-                    </div>
-                  </li>
-                `;
+          activeTasks.forEach(task => {
+            html += renderTaskItem(task, date);
           });
-
           html += `</ul></div>`;
         });
+      }
+
+      if (completedCount > 0) {
+        html += `
+          <details class="task-completed-collapse" ${this.completedSectionsExpanded ? 'open' : ''}>
+            <summary>${completedCollapsedTpl.replace('${count}', completedCount.toString())}</summary>
+            <div class="task-completed-hint">${i18n('summaryCompletedHint') || '默认折叠，点击展开查看明细'}</div>
+        `;
+        completedProjectGroups.forEach(group => {
+          html += `<div class="task-project-group completed-group">`;
+          html += `<h4 class="task-project-title">${group.projectName}</h4>`;
+          html += `<ul class="task-list">`;
+          group.tasks.forEach(task => {
+            html += renderTaskItem(task, date, 'completed-item');
+          });
+          html += `</ul></div>`;
+        });
+        html += `</details>`;
       }
 
       html += `</div>`;
     });
 
     html += `
-                </div>
-            </div>
-            <style>
-                .task-date-group {
-                    margin-bottom: 24px;
-                }
-                .task-date-title {
-                    color: var(--b3-theme-primary);
-                    border-bottom: 2px solid var(--b3-theme-primary);
-                    padding-bottom: 8px;
-                    margin-bottom: 16px;
-                    font-size: 16px;
-                    margin-top: 0;
-                }
-                .task-project-group {
-                    margin-bottom: 16px;
-                    margin-left: 16px;
-                }
-                .task-project-title {
-                    color: var(--b3-theme-secondary);
-                    margin-bottom: 8px;
-                    font-size: 14px;
-                    margin-top: 0;
-                }
-                .task-list {
-                    list-style: none;
-                    padding: 0;
-                    margin: 0;
-                }
-                .task-item {
-                    display: flex;
-                    align-items: flex-start;
-                    padding: 6px 0;
-                    border-bottom: 1px solid var(--b3-border-color);
-                }
-                .task-item.completed {
-                    opacity: 0.6;
-                }
-                .task-item.completed .task-title {
-                    text-decoration: line-through;
-                }
-                .task-checkbox {
-                    margin-right: 8px;
-                    flex-shrink: 0;
-                }
-                .task-title {
-                    flex: 1;
-                    word-break: break-word;
-                    font-size: 14px;
-                }
-                .task-note {
-                    font-size: 12px;
-                    color: var(--b3-theme-on-surface-light);
-                    margin-top: 6px;
-                    margin-left: 0;
-                    white-space: pre-wrap; /* 保留换行 */
-                }
-                .task-body {
-                    display: flex;
-                    flex-direction: column;
-                }
-                .priority-high .task-title {
-                    color: #e74c3c;
-                    font-weight: bold;
-                }
-                .priority-medium .task-title {
-                    color: #f39c12;
-                }
-                .priority-low .task-title {
-                    color: #3498db;
-                }
-                
-                /* 重置复制按钮中 SVG 图标的 margin-right */
-                .task-summary-wrapper .b3-button svg.b3-button__icon {
-                    margin-right: 0;
-                }
-            </style>
-        `;
+        </div>
+      </div>
+      <style>
+        .task-summary-wrapper {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          padding: 12px 16px;
+          background: var(--b3-theme-background);
+        }
+        .task-summary-toolbar {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 12px;
+          max-width: 1260px;
+          width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          box-sizing: border-box;
+        }
+        .task-summary-toolbar-main {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .task-summary-title {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 700;
+          line-height: 1.2;
+        }
+        .semantic-filter-buttons {
+          display: flex;
+          gap: 4px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+        .range-divider {
+          color: var(--b3-theme-on-surface-light);
+          opacity: 0.55;
+          padding: 0 2px;
+          font-size: 12px;
+          line-height: 1;
+          user-select: none;
+        }
+        .summary-expand-controls {
+          display: inline-flex;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+        .task-summary-toolbar-sub {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .task-summary-left-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .task-summary-range {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: var(--b3-theme-surface);
+          border: 1px solid var(--b3-border-color);
+        }
+        .task-summary-range .range-label {
+          color: var(--b3-theme-on-surface-light);
+          font-size: 12px;
+        }
+        .task-summary-range .range-value {
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .focus-filter-buttons {
+          display: flex;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+        .task-summary-toolbar-btn {
+          min-height: var(--task-toolbar-height);
+          height: var(--task-toolbar-height);
+          padding: 0 var(--task-toolbar-padding-x);
+          border-radius: var(--task-radius-sm);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          line-height: 1;
+          font-size: var(--task-font-sm);
+          gap: 4px;
+        }
+        .task-summary-info-cards {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(180px, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+          max-width: 1260px;
+          width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          box-sizing: border-box;
+        }
+        .summary-metric-card {
+          padding: 10px 12px;
+          background: var(--b3-theme-surface);
+          border-radius: 8px;
+          border: 1px solid var(--b3-border-color);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-height: 74px;
+        }
+        .summary-metric-card.card-completion {
+          border-color: rgba(88, 164, 255, 0.45);
+          background: linear-gradient(135deg, rgba(88, 164, 255, 0.12), rgba(88, 164, 255, 0.03));
+        }
+        .summary-metric-card.card-done {
+          border-color: rgba(56, 176, 0, 0.45);
+          background: linear-gradient(135deg, rgba(56, 176, 0, 0.12), rgba(56, 176, 0, 0.03));
+        }
+        .summary-metric-card.card-focus {
+          border-color: rgba(250, 160, 25, 0.45);
+          background: linear-gradient(135deg, rgba(250, 160, 25, 0.12), rgba(250, 160, 25, 0.03));
+        }
+        .summary-metric-card.card-today {
+          border-color: rgba(35, 131, 226, 0.45);
+          background: linear-gradient(135deg, rgba(35, 131, 226, 0.12), rgba(35, 131, 226, 0.03));
+        }
+        .summary-metric-card.card-overdue {
+          border-color: rgba(224, 62, 62, 0.45);
+          background: linear-gradient(135deg, rgba(224, 62, 62, 0.12), rgba(224, 62, 62, 0.03));
+        }
+        .summary-metric-card.card-next7 {
+          border-color: rgba(18, 154, 147, 0.45);
+          background: linear-gradient(135deg, rgba(18, 154, 147, 0.12), rgba(18, 154, 147, 0.03));
+        }
+        .metric-label {
+          font-size: 12px;
+          color: var(--b3-theme-on-surface-light);
+        }
+        .metric-value {
+          font-size: 22px;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .metric-sub {
+          font-size: 12px;
+          color: var(--b3-theme-on-surface-light);
+        }
+        .summary-alert-bar {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          padding: 8px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--b3-border-color);
+          background: var(--b3-theme-surface);
+          margin-bottom: 10px;
+          max-width: 1260px;
+          width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          box-sizing: border-box;
+        }
+        .summary-alert-label {
+          font-size: 12px;
+          color: var(--b3-theme-on-surface-light);
+          margin-right: 2px;
+        }
+        .summary-alert-chip {
+          border: 1px solid var(--b3-border-color);
+          background: var(--b3-theme-background);
+          color: var(--b3-theme-on-surface);
+          border-radius: 999px;
+          padding: 2px 10px;
+          font-size: 12px;
+          cursor: pointer;
+          line-height: 20px;
+        }
+        .summary-alert-chip:hover {
+          background: var(--b3-list-hover);
+        }
+        .summary-alert-ok {
+          font-size: 12px;
+          color: var(--b3-theme-on-surface-light);
+        }
+        .task-summary-content {
+          flex: 1;
+          overflow-y: auto;
+          padding-right: 4px;
+          max-width: 1260px;
+          width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          box-sizing: border-box;
+        }
+        .task-summary-empty {
+          text-align: center;
+          padding: 36px 0;
+          color: var(--b3-theme-on-surface-light);
+        }
+        .task-date-group {
+          margin-bottom: 16px;
+          border: 1px solid var(--b3-border-color);
+          border-radius: 10px;
+          background: var(--b3-theme-surface);
+          padding: 8px 10px 10px 10px;
+        }
+        .task-date-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 2px 8px 2px;
+          margin-bottom: 6px;
+          border-bottom: 1px solid var(--b3-border-color);
+          position: sticky;
+          top: 0;
+          background: var(--b3-theme-surface);
+          z-index: 1;
+        }
+        .task-date-title {
+          color: var(--b3-theme-on-surface);
+          margin: 0;
+          font-size: 16px;
+        }
+        .task-date-meta {
+          color: var(--b3-theme-on-surface-light);
+          font-size: 12px;
+        }
+        .summary-stat-row {
+          margin-bottom: 8px;
+          font-size: 13px;
+          color: var(--b3-theme-on-surface-light);
+          padding-left: 2px;
+        }
+        .task-project-group {
+          margin-bottom: 10px;
+          padding: 2px 0;
+        }
+        .task-project-title {
+          color: var(--b3-theme-on-surface-light);
+          margin-bottom: 6px;
+          font-size: 13px;
+          margin-top: 0;
+          font-weight: 600;
+        }
+        .task-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .task-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          padding: 8px;
+          border: 1px solid var(--b3-border-color);
+          border-radius: 8px;
+          background: var(--b3-theme-background);
+          margin-top: 6px;
+          margin-left: var(--task-indent, 0px);
+          width: calc(100% - var(--task-indent, 0px));
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+        .task-item.completed {
+          opacity: 0.72;
+        }
+        .task-item.completed .task-title {
+          text-decoration: line-through;
+        }
+        .task-checkbox {
+          width: 18px;
+          text-align: center;
+          color: var(--b3-theme-on-surface-light);
+          flex-shrink: 0;
+          padding-top: 1px;
+        }
+        .task-body {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+          flex: 1;
+        }
+        .task-title-line {
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+        }
+        .task-title {
+          word-break: break-word;
+          font-size: 14px;
+          line-height: 1.4;
+        }
+        .task-meta {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+        .task-meta-chip {
+          font-size: 12px;
+          color: var(--b3-theme-on-surface-light);
+          background: var(--b3-list-hover);
+          border-radius: 999px;
+          padding: 1px 8px;
+          line-height: 20px;
+        }
+        .task-meta-chip.focus {
+          color: var(--b3-theme-primary);
+        }
+        .task-meta-chip.done-time {
+          color: #8b8b8b;
+        }
+        .task-meta-chip.doc {
+          color: var(--b3-theme-secondary);
+        }
+        .task-note {
+          font-size: 12px;
+          color: var(--b3-theme-on-surface-light);
+          margin-top: 2px;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .task-completed-collapse {
+          margin-top: 8px;
+          border-top: 1px dashed var(--b3-border-color);
+          padding-top: 8px;
+        }
+        .task-completed-collapse > summary {
+          cursor: pointer;
+          color: var(--b3-theme-on-surface-light);
+          font-size: 13px;
+          user-select: none;
+        }
+        .task-completed-hint {
+          font-size: 12px;
+          color: var(--b3-theme-on-surface-light);
+          margin: 6px 0 8px;
+        }
+        .completed-group .task-project-title {
+          opacity: 0.8;
+        }
+        .priority-high {
+          border-left: 3px solid #e74c3c;
+        }
+        .priority-medium {
+          border-left: 3px solid #f39c12;
+        }
+        .priority-low {
+          border-left: 3px solid #3498db;
+        }
+        .task-summary-wrapper .b3-button svg.b3-button__icon {
+          margin-right: 0;
+        }
+        @media (max-width: 980px) {
+          .task-summary-info-cards {
+            grid-template-columns: repeat(2, minmax(160px, 1fr));
+          }
+        }
+        @media (max-width: 720px) {
+          .task-summary-wrapper {
+            padding: 10px;
+          }
+          .task-summary-info-cards {
+            grid-template-columns: 1fr;
+          }
+          .task-summary-toolbar-main {
+            align-items: flex-start;
+          }
+        }
+      </style>
+    `;
 
     return html;
   }
@@ -1708,30 +2030,91 @@ export class TaskSummaryDialog {
     const container = this.currentDialog.element.querySelector('#task-summary-dialog-container');
     if (!container) return;
 
-    // 筛选按钮事件
-    container.querySelectorAll('.filter-buttons button').forEach(btn => {
+    // 单行时间范围标签（语义范围 + 日历范围）
+    container.querySelectorAll('button[data-range-id]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const filter = btn.getAttribute('data-filter');
-        if (filter) {
-          this.currentFilter = filter;
+        const rangeId = btn.getAttribute('data-range-id');
+        const mode = btn.getAttribute('data-range-mode');
+        if (!rangeId || !mode) return;
+
+        if (mode === 'semantic') {
+          this.currentSemanticFilter = rangeId;
+          this.shouldAutoPickFocus = false;
+          if (rangeId === 'today' || rangeId === 'next3' || rangeId === 'next7') {
+            this.currentFocusFilter = 'open';
+          } else if (rangeId === 'overdue') {
+            this.currentFocusFilter = 'overdue';
+          } else if (rangeId === 'history') {
+            this.currentFocusFilter = 'all';
+          }
+        } else {
+          this.currentSemanticFilter = 'auto';
+          this.currentFilter = rangeId;
+          this.shouldAutoPickFocus = true;
+          this.currentFocusFilter = 'all';
+        }
+
+        this.renderSummary();
+      });
+    });
+
+    // 聚焦筛选按钮事件（顶部聚焦按钮 + 风险提示条按钮）
+    container.querySelectorAll('button[data-focus]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const focus = btn.getAttribute('data-focus');
+        if (focus) {
+          this.currentFocusFilter = focus;
+          this.shouldAutoPickFocus = false;
           this.renderSummary();
         }
       });
     });
 
-    // 复制按钮事件
-    const copyRichBtn = document.getElementById('copy-rich-text-btn');
-    const copyMdBtn = document.getElementById('copy-markdown-btn');
-    const copyPlainBtn = document.getElementById('copy-plain-btn');
+    // 已完成分组一键展开/收起
+    const expandAllCompletedBtn = container.querySelector('#expand-all-sections-btn') as HTMLElement | null;
+    const collapseAllCompletedBtn = container.querySelector('#collapse-all-sections-btn') as HTMLElement | null;
+    if (expandAllCompletedBtn) {
+      expandAllCompletedBtn.addEventListener('click', () => {
+        this.completedSectionsExpanded = true;
+        container.querySelectorAll('details.task-completed-collapse').forEach((el) => {
+          (el as HTMLDetailsElement).open = true;
+        });
+      });
+    }
+    if (collapseAllCompletedBtn) {
+      collapseAllCompletedBtn.addEventListener('click', () => {
+        this.completedSectionsExpanded = false;
+        container.querySelectorAll('details.task-completed-collapse').forEach((el) => {
+          (el as HTMLDetailsElement).open = false;
+        });
+      });
+    }
 
-    if (copyRichBtn) {
-      copyRichBtn.addEventListener('click', () => this.executeCopy('rich'));
-    }
-    if (copyMdBtn) {
-      copyMdBtn.addEventListener('click', () => this.executeCopy('markdown'));
-    }
-    if (copyPlainBtn) {
-      copyPlainBtn.addEventListener('click', () => this.executeCopy('plain'));
+    // 导出菜单
+    const exportBtn = container.querySelector('#export-summary-btn') as HTMLElement | null;
+    if (exportBtn) {
+      exportBtn.addEventListener('click', (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const menu = new Menu('task-summary-export-menu');
+        menu.addItem({
+          icon: 'iconCopy',
+          label: i18n("copyRichText"),
+          click: () => this.executeCopy('rich')
+        });
+        menu.addItem({
+          icon: 'iconCopy',
+          label: i18n("copyAll"),
+          click: () => this.executeCopy('markdown')
+        });
+        menu.addItem({
+          icon: 'iconCopy',
+          label: i18n("copyPlainText"),
+          click: () => this.executeCopy('plain')
+        });
+        const rect = exportBtn.getBoundingClientRect();
+        menu.open({ x: rect.right, y: rect.bottom + 4 });
+      });
     }
   }
 

@@ -15,6 +15,11 @@ interface IcsSyncState {
     isPerforming: boolean;
 }
 
+function getReminderDataPath(plugin: IcsSyncPlugin): string {
+    const pluginName = (plugin as any)?.name || "siyuan-plugin-task-daily";
+    return `data/storage/petal/${pluginName}/reminder.json`;
+}
+
 const ICS_SYNC_STATE = new WeakMap<object, IcsSyncState>();
 
 function getState(plugin: IcsSyncPlugin): IcsSyncState {
@@ -290,7 +295,7 @@ async function performIcsSync(plugin: IcsSyncPlugin): Promise<void> {
         if (!settings.icsSyncEnabled) return;
 
         // 检查reminder.json是否有新事件
-        const reminderPath = "/data/storage/petal/siyuan-plugin-task-note-management/reminder.json";
+        const reminderPath = getReminderDataPath(plugin);
         const stat = await getFileStat(reminderPath);
         const lastSync = settings.icsLastSyncAt ? new Date(settings.icsLastSyncAt).getTime() : 0;
         if (stat && stat.mtime <= lastSync) {

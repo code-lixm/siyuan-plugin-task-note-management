@@ -160,7 +160,13 @@
     border-radius: var(--fc-event-radius);
     padding: var(--fc-event-padding);
     font-size: var(--task-font-sm);
-    transition: var(--task-motion-fast);
+    /* 仅过渡视觉属性，避免拖拽时位置更新被缓动导致“不跟手” */
+    transition:
+        background-color var(--task-motion-fast),
+        border-color var(--task-motion-fast),
+        box-shadow var(--task-motion-fast),
+        opacity var(--task-motion-fast),
+        filter var(--task-motion-fast);
     
     /* Modern UI 风格：淡色背景 + 粗左边框 */
     border: none;
@@ -170,7 +176,6 @@
     
     &:hover {
         box-shadow: var(--task-shadow-hover);
-        transform: translateY(-1px);
         z-index: 10;
     }
     
@@ -192,15 +197,6 @@
     &.fc-event-pomodoro {
         background-color: rgba(255, 107, 107, 0.15);
         border-left-color: #ff6b6b;
-    }
-    
-    /* 习惯打卡事件 */
-    &.fc-event-habit {
-        cursor: pointer;
-        
-        &:hover {
-            opacity: 0.85;
-        }
     }
     
     /* 已完成任务时间 */
@@ -507,7 +503,7 @@
     .fc-scroller {
         max-height: 200px;
         overflow-y: auto !important;
-        transition: max-height 0.1s linear;
+        transition: none;
     }
 }
 
@@ -628,6 +624,26 @@
     background-color: var(--fc-calendar-surface-light) !important;
     border-color: var(--fc-calendar-primary) !important;
     opacity: 0.8;
+}
+
+/* 拖拽/调整大小过程中禁用过渡与动画，确保完全跟手 */
+.reminder-calendar-container.fc .fc-event.fc-event-dragging,
+.reminder-calendar-container.fc .fc-event.fc-event-mirror,
+.reminder-calendar-container.fc .fc-event.fc-event-resizing,
+.reminder-calendar-container.fc .fc-event.fc-event-dragging *,
+.reminder-calendar-container.fc .fc-event.fc-event-mirror *,
+.reminder-calendar-container.fc .fc-event.fc-event-resizing * {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* 拖拽全局态：兜底禁用事件相关动画，确保跟手 */
+.reminder-calendar-view.calendar-dragging .fc-event,
+.reminder-calendar-view.calendar-dragging .fc-event *,
+.reminder-calendar-view.calendar-dragging .fc-daygrid-event-harness,
+.reminder-calendar-view.calendar-dragging .fc-timegrid-event-harness {
+    transition: none !important;
+    animation: none !important;
 }
 
 /* ============================================================

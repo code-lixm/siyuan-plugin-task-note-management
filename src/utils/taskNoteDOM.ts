@@ -1,4 +1,6 @@
 import { i18n } from "../pluginInstance";
+import { executePluginAction } from "../core/actions";
+import { ContextRemindersDialog } from "../components/ContextRemindersDialog";
 
 const PROJECT_KANBAN_TAB_TYPE = "project_kanban_tab";
 
@@ -257,7 +259,10 @@ export class TaskNoteDOMManager {
                 projectBtn.addEventListener("click", (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    this.plugin.openProjectKanbanTab(projectData[documentId].blockId, projectData[documentId].title);
+                    executePluginAction(this.plugin, "openProjectKanban", {
+                        projectId: projectData[documentId].blockId,
+                        projectTitle: projectData[documentId].title,
+                    });
                 });
                 breadcrumb.insertBefore(projectBtn, docButton);
             }
@@ -627,10 +632,16 @@ export class TaskNoteDOMManager {
                 const projectData = await this.plugin.loadProjectData();
                 const project = projectData[projectId];
                 const title = project ? project.title : projectId;
-                this.plugin.openProjectKanbanTab(projectId, title);
+                await executePluginAction(this.plugin, "openProjectKanban", {
+                    projectId,
+                    projectTitle: title,
+                });
             } catch (error) {
                 console.error("打开项目看板失败:", error);
-                this.plugin.openProjectKanbanTab(projectId, projectId);
+                await executePluginAction(this.plugin, "openProjectKanban", {
+                    projectId,
+                    projectTitle: projectId,
+                });
             }
         });
 
@@ -666,9 +677,7 @@ export class TaskNoteDOMManager {
             e.preventDefault();
             e.stopPropagation();
             try {
-                const { BlockRemindersDialog } = await import("../components/BlockRemindersDialog");
-                const dialog = new BlockRemindersDialog(blockId, this.plugin);
-                await dialog.show();
+                await ContextRemindersDialog.showForBlock(blockId, this.plugin);
             } catch (err) {
                 console.error("打开块绑定任务对话框失败:", err);
             }

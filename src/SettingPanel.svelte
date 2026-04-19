@@ -10,20 +10,19 @@
     PROJECT_DATA_FILE,
     CATEGORIES_DATA_FILE,
     REMINDER_DATA_FILE,
-    HABIT_DATA_FILE,
     NOTIFY_DATA_FILE,
     POMODORO_RECORD_DATA_FILE,
-    HABIT_GROUP_DATA_FILE,
     STATUSES_DATA_FILE,
   } from "./index";
   import type { AudioFileItem } from "./index";
   import { lsNotebooks, pushErrMsg, pushMsg, removeFile, putFile } from "./api";
   import { Constants } from "siyuan";
-  import { exportIcsFile, uploadIcsToCloud } from "./utils/icsUtils";
-  import { importIcsFile } from "./utils/icsImport";
+  import { uploadIcsToCloud } from "./utils/icsUtils";
   import { syncHolidays } from "./utils/icsSubscription";
   import { PomodoroManager } from "./utils/pomodoroManager";
   import { resolveAudioPath } from "./utils/audioUtils";
+  import { getSettingTier, getGroupTier, getGroupOrder } from "@/core/settingsSchema";
+  import { isAdvancedFeaturesEnabled } from "@/core/featureGate";
   export let plugin;
 
   // 使用从 index.ts 导入的默认设置
@@ -308,8 +307,8 @@
   }
 
   interface ISettingGroup {
+    schemaKey?: string;
     name: string;
-    advanced?: boolean;
     items: ISettingItem[];
   }
 
@@ -331,6 +330,7 @@
   // 定义设置分组
   let groups: ISettingGroup[] = [
     {
+      schemaKey: "sidebar",
       name: i18n("sidebarSettings"),
       items: [
         {
@@ -353,13 +353,6 @@
           type: "checkbox",
           title: i18n("enableProjectDock"),
           description: i18n("enableProjectDockDesc"),
-        },
-        {
-          key: "enableHabitDock",
-          value: settings.enableHabitDock,
-          type: "checkbox",
-          title: i18n("enableHabitDock"),
-          description: i18n("enableHabitDockDesc"),
         },
         {
           key: "enableCalendarDock",
@@ -389,16 +382,10 @@
           title: i18n("enableProjectDockBadge"),
           description: i18n("enableProjectDockBadgeDesc"),
         },
-        {
-          key: "enableHabitDockBadge",
-          value: settings.enableHabitDockBadge,
-          type: "checkbox",
-          title: i18n("enableHabitDockBadge"),
-          description: i18n("enableHabitDockBadgeDesc"),
-        },
       ],
     },
     {
+      schemaKey: "notification",
       name: i18n("notificationReminder"),
       items: [
         {
@@ -440,6 +427,7 @@
       ],
     },
     {
+      schemaKey: "calendar",
       name: i18n("calendarSettings"),
       items: [
         {
@@ -564,16 +552,10 @@
           title: i18n("showPomodoroInSummary"),
           description: i18n("showPomodoroInSummaryDesc"),
         },
-        {
-          key: "showHabitInSummary",
-          value: settings.showHabitInSummary,
-          type: "checkbox",
-          title: i18n("showHabitInSummary"),
-          description: i18n("showHabitInSummaryDesc"),
-        },
       ],
     },
     {
+      schemaKey: "taskNote",
       name: i18n("taskNoteSettings"),
       items: [
         {
@@ -682,8 +664,8 @@
       ],
     },
     {
+      schemaKey: "pomodoro",
       name: i18n("pomodoroSettings"),
-      advanced: true,
       items: [
         {
           key: "pomodoroHint",
@@ -851,85 +833,7 @@
       ],
     },
     {
-      name: i18n("randomRestSettings"),
-      advanced: true,
-      items: [
-        {
-          key: "randomRestEnabled",
-          value: settings.randomRestEnabled,
-          type: "checkbox",
-          title: i18n("randomRestEnabled"),
-          description: i18n("randomRestEnabledDesc"),
-        },
-        {
-          key: "randomRestSystemNotification",
-          value: settings.randomRestSystemNotification,
-          type: "checkbox",
-          title: i18n("randomRestSystemNotification"),
-          description: i18n("randomRestSystemNotificationDesc"),
-        },
-        {
-          key: "randomRestPopupWindow",
-          value: settings.randomRestPopupWindow,
-          type: "checkbox",
-          title: i18n("randomRestPopupWindow"),
-          description: i18n("randomRestPopupWindowDesc"),
-        },
-        {
-          key: "randomRestMinInterval",
-          value: settings.randomRestMinInterval,
-          type: "number",
-          title: i18n("randomRestMinInterval"),
-          description: i18n("randomRestMinIntervalDesc"),
-        },
-        {
-          key: "randomRestMaxInterval",
-          value: settings.randomRestMaxInterval,
-          type: "number",
-          title: i18n("randomRestMaxInterval"),
-          description: i18n("randomRestMaxIntervalDesc"),
-        },
-        {
-          key: "randomRestBreakDuration",
-          value: settings.randomRestBreakDuration,
-          type: "number",
-          title: i18n("randomRestBreakDuration"),
-          description: i18n("randomRestBreakDurationDesc"),
-        },
-        {
-          key: "randomRestVolume",
-          value: settings.randomRestVolume ?? 1,
-          type: "slider",
-          title: i18n("randomRestVolume"),
-          description: i18n("randomRestVolumeDesc"),
-          slider: { min: 0, max: 1, step: 0.1 },
-        },
-        {
-          key: "randomRestSounds",
-          value: settings.audioFileLists?.randomRestSounds || [],
-          type: "custom-audio",
-          title: i18n("randomRestSounds"),
-          description: i18n("randomRestSoundsDesc") || "",
-        },
-        {
-          key: "randomRestEndVolume",
-          value: settings.randomRestEndVolume ?? 1,
-          type: "slider",
-          title: i18n("randomRestEndVolume"),
-          description: i18n("randomRestEndVolumeDesc"),
-          slider: { min: 0, max: 1, step: 0.1 },
-        },
-        {
-          key: "randomRestEndSound",
-          value: settings.audioSelected?.randomRestEndSound || "",
-          type: "custom-audio",
-          title: i18n("randomRestEndSound"),
-          description: i18n("randomRestEndSoundDesc") || "",
-        },
-      ],
-    },
-
-    {
+      schemaKey: "dataStorage",
       name: i18n("dataStorageLocation"),
       items: [
         {
@@ -972,10 +876,10 @@
                   PROJECT_DATA_FILE,
                   CATEGORIES_DATA_FILE,
                   REMINDER_DATA_FILE,
-                  HABIT_DATA_FILE,
+                  "habit.json",
                   NOTIFY_DATA_FILE,
                   POMODORO_RECORD_DATA_FILE,
-                  HABIT_GROUP_DATA_FILE,
+                  "habitGroup.json",
                   STATUSES_DATA_FILE,
                 ];
                 let successCount = 0;
@@ -1001,74 +905,13 @@
       ],
     },
     {
-      name: i18n("exportSettings"),
-      advanced: true,
-      items: [
-        {
-          key: "exportIcs",
-          value: "",
-          type: "button",
-          title: i18n("exportIcs"),
-          description: i18n("exportIcsDesc"),
-          button: {
-            label: i18n("generateIcs"),
-            callback: async () => {
-              await exportIcsFile(
-                plugin,
-                true,
-                false,
-                settings.icsTaskFilter as any,
-              );
-            },
-          },
-        },
-      ],
-    },
-    {
-      name: i18n("importSettings"),
-      advanced: true,
-      items: [
-        {
-          key: "importIcs",
-          value: "",
-          type: "button",
-          title: i18n("importIcs"),
-          description: i18n("importIcsDesc"),
-          button: {
-            label: i18n("selectFileToImport"),
-            callback: async () => {
-              // 创建文件输入元素
-              const input = document.createElement("input");
-              input.type = "file";
-              input.accept = ".ics";
-              input.onchange = async (e: Event) => {
-                const target = e.target as HTMLInputElement;
-                const file = target.files?.[0];
-                if (!file) return;
-
-                try {
-                  const content = await file.text();
-
-                  // 显示批量设置对话框
-                  showImportDialog(content);
-                } catch (error) {
-                  console.error("读取文件失败:", error);
-                  await pushErrMsg(i18n("readFileFailed"));
-                }
-              };
-              input.click();
-            },
-          },
-        },
-      ],
-    },
-    {
+      schemaKey: "icsSubscription",
       name: "" + i18n("icsSubscription"),
       items: [], // 使用 SubscriptionPanel 组件渲染
     },
     {
+      schemaKey: "sync",
       name: i18n("calendarUpload"),
-      advanced: true,
       items: [
         {
           key: "calendarSubscribeHint",
@@ -1533,51 +1376,53 @@
     }));
   }
 
+  function isAdvancedGroupBySchema(group: ISettingGroup): boolean {
+    if (group.schemaKey) {
+      return getGroupTier(group.schemaKey) === "advanced";
+    }
+    const keys = (group.items || []).map((item) => item.key).filter(Boolean);
+    if (keys.length === 0) return false;
+    return keys.every((key) => getSettingTier(String(key)) === "advanced");
+  }
+
+  function getGroupSchemaOrder(group: ISettingGroup): number {
+    return getGroupOrder(group.schemaKey);
+  }
+
   // 根据 icsSyncEnabled 和 icsSyncMethod 控制相关项的显示和隐藏
   $: filteredGroups = groups
     .map((group) => ({
       ...group,
       items: group.items.map((item) => {
         const updated = { ...item } as any;
-
-        const showAdvancedFeatures = settings.showAdvancedFeatures === true;
-
-        if (
-          !showAdvancedFeatures &&
-          ["enableHabitDock", "enableHabitDockBadge"].includes(item.key)
-        ) {
-          updated.hidden = true;
-        }
+        const isIcsSyncEnabled = settings.icsSyncEnabled === true;
+        const isS3Sync = settings.icsSyncMethod === "s3";
+        const isWebdavSync = settings.icsSyncMethod === "webdav";
+        const useSiyuanS3 = settings.s3UseSiyuanConfig === true;
 
         // 通用同步设置，仅在同步启用时可用
         if (item.key === "icsSyncInterval") {
-          updated.disabled = !settings.icsSyncEnabled;
+          updated.disabled = !isIcsSyncEnabled;
         }
 
-        // S3专用设置 - s3UseSiyuanConfig仅在启用同步且选择S3存储时显示
-        if (item.key === "s3UseSiyuanConfig") {
-          updated.hidden =
-            !settings.icsSyncEnabled || settings.icsSyncMethod !== "s3";
-        }
         // 每天同步时间设置，仅在启用同步且选择 dailyAt 模式时显示
         if (item.key === "icsDailySyncTime") {
-          updated.hidden =
-            !settings.icsSyncEnabled || settings.icsSyncInterval !== "dailyAt";
+          updated.hidden = !isIcsSyncEnabled || settings.icsSyncInterval !== "dailyAt";
         }
 
-        // S3专用设置 - s3UseSiyuanConfig仅在启用同步且选择S3存储时显示
+        // S3 专用开关
         if (item.key === "s3UseSiyuanConfig") {
-          updated.hidden = settings.icsSyncMethod !== "s3";
+          updated.hidden = !isIcsSyncEnabled || !isS3Sync;
         }
 
-        // S3 bucket、存储路径和自定义域名 - 仅在启用同步且选择S3存储时显示（即使使用思源配置也允许覆盖）
+        // S3 bucket、存储路径和自定义域名
         if (
           ["s3Bucket", "s3StoragePath", "s3CustomDomain"].includes(item.key)
         ) {
-          updated.hidden = settings.icsSyncMethod !== "s3";
+          updated.hidden = !isIcsSyncEnabled || !isS3Sync;
         }
 
-        // S3详细配置 - 仅在启用同步、选择S3存储且未启用"使用思源S3设置"时显示
+        // S3 详细配置
         if (
           [
             "s3Endpoint",
@@ -1589,40 +1434,14 @@
           ].includes(item.key)
         ) {
           updated.hidden =
-            settings.icsSyncMethod !== "s3" ||
-            settings.s3UseSiyuanConfig === true;
+            !isIcsSyncEnabled || !isS3Sync || useSiyuanS3;
         }
 
         // WebDAV 配置显示条件
         if (
           ["webdavUrl", "webdavUsername", "webdavPassword"].includes(item.key)
         ) {
-          updated.hidden = settings.icsSyncMethod !== "webdav";
-        }
-
-        // S3 bucket、存储路径和自定义域名 - 仅在启用同步且选择S3存储时显示（即使使用思源配置也允许覆盖）
-        if (
-          ["s3Bucket", "s3StoragePath", "s3CustomDomain"].includes(item.key)
-        ) {
-          updated.hidden =
-            !settings.icsSyncEnabled || settings.icsSyncMethod !== "s3";
-        }
-
-        // S3详细配置 - 仅在启用同步、选择S3存储且未启用"使用思源S3设置"时显示
-        if (
-          [
-            "s3Endpoint",
-            "s3Region",
-            "s3AccessKeyId",
-            "s3AccessKeySecret",
-            "s3ForcePathStyle",
-            "s3TlsVerify",
-          ].includes(item.key)
-        ) {
-          updated.hidden =
-            !settings.icsSyncEnabled ||
-            settings.icsSyncMethod !== "s3" ||
-            settings.s3UseSiyuanConfig === true;
+          updated.hidden = !isIcsSyncEnabled || !isWebdavSync;
         }
 
         return updated;
@@ -1630,7 +1449,7 @@
     }))
     .filter(
       (group) =>
-        settings.showAdvancedFeatures === true || group.advanced !== true,
+        isAdvancedFeaturesEnabled(settings) || !isAdvancedGroupBySchema(group),
     )
     .map((group) => ({
       ...group,
@@ -1639,7 +1458,8 @@
     .filter(
       (group) =>
         group.items.length > 0 || group.name === "" + i18n("icsSubscription"),
-    );
+    )
+    .sort((a, b) => getGroupSchemaOrder(a) - getGroupSchemaOrder(b));
 
   $: if (
     !filteredGroups.find((group) => group.name === focusGroup) &&
@@ -1650,301 +1470,6 @@
 
   $: currentGroup = filteredGroups.find((group) => group.name === focusGroup);
 
-  // ICS导入对话框
-  async function showImportDialog(icsContent: string) {
-    // 加载项目和标签数据
-    const { ProjectManager } = await import("./utils/projectManager");
-    const projectManager = ProjectManager.getInstance(plugin);
-    await projectManager.initialize();
-    const groupedProjects = projectManager.getProjectsGroupedByStatus();
-
-    const dialog = new Dialog({
-      title: "导入 ICS 文件",
-      content: `
-                <div class="b3-dialog__content" style="padding: 16px;">
-                    <div class="fn__flex-column" style="gap: 16px;">
-                        <div class="b3-label">
-                            <div class="b3-label__text">批量设置所属项目（可选）</div>
-                            <div class="fn__hr"></div>
-                            <div style="display: flex; gap: 8px;">
-                                <select class="b3-select fn__flex-1" id="import-project-select">
-                                    <option value="">不设置</option>
-                                    ${Object.entries(groupedProjects)
-                                      .map(([statusId, statusProjects]) => {
-                                        if (statusProjects.length === 0)
-                                          return "";
-                                        const status = projectManager
-                                          .getStatusManager()
-                                          .getStatusById(statusId);
-                                        const label = status
-                                          ? `${status.icon || ""} ${status.name}`
-                                          : statusId;
-                                        return `
-                                        <optgroup label="${label}">
-                                            ${statusProjects
-                                              .map(
-                                                (p) => `
-                                                <option value="${p.id}">${p.name}</option>
-                                            `,
-                                              )
-                                              .join("")}
-                                        </optgroup>
-                                    `;
-                                      })
-                                      .join("")}
-                                </select>
-                                <button class="b3-button b3-button--outline" id="import-create-project" title="新建项目">
-                                    <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="b3-label">
-                            <div class="b3-label__text">批量设置分类（可选）</div>
-                            <div class="fn__hr"></div>
-                            <div id="import-category-selector" class="category-selector" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-                                <!-- 分类选择器将在这里渲染 -->
-                            </div>
-                        </div>
-                        
-                        <div class="b3-label">
-                            <div class="b3-label__text">批量设置优先级（可选）</div>
-                            <div class="fn__hr"></div>
-                            <select class="b3-select fn__flex-1" id="import-priority">
-                                <option value="">不设置</option>
-                                <option value="high">高优先级</option>
-                                <option value="medium">中优先级</option>
-                                <option value="low">低优先级</option>
-                                <option value="none">无优先级</option>
-                            </select>
-                        </div>
-                        
-                        <div class="fn__hr"></div>
-                        
-                        <div class="fn__flex" style="justify-content: flex-end; gap: 8px;">
-                            <button class="b3-button b3-button--cancel">取消</button>
-                            <button class="b3-button b3-button--text" id="import-confirm">导入</button>
-                        </div>
-                    </div>
-                </div>
-            `,
-      width: "500px",
-    });
-
-    const projectSelect = dialog.element.querySelector(
-      "#import-project-select",
-    ) as HTMLSelectElement;
-    const createProjectBtn = dialog.element.querySelector(
-      "#import-create-project",
-    ) as HTMLButtonElement;
-    const categorySelector = dialog.element.querySelector(
-      "#import-category-selector",
-    ) as HTMLElement;
-    const confirmBtn = dialog.element.querySelector("#import-confirm");
-    const cancelBtn = dialog.element.querySelector(".b3-button--cancel");
-
-    let selectedCategoryId: string = "";
-
-    // 渲染分类选择器
-    async function renderCategories() {
-      if (!categorySelector) return;
-
-      try {
-        const { CategoryManager } = await import("./utils/categoryManager");
-        const categoryManager = CategoryManager.getInstance(plugin);
-        await categoryManager.initialize();
-        const categories = categoryManager.getCategories();
-
-        // 清空并重新构建
-        categorySelector.innerHTML = "";
-
-        // 添加无分类选项
-        const noCategoryEl = document.createElement("div");
-        noCategoryEl.className = "category-option";
-        noCategoryEl.setAttribute("data-category", "");
-        noCategoryEl.textContent = "无分类";
-        noCategoryEl.style.cssText = `
-                    display: inline-flex;
-                    align-items: center;
-                    padding: 6px 12px;
-                    font-size: 13px;
-                    border-radius: 6px;
-                    background: var(--b3-theme-background-light);
-                    border: 1px solid var(--b3-border-color);
-                    color: var(--b3-theme-on-surface);
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    user-select: none;
-                `;
-        noCategoryEl.classList.add("selected");
-        categorySelector.appendChild(noCategoryEl);
-
-        // 添加所有分类选项
-        categories.forEach((category) => {
-          const categoryEl = document.createElement("div");
-          categoryEl.className = "category-option";
-          categoryEl.setAttribute("data-category", category.id);
-          categoryEl.textContent = `${category.icon ? category.icon + " " : ""}${category.name}`;
-          categoryEl.style.cssText = `
-                        display: inline-flex;
-                        align-items: center;
-                        padding: 6px 12px;
-                        font-size: 13px;
-                        border-radius: 6px;
-                        background: ${category.color}20;
-                        border: 1px solid ${category.color};
-                        color: var(--b3-theme-on-surface);
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        user-select: none;
-                    `;
-          categorySelector.appendChild(categoryEl);
-        });
-
-        // 绑定点击事件
-        categorySelector.querySelectorAll(".category-option").forEach((el) => {
-          el.addEventListener("click", () => {
-            // 移除所有选中状态
-            categorySelector
-              .querySelectorAll(".category-option")
-              .forEach((opt) => {
-                opt.classList.remove("selected");
-                const catId = opt.getAttribute("data-category");
-                if (catId) {
-                  const cat = categories.find((c) => c.id === catId);
-                  if (cat) {
-                    (opt as HTMLElement).style.background = cat.color + "20";
-                    (opt as HTMLElement).style.fontWeight = "500";
-                  }
-                } else {
-                  (opt as HTMLElement).style.background =
-                    "var(--b3-theme-background-light)";
-                  (opt as HTMLElement).style.fontWeight = "500";
-                }
-              });
-
-            // 设置当前选中
-            el.classList.add("selected");
-            const catId = el.getAttribute("data-category");
-            selectedCategoryId = catId || "";
-
-            if (catId) {
-              const cat = categories.find((c) => c.id === catId);
-              if (cat) {
-                (el as HTMLElement).style.background = cat.color;
-                (el as HTMLElement).style.color = "#fff";
-                (el as HTMLElement).style.fontWeight = "600";
-              }
-            } else {
-              (el as HTMLElement).style.background = "var(--b3-theme-surface)";
-              (el as HTMLElement).style.fontWeight = "600";
-            }
-          });
-
-          // 悬停效果
-          el.addEventListener("mouseenter", () => {
-            (el as HTMLElement).style.opacity = "0.8";
-            (el as HTMLElement).style.transform = "translateY(-1px)";
-          });
-
-          el.addEventListener("mouseleave", () => {
-            (el as HTMLElement).style.opacity = "1";
-            (el as HTMLElement).style.transform = "translateY(0)";
-          });
-        });
-      } catch (error) {
-        console.error("加载分类失败:", error);
-        categorySelector.innerHTML =
-          '<div class="category-error">加载分类失败</div>';
-      }
-    }
-
-    // 初始化时渲染分类选择器
-    await renderCategories();
-
-    // 新建项目按钮
-    createProjectBtn.addEventListener("click", async () => {
-      try {
-        // 使用 ProjectDialog 创建项目
-        const { ProjectDialog } = await import("./components/ProjectDialog");
-        const projectDialog = new ProjectDialog(undefined, plugin);
-        await projectDialog.show();
-
-        // 监听项目创建成功事件
-        const handleProjectCreated = async (event: CustomEvent) => {
-          // 重新加载项目列表
-          await projectManager.initialize();
-          const groupedProjects = projectManager.getProjectsGroupedByStatus();
-
-          // 清空并重新填充下拉列表
-          projectSelect.innerHTML = '<option value="">不设置</option>';
-          Object.entries(groupedProjects).forEach(
-            ([statusId, statusProjects]) => {
-              if (statusProjects.length === 0) return;
-              const status = projectManager
-                .getStatusManager()
-                .getStatusById(statusId);
-              const optgroup = document.createElement("optgroup");
-              optgroup.label = status
-                ? `${status.icon || ""} ${status.name}`
-                : statusId;
-
-              statusProjects.forEach((p) => {
-                const option = document.createElement("option");
-                option.value = p.id;
-                option.textContent = p.name;
-                optgroup.appendChild(option);
-              });
-              projectSelect.appendChild(optgroup);
-            },
-          );
-
-          // 选中新创建的项目
-          if (event.detail && event.detail.projectId) {
-            projectSelect.value = event.detail.projectId;
-          }
-
-          // 移除事件监听器
-          window.removeEventListener(
-            "projectUpdated",
-            handleProjectCreated as EventListener,
-          );
-        };
-
-        window.addEventListener(
-          "projectUpdated",
-          handleProjectCreated as EventListener,
-        );
-      } catch (error) {
-        console.error("创建项目失败:", error);
-        await pushErrMsg("创建项目失败");
-      }
-    });
-
-    // 确定按钮
-    confirmBtn?.addEventListener("click", async () => {
-      const projectId = projectSelect?.value.trim() || undefined;
-      const priority =
-        ((dialog.element.querySelector("#import-priority") as HTMLSelectElement)
-          ?.value as any) || undefined;
-
-      try {
-        await importIcsFile(plugin, icsContent, {
-          projectId,
-          categoryId: selectedCategoryId || undefined,
-          priority,
-        });
-        dialog.destroy();
-      } catch (error) {
-        console.error("导入失败:", error);
-      }
-    });
-
-    // 取消按钮
-    cancelBtn?.addEventListener("click", () => {
-      dialog.destroy();
-    });
-  }
 </script>
 
 <div class="fn__flex-1 fn__flex config__panel">

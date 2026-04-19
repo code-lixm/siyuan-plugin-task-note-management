@@ -4,8 +4,6 @@ import { ProjectManager } from "../utils/projectManager";
 import { CategoryManager } from "../utils/categoryManager";
 import { QuickReminderDialog } from "./QuickReminderDialog";
 import { BlockBindingDialog } from "./BlockBindingDialog";
-import { PomodoroTimer } from "./PomodoroTimer";
-import { PomodoroManager } from "../utils/pomodoroManager";
 import { colorWithOpacity } from "../utils/uiUtils";
 import { showMessage, confirm, Menu, Dialog, platformUtils } from "siyuan";
 import { i18n } from "../pluginInstance";
@@ -13,6 +11,7 @@ import { getLocalDateTimeString, getLocalDateString, compareDateStrings, getLogi
 import { getSolarDateLunarString } from "../utils/lunarUtils";
 import { generateRepeatInstances, getRepeatDescription, generateSubtreeInstances } from "../utils/repeatUtils";
 import { createPomodoroStartSubmenu } from "@/utils/pomodoroPresets";
+import { executePluginAction } from "@/core/actions";
 interface QuadrantTask {
     id: string;
     title: string;
@@ -50,6 +49,29 @@ interface Quadrant {
     tasks: QuadrantTask[];
 }
 
+const QUADRANT_ACCENT_COLORS = {
+    importantUrgent: '#E96B65',
+    importantNotUrgent: '#F2B15A',
+    notImportantUrgent: '#5DA8DF',
+    notImportantNotUrgent: '#9FB1B5',
+} as const;
+
+const PRIORITY_ACCENT_COLORS = {
+    high: '#E96B65',
+    medium: '#F2B15A',
+    low: '#5DA8DF',
+    none: '#9FB1B5',
+} as const;
+
+const KANBAN_STATUS_ACCENT_COLORS = {
+    doing: '#F2B15A',
+    shortTerm: '#5DA8DF',
+    longTerm: '#A98BCF',
+} as const;
+
+const POMODORO_ACCENT_COLOR = '#FF7A63';
+const PROGRESS_GRADIENT_COLORS = ['#43B06D', '#36965B'] as const;
+
 export class EisenhowerMatrixView {
     private container: HTMLElement;
     private plugin: any;
@@ -73,10 +95,8 @@ export class EisenhowerMatrixView {
     private isDragging: boolean = false;
     private draggedTaskId: string | null = null;
     private collapsedTasks: Set<string> = new Set();
-    private collapsedProjects: Map<string, Set<string>> = new Map(); // 每个象限中折叠的项目
+    private collapsedProjects: Map<string, Set<string>> = new Map();
 
-    // 全局番茄钟管理器
-    private pomodoroManager = PomodoroManager.getInstance();
     private lute: any;
 
     constructor(container: HTMLElement, plugin: any) {
@@ -109,28 +129,28 @@ export class EisenhowerMatrixView {
                 key: 'important-urgent',
                 title: i18n('quadrantImportantUrgent'),
                 description: i18n('quadrantImportantUrgentDesc'),
-                color: '#e74c3c',
+                color: QUADRANT_ACCENT_COLORS.importantUrgent,
                 tasks: []
             },
             {
                 key: 'important-not-urgent',
                 title: i18n('quadrantImportantNotUrgent'),
                 description: i18n('quadrantImportantNotUrgentDesc'),
-                color: '#f39c12',
+                color: QUADRANT_ACCENT_COLORS.importantNotUrgent,
                 tasks: []
             },
             {
                 key: 'not-important-urgent',
                 title: i18n('quadrantNotImportantUrgent'),
                 description: i18n('quadrantNotImportantUrgentDesc'),
-                color: '#3498db',
+                color: QUADRANT_ACCENT_COLORS.notImportantUrgent,
                 tasks: []
             },
             {
                 key: 'not-important-not-urgent',
                 title: i18n('quadrantNotImportantNotUrgent'),
                 description: i18n('quadrantNotImportantNotUrgentDesc'),
-                color: '#95a5a6',
+                color: QUADRANT_ACCENT_COLORS.notImportantNotUrgent,
                 tasks: []
             }
         ];
@@ -163,7 +183,7 @@ export class EisenhowerMatrixView {
                 <button class="b3-button b3-button--primary kanban-status-filter-btn" title="${i18n("statusFilter")}">
                     <svg class="b3-button__icon"><use xlink:href="#iconList"></use></svg>
                     ${i18n("eisenhowerDoingTasks")}
-                    <svg class="dropdown-arrow" style="margin-left: 4px; width: 12px; height: 12px;"><use xlink:href="#iconDown"></use></svg>
+                    <svg class="dropdown-arrow"><use xlink:href="#iconDown"></use></svg>
                 </button>
                 <div class="header-v-separator"></div>
                 <button class="b3-button b3-button--outline project-sort-btn" title="${i18n("projectSorting")}">
@@ -204,9 +224,8 @@ export class EisenhowerMatrixView {
 
         const header = document.createElement('div');
         header.className = 'quadrant-header';
-        header.style.backgroundColor = quadrant.color;
         header.innerHTML = `
-            <div class="quadrant-title" style="color: white">${quadrant.title}</div>
+            <div class="quadrant-title">${quadrant.title}</div>
             <button class="b3-button b3-button--outline add-task-btn" data-quadrant="${quadrant.key}">
                 <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
                 ${i18n("newTask")}
@@ -924,7 +943,10 @@ export class EisenhowerMatrixView {
             if (quadrant.tasks.length === 0) {
                 const emptyEl = document.createElement('div');
                 emptyEl.className = 'empty-quadrant';
-                emptyEl.textContent = i18n('noTasksInQuadrant');
+                emptyEl.innerHTML = `
+                    <span class="empty-quadrant__icon">🗂️</span>
+                    <span class="empty-quadrant__text">${i18n('noTasksInQuadrant')}</span>
+                `;
                 contentEl.appendChild(emptyEl);
                 return;
             }
@@ -968,7 +990,7 @@ export class EisenhowerMatrixView {
                 // 创建折叠/展开按钮
                 const collapseBtn = document.createElement('button');
                 collapseBtn.className = 'project-collapse-btn b3-button b3-button--text';
-                collapseBtn.innerHTML = `<svg class="b3-button__icon" style="width: 12px; height: 12px;"><use xlink:href="#${isProjectCollapsed ? 'iconRight' : 'iconDown'}"></use></svg>`;
+                collapseBtn.innerHTML = `<svg class="b3-button__icon project-collapse-icon"><use xlink:href="#${isProjectCollapsed ? 'iconRight' : 'iconDown'}"></use></svg>`;
                 collapseBtn.title = isProjectCollapsed ? '展开' : '折叠';
                 collapseBtn.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -982,8 +1004,7 @@ export class EisenhowerMatrixView {
                 projectNameSpan.className = 'project-name';
                 if (projectKey !== 'no-project') {
                     projectNameSpan.textContent = tasks[0].projectName || i18n('noProject');
-                    projectNameSpan.style.cursor = 'pointer';
-                    projectNameSpan.style.color = 'var(--b3-theme-primary)';
+                    projectNameSpan.classList.add('project-name--clickable');
                     projectNameSpan.title = i18n('openProjectKanban');
 
                     // 添加点击事件打开项目看板
@@ -999,12 +1020,6 @@ export class EisenhowerMatrixView {
                 const taskCountSpan = document.createElement('span');
                 taskCountSpan.className = 'project-task-count';
                 taskCountSpan.textContent = `(${tasks.length})`;
-                taskCountSpan.style.cssText = `
-                    margin-left: 8px;
-                    font-size: 12px;
-                    color: var(--b3-theme-on-surface-light);
-                    opacity: 0.7;
-                `;
                 projectHeader.appendChild(taskCountSpan);
 
                 projectGroup.appendChild(projectHeader);
@@ -1062,7 +1077,7 @@ export class EisenhowerMatrixView {
         const bgVar = task.priority === 'high' ? 'var(--b3-card-error-background)' : task.priority === 'medium' ? 'var(--b3-card-warning-background)' : task.priority === 'low' ? 'var(--b3-card-info-background)' : 'var(--b3-theme-background-light)';
         const bgOpacity = task.priority === 'high' ? 0.5 : task.priority === 'medium' ? 0.5 : task.priority === 'low' ? 0.7 : 0.1;
         taskEl.style.backgroundColor = colorWithOpacity(bgVar, bgOpacity);
-        taskEl.style.border = `1.5px solid var(--b3-border-color)`;
+        taskEl.style.border = `1px solid var(--task-border-default)`;
 
         // 创建任务内容容器
         const taskContent = document.createElement('div');
@@ -1087,7 +1102,7 @@ export class EisenhowerMatrixView {
         // 订阅任务标识
         if (task.isSubscribed) {
             const subBadge = document.createElement('span');
-            subBadge.innerHTML = `<svg style="width: 12px; height: 12px; margin-right: 4px; vertical-align: middle;"><use xlink:href="#iconCloud"></use></svg>`;
+            subBadge.innerHTML = `<svg class="task-subscribed-icon"><use xlink:href="#iconCloud"></use></svg>`;
             subBadge.title = i18n("icsSubscribedTask");
             taskInfo.appendChild(subBadge);
         }
@@ -1095,14 +1110,6 @@ export class EisenhowerMatrixView {
         // 创建控制按钮容器（仅保留折叠按钮）
         const taskControlContainer = document.createElement('div');
         taskControlContainer.className = 'task-control-container';
-        taskControlContainer.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            gap: 2px;
-        `;
 
         // 折叠按钮（仅对有子任务的父任务显示）
         const childTasks = this.allTasks.filter(t => t.parentId === task.id);
@@ -1128,12 +1135,7 @@ export class EisenhowerMatrixView {
         if (task.blockId) {
             taskTitle.setAttribute('data-type', 'a');
             taskTitle.setAttribute('data-href', `siyuan://blocks/${task.blockId}`);
-            taskTitle.style.cssText += `
-                cursor: pointer;
-                color: var(--b3-theme-primary);
-                text-decoration: underline;
-                font-weight: 500;
-            `;
+            taskTitle.classList.add('task-title--link');
             taskTitle.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1149,11 +1151,6 @@ export class EisenhowerMatrixView {
             const childCountSpan = document.createElement('span');
             childCountSpan.className = 'child-task-count';
             childCountSpan.textContent = ` (${childTasks.length})`;
-            childCountSpan.style.cssText = `
-                color: var(--b3-theme-on-surface-light);
-                font-size: 12px;
-                margin-left: 4px;
-            `;
             taskTitle.appendChild(childCountSpan);
         }
 
@@ -1167,15 +1164,6 @@ export class EisenhowerMatrixView {
                 projectText += ` / ${task.groupName}`;
             }
             projectDiv.textContent = `📂 ${projectText}`;
-            projectDiv.style.cssText = `
-                 font-size: 11px;
-                 color: var(--b3-theme-on-surface-light);
-                 margin-top: 4px;
-                 display: flex;
-                 align-items: center;
-                 gap: 4px;
-                 opacity: 0.8;
-             `;
         }
 
         // 创建时间信息（单独一行）
@@ -1183,23 +1171,9 @@ export class EisenhowerMatrixView {
         if (task.date) {
             dateDiv = document.createElement('div');
             dateDiv.className = 'task-date-info';
-            dateDiv.style.cssText = `
-                 margin-top: 4px;
-                 font-size: 11px;
-                 display: flex;
-                 align-items: center;
-                 flex-wrap: wrap;
-                 gap: 6px;
-                 color: var(--b3-theme-on-surface-light);
-            `;
 
             const dateSpan = document.createElement('span');
             dateSpan.className = 'task-date';
-            dateSpan.style.cssText = `
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-            `;
 
             // 获取当前年份
             const currentYear = new Date().getFullYear();
@@ -1225,15 +1199,15 @@ export class EisenhowerMatrixView {
 
             // 辅助函数：创建过期徽章
             const createExpiredBadge = (days: number): string => {
-                return `<span class="countdown-badge countdown-normal" style="background-color: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); font-size: 11px; padding: 2px 6px; border-radius: var(--task-radius-lg); font-weight: 500; margin-left: 4px; display: inline-block;">已过期${days}天</span>`;
+                return `<span class="countdown-badge countdown-overdue">已过期${days}天</span>`;
             };
 
             // 添加周期图标
             if (task.extendedProps?.repeat?.enabled || task.extendedProps?.isRepeatInstance) {
                 const repeatIcon = document.createElement('span');
+                repeatIcon.className = 'task-repeat-icon';
                 repeatIcon.textContent = '🔄';
                 repeatIcon.title = task.extendedProps?.repeat?.enabled ? getRepeatDescription(task.extendedProps.repeat) : '周期事件实例';
-                repeatIcon.style.cssText = 'cursor: help;';
                 dateSpan.appendChild(repeatIcon);
             }
 
@@ -1311,27 +1285,18 @@ export class EisenhowerMatrixView {
 
             // 根据kanbanStatus确定状态配置
             const statusConfig: { [key: string]: { icon: string; label: string; color: string } } = {
-                'doing': { icon: '', label: '进行中', color: '#f39c12' },
-                'short_term': { icon: '', label: '短期', color: '#3498db' },
-                'long_term': { icon: '', label: '长期', color: '#9b59b6' }
+                'doing': { icon: '', label: '进行中', color: KANBAN_STATUS_ACCENT_COLORS.doing },
+                'short_term': { icon: '', label: '短期', color: KANBAN_STATUS_ACCENT_COLORS.shortTerm },
+                'long_term': { icon: '', label: '长期', color: KANBAN_STATUS_ACCENT_COLORS.longTerm }
             };
-            const statusInfo = statusConfig[kanbanStatus] || { icon: '', label: '短期', color: '#3498db' };
+            const statusInfo = statusConfig[kanbanStatus] || { icon: '', label: '短期', color: KANBAN_STATUS_ACCENT_COLORS.shortTerm };
 
             const statusSpan = document.createElement('span');
             statusSpan.className = 'task-kanban-status';
             statusSpan.textContent = `${statusInfo.icon} ${statusInfo.label}`;
-            statusSpan.style.cssText = `
-                display: inline-flex;
-                align-items: center;
-                gap: 2px;
-                padding: 2px 6px;
-                border-radius: var(--task-radius-xs);
-                font-size: 11px;
-                font-weight: 500;
-                background-color: ${statusInfo.color}20;
-                color: ${statusInfo.color};
-                border: 1px solid ${statusInfo.color}40;
-            `;
+            statusSpan.style.setProperty('--status-accent', statusInfo.color);
+            statusSpan.style.setProperty('--status-bg', `${statusInfo.color}20`);
+            statusSpan.style.setProperty('--status-border', `${statusInfo.color}40`);
             taskMeta.appendChild(statusSpan);
         }
 
@@ -1361,16 +1326,6 @@ export class EisenhowerMatrixView {
             };
             const focusText = focusMinutes > 0 ? ` ⏱ ${formatMinutesToString(focusMinutes)}` : '';
             pomodoroSpan.textContent = ` ${task.pomodoroCount || 0}${focusText}`;
-            pomodoroSpan.style.cssText = `
-                display: inline-flex;
-                align-items: center;
-                gap: 2px;
-                padding: 1px 4px;
-                border-radius: var(--task-radius-xs);
-                font-size: 11px;
-                background-color: rgba(255, 99, 71, 0.1);
-                color: #ff6347;
-            `;
             taskMeta.appendChild(pomodoroSpan);
         }
 
@@ -1430,26 +1385,6 @@ export class EisenhowerMatrixView {
                 noteDiv.textContent = task.note;
             }
 
-            noteDiv.style.cssText = `
-                font-size: 12px;
-                color: var(--b3-theme-on-surface);
-                opacity: 0.8;
-                margin-top: 4px;
-                line-height: 1.5;
-                max-height: 3em;
-                overflow: hidden;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                word-break: break-all;
-                cursor: pointer;
-                border-radius: var(--task-radius-xs);
-                padding: 0 4px;
-                transition: background-color 0.2s;
-            `;
-
-
-
             // 点击编辑
             noteDiv.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -1480,12 +1415,6 @@ export class EisenhowerMatrixView {
         // 使用flex布局包含控制按钮、复选框和任务信息
         const taskInnerContent = document.createElement('div');
         taskInnerContent.className = 'task-inner-content';
-        taskInnerContent.style.cssText = `
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            width: 100%;
-        `;
 
         taskInnerContent.appendChild(taskControlContainer);
         taskInnerContent.appendChild(checkboxContainer);
@@ -1498,20 +1427,15 @@ export class EisenhowerMatrixView {
         if (childTasks.length > 0) {
             const progressContainer = document.createElement('div');
             progressContainer.className = 'task-progress-container';
-            // ensure the progress bar fills vertically and the percent text sits to the right
-            progressContainer.style.cssText = `display:flex; align-items:stretch; gap:8px; justify-content:space-between;`;
 
             const progressWrap = document.createElement('div');
-            // make sure the wrapper enforces the desired height so the inner bar can expand
-            progressWrap.style.cssText = `flex:1; min-width:0;  display:flex; align-items:center;`;
+            progressWrap.className = 'task-progress-wrap';
 
             const progressBar = document.createElement('div');
             progressBar.className = 'task-progress';
             const percent = this.calculateChildCompletionPercent(task.id);
             progressBar.style.width = `${percent}%`;
             progressBar.setAttribute('data-progress', String(percent));
-            // ensure bar takes full height of wrapper
-            progressBar.style.cssText = `height:8px; width:${percent}%; display:block; border-radius:6px; background:linear-gradient(90deg, #2ecc71, #27ae60); transition:width 300ms ease-in-out;`;
 
             progressWrap.appendChild(progressBar);
 
@@ -1549,7 +1473,6 @@ export class EisenhowerMatrixView {
             e.dataTransfer!.setData('task/project-id', task.projectId || 'no-project');
             e.dataTransfer!.setData('task/priority', task.priority || 'none');
             taskEl.classList.add('dragging');
-            taskEl.style.cursor = 'grabbing';
             this.isDragging = true;
             this.draggedTaskId = task.id;
         });
@@ -1557,7 +1480,6 @@ export class EisenhowerMatrixView {
         taskEl.addEventListener('dragend', (e) => {
             e.stopPropagation();
             taskEl.classList.remove('dragging');
-            taskEl.style.cursor = 'pointer';
             this.hideDropIndicators();
             this.isDragging = false;
             this.draggedTaskId = null;
@@ -1649,12 +1571,12 @@ export class EisenhowerMatrixView {
      */
     private getPriorityColor(priority: string): string {
         const colors: Record<string, string> = {
-            'high': '#e74c3c',
-            'medium': '#f39c12',
-            'low': '#3498db',
-            'none': '#95a5a6'
+            high: PRIORITY_ACCENT_COLORS.high,
+            medium: PRIORITY_ACCENT_COLORS.medium,
+            low: PRIORITY_ACCENT_COLORS.low,
+            none: PRIORITY_ACCENT_COLORS.none,
         };
-        return colors[priority] || colors['none'];
+        return colors[priority] || colors.none;
     }
 
     private setupEventListeners() {
@@ -2346,7 +2268,10 @@ export class EisenhowerMatrixView {
                 return;
             }
 
-            this.plugin.openProjectKanbanTab(project.id, project.name);
+            void executePluginAction(this.plugin, "openProjectKanban", {
+                projectId: project.id,
+                projectTitle: project.name
+            });
         } catch (error) {
             console.error('打开项目看板失败:', error);
             showMessage(i18n('openProjectKanbanFailed'));
@@ -2358,6 +2283,10 @@ export class EisenhowerMatrixView {
     private addStyles() {
         if (document.querySelector('#eisenhower-matrix-styles')) return;
 
+        const quadrantColors = QUADRANT_ACCENT_COLORS;
+        const priorityColors = PRIORITY_ACCENT_COLORS;
+        const pomodoroColor = POMODORO_ACCENT_COLOR;
+        const progressColors = PROGRESS_GRADIENT_COLORS;
         const style = document.createElement('style');
         style.id = 'eisenhower-matrix-styles';
         style.textContent = `
@@ -2393,16 +2322,49 @@ export class EisenhowerMatrixView {
                 margin-left: auto;
             }
 
+            .matrix-header-buttons .b3-button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                line-height: 1;
+                box-sizing: border-box;
+                min-height: var(--task-toolbar-height);
+                height: var(--task-toolbar-height);
+                border-radius: var(--task-radius-sm);
+                font-size: var(--task-font-sm);
+            }
+
+            .header-v-separator {
+                width: 1px;
+                height: 20px;
+                background: var(--task-border-default);
+                opacity: 0.7;
+                margin: 0 2px;
+            }
+
             .new-task-btn {
                 font-weight: 600;
                 background-color: var(--b3-theme-primary);
                 color: var(--b3-theme-on-primary) !important;
                 border-color: var(--b3-theme-primary);
+                padding: 0 var(--task-toolbar-padding-x) !important;
+                gap: 6px;
+            }
+
+            .kanban-status-filter-btn {
+                padding: 0 var(--task-toolbar-padding-x) !important;
+                gap: 6px;
+            }
+
+            .dropdown-arrow {
+                margin-left: 4px;
+                width: 12px;
+                height: 12px;
+                flex-shrink: 0;
             }
 
 
 
-            .refresh-btn,
             .switch-to-calendar-btn {
                 display: flex;
                 align-items: center;
@@ -2411,10 +2373,122 @@ export class EisenhowerMatrixView {
                 font-size: 12px;
             }
 
+            .project-sort-btn,
+            .filter-btn,
+            .settings-btn,
+            .refresh-btn {
+                width: var(--task-toolbar-icon-size) !important;
+                min-width: var(--task-toolbar-icon-size) !important;
+                height: var(--task-toolbar-icon-size) !important;
+                padding: 0 !important;
+                border-radius: var(--task-radius-sm) !important;
+            }
+
+            .project-sort-btn .b3-button__icon,
+            .filter-btn .b3-button__icon,
+            .settings-btn .b3-button__icon,
+            .refresh-btn .b3-button__icon {
+                margin: 0 !important;
+                width: 18px;
+                height: 18px;
+                display: block;
+            }
+
+            .project-sort-list {
+                border: 1px solid var(--b3-theme-border);
+                border-radius: var(--task-radius-sm);
+                padding: 8px;
+                max-height: 400px;
+                overflow-y: auto;
+                background: var(--b3-theme-surface);
+            }
+
+            .project-sort-empty {
+                padding: 16px;
+                text-align: center;
+                color: var(--b3-theme-on-surface-light);
+            }
+
+            .project-sort-item {
+                padding: 8px 10px;
+                margin: 4px 0;
+                background: var(--b3-theme-surface-lighter);
+                border: 1px solid transparent;
+                border-radius: var(--task-radius-sm);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+                position: relative;
+            }
+
+            .project-sort-status {
+                color: var(--b3-theme-on-surface-light);
+                font-size: 12px;
+                margin-left: auto;
+            }
+
+            .project-sort-item.dragging {
+                opacity: 0.45;
+                transform: scale(0.98);
+                border-color: var(--b3-theme-primary-lightest);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+            }
+
+            .project-sort-item.drop-target::before {
+                content: "";
+                position: absolute;
+                left: 10px;
+                right: 10px;
+                top: -2px;
+                height: 2px;
+                border-radius: var(--task-radius-xs);
+                background: var(--b3-theme-primary);
+                box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.25);
+            }
+
+            .project-drag-handle {
+                cursor: grab;
+                width: 24px;
+                height: 24px;
+                flex-shrink: 0;
+                border: 1px solid var(--b3-border-color);
+                border-radius: var(--task-radius-sm);
+                background: var(--b3-theme-background);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.15s ease;
+            }
+
+            .project-drag-handle:hover {
+                border-color: var(--b3-theme-primary);
+                background: rgba(52, 152, 219, 0.1);
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+            }
+
+            .project-drag-handle:active {
+                cursor: grabbing;
+                transform: scale(0.96);
+            }
+
+            .project-drag-handle::before {
+                content: "";
+                width: 10px;
+                height: 14px;
+                opacity: 0.9;
+                background-image:
+                    radial-gradient(circle, var(--b3-theme-on-background, #7d7d7d) 1.2px, transparent 1.3px),
+                    radial-gradient(circle, var(--b3-theme-on-background, #7d7d7d) 1.2px, transparent 1.3px);
+                background-size: 4px 4px, 4px 4px;
+                background-position: 0 0, 6px 0;
+                background-repeat: repeat-y;
+            }
+
             .matrix-grid {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
-                grid-auto-rows: minmax(250px, auto);
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-rows: repeat(2, minmax(0, 1fr));
                 gap: 8px;
                 flex: 1;
                 padding: 8px;
@@ -2448,29 +2522,35 @@ export class EisenhowerMatrixView {
 
             .quadrant {
                 background: var(--b3-theme-background);
-                border: 3px solid;
+                border: 2px solid;
                 border-radius: var(--task-radius-md);
                 overflow: hidden;
                 display: flex;
                 flex-direction: column;
                 position: relative;
-                min-height: 250px;
+                min-height: 0;
+                height: 100%;
+                --quadrant-accent: var(--b3-theme-primary);
             }
 
             .quadrant-important-urgent {
-                border-color: #e74c3c;
+                --quadrant-accent: ${quadrantColors.importantUrgent};
+                border-color: var(--quadrant-accent);
             }
 
             .quadrant-important-not-urgent {
-                border-color: #3498db;
+                --quadrant-accent: ${quadrantColors.importantNotUrgent};
+                border-color: var(--quadrant-accent);
             }
 
             .quadrant-not-important-urgent {
-                border-color: #f39c12;
+                --quadrant-accent: ${quadrantColors.notImportantUrgent};
+                border-color: var(--quadrant-accent);
             }
 
             .quadrant-not-important-not-urgent {
-                border-color: #95a5a6;
+                --quadrant-accent: ${quadrantColors.notImportantNotUrgent};
+                border-color: var(--quadrant-accent);
             }
 
             .quadrant-header {
@@ -2480,32 +2560,53 @@ export class EisenhowerMatrixView {
                 align-items: center;
                 flex-shrink: 0;
                 border-bottom: 1px solid var(--b3-theme-border);
+                background-color: var(--quadrant-accent);
             }
 
             .quadrant-title {
                 font-size: 14px;
                 font-weight: 600;
                 margin: 0;
+                color: var(--b3-theme-on-primary, #fff);
             }
 
             .add-task-btn {
                 padding: 4px 8px !important;
                 font-size: 12px !important;
                 align-self: center;
-                color: white !important;
-                border-color: rgba(255, 255, 255, 0.3) !important;
+                color: rgba(255, 255, 255, 0.92) !important;
+                border-color: rgba(255, 255, 255, 0.22) !important;
+                background-color: rgba(255, 255, 255, 0.04) !important;
             }
             
             .add-task-btn:hover {
-                background-color: rgba(255, 255, 255, 0.1) !important;
-                color: white !important;
+                background-color: rgba(255, 255, 255, 0.14) !important;
+                color: rgba(255, 255, 255, 0.98) !important;
+                border-color: rgba(255, 255, 255, 0.3) !important;
             }
 
             .quadrant-content {
                 flex: 1;
-                padding: 8px;
+                padding: 10px;
                 overflow-y: auto;
                 min-height: 0;
+                background: rgba(127, 127, 127, 0.03);
+            }
+
+            .quadrant-important-urgent .quadrant-content {
+                background: rgba(233, 107, 101, 0.05);
+            }
+
+            .quadrant-important-not-urgent .quadrant-content {
+                background: rgba(242, 177, 90, 0.05);
+            }
+
+            .quadrant-not-important-urgent .quadrant-content {
+                background: rgba(93, 168, 223, 0.05);
+            }
+
+            .quadrant-not-important-not-urgent .quadrant-content {
+                background: rgba(159, 177, 181, 0.05);
             }
 
             /* 窄屏时确保内容区域可以滚动 */
@@ -2526,55 +2627,30 @@ export class EisenhowerMatrixView {
             .empty-quadrant {
                 text-align: center;
                 color: var(--b3-theme-on-surface-light);
-                font-style: italic;
-                padding: 40px 20px;
+                font-style: normal;
+                padding: 34px 18px;
+                border-radius: var(--task-radius-sm);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                gap: 6px;
+                opacity: 0.84;
+            }
+
+            .empty-quadrant__icon {
+                font-size: 15px;
+                opacity: 0.66;
+            }
+
+            .empty-quadrant__text {
+                font-size: 13px;
             }
 
             .project-group {
-                margin-bottom: 16px;
+                margin-bottom: 14px;
             }
 
-            .eisenhower-matrix-view .project-header {
-                font-weight: 600;
-                font-size: 14px;
-                color: var(--b3-theme-primary);
-                margin-bottom: 8px;
-                padding: 4px 8px;
-                border-radius: var(--task-radius-xs);
-            }
-
-            .task-item {
-                background: var(--b3-theme-background);
-                border: 1px solid var(--b3-theme-border);
-                border-radius: var(--task-radius-xs);
-                margin-bottom: 4px;
-                padding: 8px;
-                cursor: pointer;
-                transition: all 0.2s;
-                user-select: none;
-            }
-
-            .task-item:hover {
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                transform: translateY(-1px);
-            }
-
-            .task-item.dragging {
-                opacity: 0.5;
-                transform: rotate(5deg);
-            }
-
-            .task-item.completed {
-                opacity: 0.6;
-            }
-
-            .task-item.completed .task-title {
-                text-decoration: line-through;
-            }
-            .quick_item{
-                margin-top: 2px;
-                border-radius: var(--task-radius-xs);
-            }
             .task-content {
                 display: flex;
                 align-items: flex-start;
@@ -2591,24 +2667,63 @@ export class EisenhowerMatrixView {
             }
 
             .task-title {
-                font-size: 14px;
-                margin-bottom: 4px;
+                font-size: 13px;
+                margin-bottom: 6px;
+                line-height: 1.45;
                 word-break: break-word;
                 width: fit-content;
+            }
+
+            .task-title--link {
+                cursor: pointer;
+                color: var(--b3-theme-primary);
+                text-decoration: underline;
+                font-weight: 500;
+            }
+
+            .task-repeat-icon {
+                cursor: help;
             }
 
             .task-meta {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 8px;
-                font-size: 12px;
+                gap: 6px;
+                margin-top: 6px;
+                font-size: 11px;
                 color: var(--b3-theme-on-surface-light);
+                opacity: 0.86;
             }
 
             .task-date, .task-time {
                 display: flex;
                 align-items: center;
                 gap: 2px;
+            }
+
+            .task-note {
+                font-size: 12px;
+                color: var(--b3-theme-on-surface);
+                opacity: 0.8;
+                margin-top: 4px;
+                line-height: 1.5;
+                max-height: 3em;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                word-break: break-all;
+                cursor: pointer;
+                border-radius: var(--task-radius-xs);
+                padding: 0 4px;
+                transition: background-color 0.2s;
+            }
+
+            .task-inner-content {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                width: 100%;
             }
 
             /* 容器查询：窄容器时的紧凑样式 */
@@ -2647,7 +2762,7 @@ export class EisenhowerMatrixView {
 
                 /* 象限阴影效果 */
                 .matrix-grid .quadrant {
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
                 }
             }
             
@@ -2757,8 +2872,54 @@ export class EisenhowerMatrixView {
             }
             
             .task-control-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                gap: 2px;
                 align-self: flex-start;
                 margin-top: 2px;
+            }
+
+            .child-task-count {
+                color: var(--b3-theme-on-surface-light);
+                font-size: 12px;
+                margin-left: 4px;
+            }
+
+            .task-project-info {
+                font-size: 11px;
+                color: var(--b3-theme-on-surface-light);
+                margin-top: 6px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                opacity: 0.72;
+            }
+
+            .task-subscribed-icon {
+                width: 12px;
+                height: 12px;
+                margin-right: 4px;
+                vertical-align: middle;
+            }
+
+            .task-date-info {
+                margin-top: 6px;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 6px;
+                color: var(--b3-theme-on-surface-light);
+                opacity: 0.78;
+            }
+
+            .task-date-info .task-date {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
             }
             
             /* 优先级标签样式 - 参考项目看板 */
@@ -2775,18 +2936,18 @@ export class EisenhowerMatrixView {
             }
 
             .priority-label-high {
-                background-color: rgba(231, 76, 60, 0.1);
-                color: #e74c3c;
+                background-color: rgba(233, 107, 101, 0.14);
+                color: ${priorityColors.high};
             }
 
             .priority-label-medium {
-                background-color: rgba(243, 156, 18, 0.1);
-                color: #f39c12;
+                background-color: rgba(242, 177, 90, 0.16);
+                color: ${priorityColors.medium};
             }
 
             .priority-label-low {
-                background-color: rgba(52, 152, 219, 0.1);
-                color: #3498db;
+                background-color: rgba(93, 168, 223, 0.16);
+                color: ${priorityColors.low};
             }
 
             .priority-dot {
@@ -2796,34 +2957,35 @@ export class EisenhowerMatrixView {
             }
 
             .priority-dot.high {
-                background: #e74c3c;
+                background: ${priorityColors.high};
             }
 
             .priority-dot.medium {
-                background: #f39c12;
+                background: ${priorityColors.medium};
             }
 
             .priority-dot.low {
-                background: #3498db;
+                background: ${priorityColors.low};
             }
 
             .priority-dot.none {
-                background: #95a5a6;
+                background: ${priorityColors.none};
             }
 
             /* 优先级任务悬停效果 - 统一阴影风格（参考 pinch TaskCard hover） */
             .task-priority-high:hover,
             .task-priority-medium:hover,
             .task-priority-low:hover {
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
             }
 
             /* 任务拖拽样式 */
             .quick_item {
-                margin-top: 2px;
-                border-radius: var(--task-radius-xs);
+                margin-top: 4px;
+                border-radius: var(--task-radius-sm);
+                padding: 8px;
                 cursor: grab;
-                transition: all 0.2s ease;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
                 position: relative;
             }
 
@@ -2833,9 +2995,18 @@ export class EisenhowerMatrixView {
                 cursor: grabbing;
             }
 
+            .quick_item.completed {
+                opacity: 0.64;
+            }
+
+            .quick_item.completed .task-title {
+                text-decoration: line-through;
+                color: var(--b3-theme-on-surface-light);
+            }
+
             .quick_item:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+                border-color: var(--b3-theme-primary-light) !important;
             }
 
             /* 项目标题栏样式 */
@@ -2848,15 +3019,15 @@ export class EisenhowerMatrixView {
                 padding: 6px 10px;
                 border-radius: var(--task-radius-sm);
                 background: var(--b3-theme-surface-lighter);
-                border: 1.5px solid var(--b3-theme-border);
+                border: 1px solid var(--task-border-default);
                 gap: 6px;
                 transition: all 0.2s ease;
             }
 
             .eisenhower-matrix-view .project-header:hover {
                 background: var(--b3-theme-surface) !important;
-                border-color: var(--b3-theme-primary) !important;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                border-color: var(--b3-theme-primary-light) !important;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
             }
 
             .project-name {
@@ -2865,6 +3036,10 @@ export class EisenhowerMatrixView {
                 color: var(--b3-theme-primary);
                 transition: color 0.2s;
                 line-height: 1.4;
+            }
+
+            .project-name--clickable {
+                cursor: pointer;
             }
 
             .project-name:hover {
@@ -2908,6 +3083,11 @@ export class EisenhowerMatrixView {
                 fill: currentColor;
             }
 
+            .project-collapse-icon {
+                width: 12px;
+                height: 12px;
+            }
+
             .project-tasks-container {
                 transition: all 0.2s ease;
                 padding-left: 4px;
@@ -2919,12 +3099,23 @@ export class EisenhowerMatrixView {
                 border-radius: var(--task-radius-sm);
                 margin-top: 6px;
                 overflow: hidden;
+                display: flex;
+                align-items: stretch;
+                gap: 8px;
+                justify-content: space-between;
+            }
+
+            .task-progress-wrap {
+                flex: 1;
+                min-width: 0;
+                display: flex;
+                align-items: center;
             }
 
             .task-progress {
                 height: 100%;
                 width: 0%;
-                background: linear-gradient(90deg, #2ecc71, #27ae60);
+                background: linear-gradient(90deg, ${progressColors[0]}, ${progressColors[1]});
                 border-radius: var(--task-radius-sm);
                 transition: width 300ms ease-in-out;
             }
@@ -2953,28 +3144,51 @@ export class EisenhowerMatrixView {
             }
 
             .countdown-urgent {
-                background-color: rgba(231, 76, 60, 0.15);
-                color: #e74c3c;
-                border: 1px solid rgba(231, 76, 60, 0.3);
+                background-color: rgba(233, 107, 101, 0.16);
+                color: ${priorityColors.high};
+                border: 1px solid rgba(233, 107, 101, 0.32);
             }
 
             .countdown-warning {
-                background-color: rgba(243, 156, 18, 0.15);
-                color: #f39c12;
-                border: 1px solid rgba(243, 156, 18, 0.3);
+                background-color: rgba(242, 177, 90, 0.16);
+                color: ${priorityColors.medium};
+                border: 1px solid rgba(242, 177, 90, 0.32);
             }
 
             .countdown-normal {
                 background-color: rgba(46, 204, 113, 0.15);
-                color: #2ecc71;
+                color: ${progressColors[0]};
                 border: 1px solid rgba(46, 204, 113, 0.3);
             }
 
-            /* 过期任务样式 - 复用倒计时样式 */
-            .countdown-badge.countdown-normal[style*="rgba(231, 76, 60"] {
-                background-color: rgba(231, 76, 60, 0.15) !important;
-                color: #e74c3c !important;
-                border: 1px solid rgba(231, 76, 60, 0.3) !important;
+            .countdown-overdue {
+                background-color: rgba(233, 107, 101, 0.16);
+                color: ${priorityColors.high};
+                border: 1px solid rgba(233, 107, 101, 0.32);
+            }
+
+            .task-kanban-status {
+                display: inline-flex;
+                align-items: center;
+                gap: 2px;
+                padding: 2px 6px;
+                border-radius: var(--task-radius-xs);
+                font-size: 11px;
+                font-weight: 500;
+                background-color: var(--status-bg);
+                color: var(--status-accent);
+                border: 1px solid var(--status-border);
+            }
+
+            .task-pomodoro-count {
+                display: inline-flex;
+                align-items: center;
+                gap: 2px;
+                padding: 1px 4px;
+                border-radius: var(--task-radius-xs);
+                font-size: 11px;
+                background-color: rgba(255, 122, 99, 0.14);
+                color: ${pomodoroColor};
             }
             
             /* 象限预览样式 */
@@ -3019,11 +3233,25 @@ export class EisenhowerMatrixView {
                 background-color: var(--b3-theme-surface-lighter);
             }
 
-            .dropdown-menu-item .b3-button__icon {
+            .dropdown-menu-item.is-active {
+                background-color: var(--b3-theme-primary-lightest);
+                color: var(--b3-theme-primary);
+                font-weight: 600;
+            }
+
+            .dropdown-menu-item__icon {
                 width: 16px;
                 height: 16px;
                 flex-shrink: 0;
             }
+
+            .dropdown-menu-item__check {
+                margin-left: auto;
+                width: 14px;
+                height: 14px;
+                flex-shrink: 0;
+            }
+
         `;
         document.head.appendChild(style);
     }
@@ -4234,7 +4462,7 @@ export class EisenhowerMatrixView {
                 kanbanStatusFilterBtn.innerHTML = `
                     <svg class="b3-button__icon"><use xlink:href="#iconPlay"></use></svg>
                     进行中任务
-                    <svg class="dropdown-arrow" style="margin-left: 4px; width: 12px; height: 12px;"><use xlink:href="#iconDown"></use></svg>
+                    <svg class="dropdown-arrow"><use xlink:href="#iconDown"></use></svg>
                 `;
                 kanbanStatusFilterBtn.classList.add('b3-button--primary');
                 kanbanStatusFilterBtn.classList.remove('b3-button--outline');
@@ -4242,7 +4470,7 @@ export class EisenhowerMatrixView {
                 kanbanStatusFilterBtn.innerHTML = `
                     <svg class="b3-button__icon"><use xlink:href="#iconClock"></use></svg>
                     待办任务
-                    <svg class="dropdown-arrow" style="margin-left: 4px; width: 12px; height: 12px;"><use xlink:href="#iconDown"></use></svg>
+                    <svg class="dropdown-arrow"><use xlink:href="#iconDown"></use></svg>
                 `;
                 kanbanStatusFilterBtn.classList.add('b3-button--primary');
                 kanbanStatusFilterBtn.classList.remove('b3-button--outline');
@@ -4250,7 +4478,7 @@ export class EisenhowerMatrixView {
                 kanbanStatusFilterBtn.innerHTML = `
                     <svg class="b3-button__icon"><use xlink:href="#iconList"></use></svg>
                     全部任务
-                    <svg class="dropdown-arrow" style="margin-left: 4px; width: 12px; height: 12px;"><use xlink:href="#iconDown"></use></svg>
+                    <svg class="dropdown-arrow"><use xlink:href="#iconDown"></use></svg>
                 `;
                 kanbanStatusFilterBtn.classList.remove('b3-button--primary');
                 kanbanStatusFilterBtn.classList.add('b3-button--outline');
@@ -4268,16 +4496,6 @@ export class EisenhowerMatrixView {
         // 创建下拉菜单
         const dropdown = document.createElement('div');
         dropdown.className = 'kanban-status-filter-dropdown';
-        dropdown.style.cssText = `
-            position: absolute;
-            background: var(--b3-theme-surface);
-            border: 1px solid var(--b3-theme-border);
-            border-radius: var(--task-radius-xs);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            min-width: 160px;
-            padding: 4px 0;
-        `;
 
         // 获取按钮位置
         const rect = button.getBoundingClientRect();
@@ -4293,22 +4511,12 @@ export class EisenhowerMatrixView {
 
         menuItems.forEach(item => {
             const menuItem = document.createElement('div');
-            menuItem.className = 'dropdown-menu-item';
-            menuItem.style.cssText = `
-                padding: 8px 16px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 13px;
-                color: var(--b3-theme-on-surface);
-                ${this.kanbanStatusFilter === item.key ? 'background: var(--b3-theme-primary-lightest); color: var(--b3-theme-primary); font-weight: 600;' : ''}
-            `;
+            menuItem.className = `dropdown-menu-item${this.kanbanStatusFilter === item.key ? ' is-active' : ''}`;
 
             menuItem.innerHTML = `
-                <svg class="b3-button__icon" style="width: 16px; height: 16px;"><use xlink:href="#${item.icon}"></use></svg>
+                <svg class="b3-button__icon dropdown-menu-item__icon"><use xlink:href="#${item.icon}"></use></svg>
                 ${item.label}
-                ${this.kanbanStatusFilter === item.key ? '<svg class="b3-button__icon" style="margin-left: auto; width: 14px; height: 14px;"><use xlink:href="#iconCheck"></use></svg>' : ''}
+                ${this.kanbanStatusFilter === item.key ? '<svg class="b3-button__icon dropdown-menu-item__check"><use xlink:href="#iconCheck"></use></svg>' : ''}
             `;
 
             menuItem.addEventListener('click', () => {
@@ -4317,14 +4525,6 @@ export class EisenhowerMatrixView {
                 this.applyFiltersAndGroup();
                 this.renderMatrix();
                 dropdown.remove();
-            });
-
-            menuItem.addEventListener('mouseenter', () => {
-                menuItem.style.backgroundColor = 'var(--b3-theme-surface-lighter)';
-            });
-
-            menuItem.addEventListener('mouseleave', () => {
-                menuItem.style.backgroundColor = this.kanbanStatusFilter === item.key ? 'var(--b3-theme-primary-lightest)' : '';
             });
 
             dropdown.appendChild(menuItem);
@@ -4403,86 +4603,6 @@ export class EisenhowerMatrixView {
             title: "项目排序设置",
             content: `
                 <div class="project-sort-dialog">
-                    <style>
-                        .project-sort-list {
-                            border: 1px solid var(--b3-theme-border);
-                            border-radius: var(--task-radius-sm);
-                            padding: 8px;
-                            max-height: 400px;
-                            overflow-y: auto;
-                            background: var(--b3-theme-surface);
-                        }
-
-                        .project-sort-item {
-                            padding: 8px 10px;
-                            margin: 4px 0;
-                            background: var(--b3-theme-surface-lighter);
-                            border: 1px solid transparent;
-                            border-radius: var(--task-radius-sm);
-                            display: flex;
-                            align-items: center;
-                            gap: 8px;
-                            transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
-                            position: relative;
-                        }
-
-                        .project-sort-item.dragging {
-                            opacity: 0.45;
-                            transform: scale(0.98);
-                            border-color: var(--b3-theme-primary-lightest);
-                            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-                        }
-
-                        .project-sort-item.drop-target::before {
-                            content: "";
-                            position: absolute;
-                            left: 10px;
-                            right: 10px;
-                            top: -2px;
-                            height: 2px;
-                            border-radius: var(--task-radius-xs);
-                            background: var(--b3-theme-primary);
-                            box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.25);
-                        }
-
-                        .project-drag-handle {
-                            cursor: grab;
-                            width: 24px;
-                            height: 24px;
-                            flex-shrink: 0;
-                            border: 1px solid var(--b3-border-color);
-                            border-radius: var(--task-radius-sm);
-                            background: var(--b3-theme-background);
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            transition: all 0.15s ease;
-                        }
-
-                        .project-drag-handle:hover {
-                            border-color: var(--b3-theme-primary);
-                            background: rgba(52, 152, 219, 0.1);
-                            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-                        }
-
-                        .project-drag-handle:active {
-                            cursor: grabbing;
-                            transform: scale(0.96);
-                        }
-
-                        .project-drag-handle::before {
-                            content: "";
-                            width: 10px;
-                            height: 14px;
-                            opacity: 0.9;
-                            background-image:
-                                radial-gradient(circle, var(--b3-theme-on-background, #7d7d7d) 1.2px, transparent 1.3px),
-                                radial-gradient(circle, var(--b3-theme-on-background, #7d7d7d) 1.2px, transparent 1.3px);
-                            background-size: 4px 4px, 4px 4px;
-                            background-position: 0 0, 6px 0;
-                            background-repeat: repeat-y;
-                        }
-                    </style>
                     <div class="b3-dialog__content">
                         <div class="b3-form__group">
                             <label class="b3-form__label">项目排序（拖拽调整顺序）</label>
@@ -4516,7 +4636,7 @@ export class EisenhowerMatrixView {
 
         // 如果没有任何项目，显示提示信息
         if (activeProjects.length === 0) {
-            projectSortList.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--b3-theme-on-surface-light);">没有可用的项目</div>';
+            projectSortList.innerHTML = '<div class="project-sort-empty">没有可用的项目</div>';
             return;
         }
 
@@ -4545,7 +4665,7 @@ export class EisenhowerMatrixView {
                 item.innerHTML = `
                     <span class="project-drag-handle" title="${i18n('dragToSort')}"></span>
                     <span>${project.name}</span>
-                    <span style="color: var(--b3-theme-on-surface-light); font-size: 12px; margin-left: auto;">${this.getStatusDisplayName(project.status)}</span>
+                    <span class="project-sort-status">${this.getStatusDisplayName(project.status)}</span>
                 `;
                 projectSortList.appendChild(item);
             });
@@ -4989,22 +5109,7 @@ export class EisenhowerMatrixView {
             showMessage(i18n('pluginInstanceUnavailable'));
             return;
         }
-
-        // 检查是否已经有活动的番茄钟
-        const currentTimer = this.pomodoroManager.getCurrentPomodoroTimer();
-        if (currentTimer && currentTimer.isWindowActive()) {
-            confirm(
-                '已有番茄钟运行',
-                '已经有一个番茄钟正在运行。是否要停止当前番茄钟并启动新的？',
-                () => {
-                    const currentState = currentTimer.getCurrentState();
-                    this.pomodoroManager.closeCurrentTimer();
-                    this.performStartPomodoro(task, currentState, workDurationOverride);
-                }
-            );
-        } else {
-            this.performStartPomodoro(task, undefined, workDurationOverride);
-        }
+        this.performStartPomodoro(task);
     }
 
     private startPomodoroCountUp(task: QuadrantTask) {
@@ -5012,134 +5117,22 @@ export class EisenhowerMatrixView {
             showMessage(i18n('pluginInstanceUnavailable'));
             return;
         }
+        this.performStartPomodoroCountUp(task);
+    }
 
-        // 检查是否已经有活动的番茄钟
-        const currentTimer = this.pomodoroManager.getCurrentPomodoroTimer();
-        if (currentTimer && currentTimer.isWindowActive()) {
-            confirm(
-                '已有番茄钟运行',
-                '已经有一个番茄钟正在运行。是否要停止当前番茄钟并启动新的？',
-                () => {
-                    const currentState = currentTimer.getCurrentState();
-                    this.pomodoroManager.closeCurrentTimer();
-                    this.performStartPomodoroCountUp(task, currentState);
-                }
-            );
+    private async performStartPomodoro(task: QuadrantTask) {
+        if (this.plugin && typeof this.plugin.showMiniPomodoroRing === 'function') {
+            this.plugin.showMiniPomodoroRing(task.title, task.id);
         } else {
-            this.performStartPomodoroCountUp(task);
+            showMessage(i18n('pomodoroUnavailable') || '无法启动番茄钟');
         }
     }
 
-    private async performStartPomodoro(task: QuadrantTask, inheritState?: any, workDurationOverride?: number) {
-        const settings = await this.plugin.getPomodoroSettings();
-        const runtimeSettings = workDurationOverride && workDurationOverride > 0
-            ? { ...settings, workDuration: workDurationOverride }
-            : settings;
-
-        // 检查是否已有独立窗口存在
-        const hasStandaloneWindow = this.plugin && this.plugin.pomodoroWindowId;
-
-        if (hasStandaloneWindow) {
-            // 如果存在独立窗口，更新独立窗口中的番茄钟
-            console.log('检测到独立窗口，更新独立窗口中的番茄钟');
-
-            const reminder = {
-                id: task.id,
-                title: task.title,
-                blockId: task.blockId,
-                isRepeatInstance: false,
-                originalId: task.id
-            };
-
-            if (typeof this.plugin.openPomodoroWindow === 'function') {
-                await this.plugin.openPomodoroWindow(reminder, runtimeSettings, false, inheritState);
-
-                // 如果继承了状态且原来正在运行，显示继承信息
-                if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                    const phaseText = inheritState.isWorkPhase ? i18n('workTime') : i18n('breakTime');
-                    showMessage(i18n('taskSwitchedInherit').replace('${phase}', phaseText), 2000);
-                }
-            }
+    private async performStartPomodoroCountUp(task: QuadrantTask) {
+        if (this.plugin && typeof this.plugin.showMiniPomodoroRing === 'function') {
+            this.plugin.showMiniPomodoroRing(task.title, task.id);
         } else {
-            // 没有独立窗口，在当前窗口显示番茄钟 Dialog（默认行为）
-
-            // 如果已经有活动的番茄钟，先关闭它
-            this.pomodoroManager.closeCurrentTimer();
-
-            const reminder = {
-                id: task.id,
-                title: task.title,
-                blockId: task.blockId,
-                isRepeatInstance: false,
-                originalId: task.id
-            };
-
-            const pomodoroTimer = new PomodoroTimer(reminder, runtimeSettings, false, inheritState, this.plugin);
-            this.pomodoroManager.setCurrentPomodoroTimer(pomodoroTimer);
-            pomodoroTimer.show();
-
-            // 如果继承了状态且原来正在运行，显示继承信息
-            if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                const phaseText = inheritState.isWorkPhase ? i18n('workTime') : i18n('breakTime');
-                showMessage(i18n('taskSwitchedInherit').replace('${phase}', phaseText), 2000);
-            }
-        }
-    }
-
-    private async performStartPomodoroCountUp(task: QuadrantTask, inheritState?: any) {
-        const settings = await this.plugin.getPomodoroSettings();
-
-        // 检查是否已有独立窗口存在
-        const hasStandaloneWindow = this.plugin && this.plugin.pomodoroWindowId;
-
-        if (hasStandaloneWindow) {
-            // 如果存在独立窗口，更新独立窗口中的番茄钟
-            console.log('检测到独立窗口，更新独立窗口中的番茄钟（正计时模式）');
-
-            const reminder = {
-                id: task.id,
-                title: task.title,
-                blockId: task.blockId,
-                isRepeatInstance: false,
-                originalId: task.id
-            };
-
-            if (typeof this.plugin.openPomodoroWindow === 'function') {
-                await this.plugin.openPomodoroWindow(reminder, settings, true, inheritState);
-
-                // 如果继承了状态且原来正在运行，显示继承信息
-                if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                    const phaseText = inheritState.isWorkPhase ? i18n('workTime') : i18n('breakTime');
-                    showMessage(i18n('stopwatchSwitchedInherit').replace('${phase}', phaseText), 2000);
-                } else {
-                    showMessage(i18n('stopwatchStarted'), 2000);
-                }
-            }
-        } else {
-            // 没有独立窗口，在当前窗口显示番茄钟 Dialog（默认行为）
-
-            // 如果已经有活动的番茄钟，先关闭它
-            this.pomodoroManager.closeCurrentTimer();
-
-            const reminder = {
-                id: task.id,
-                title: task.title,
-                blockId: task.blockId,
-                isRepeatInstance: false,
-                originalId: task.id
-            };
-
-            const pomodoroTimer = new PomodoroTimer(reminder, settings, true, inheritState, this.plugin);
-            this.pomodoroManager.setCurrentPomodoroTimer(pomodoroTimer);
-            pomodoroTimer.show();
-
-            // 如果继承了状态且原来正在运行，显示继承信息
-            if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                const phaseText = inheritState.isWorkPhase ? i18n('workTime') : i18n('breakTime');
-                showMessage(i18n('stopwatchSwitchedInherit').replace('${phase}', phaseText), 2000);
-            } else {
-                showMessage(i18n('stopwatchStarted'), 2000);
-            }
+            showMessage(i18n('pomodoroUnavailable') || '无法启动番茄钟');
         }
     }
 

@@ -18,7 +18,6 @@ export interface CalendarConfig {
     showRepeatTasks: boolean;
     repeatInstanceLimit: number;
     showHiddenTasks: boolean; // 显示不在日历视图显示的任务
-    showHabits: boolean; // 显示习惯打卡
     defaultNotebookId: string; // 默认日记笔记本ID
     showCompletedTaskTime: boolean; // 显示已完成任务时间
     showCompletedTaskTimeOnlyWithoutDate: boolean; // 只显示没有日期的任务的完成时间
@@ -47,7 +46,6 @@ export class CalendarConfigManager {
             showRepeatTasks: true, // 默认显示重复任务
             repeatInstanceLimit: -1, // 默认显示全部实例 (-1表示不限制)
             showHiddenTasks: false, // 默认不显示隐藏任务
-            showHabits: true,
             defaultNotebookId: '',
             showCompletedTaskTime: true, // 默认显示已完成任务时间
             showCompletedTaskTimeOnlyWithoutDate: false, // 默认显示所有已完成任务的时间
@@ -83,7 +81,6 @@ export class CalendarConfigManager {
             settings.calendarShowRepeatTasks = this.config.showRepeatTasks;
             settings.calendarRepeatInstanceLimit = this.config.repeatInstanceLimit;
             settings.calendarShowHiddenTasks = this.config.showHiddenTasks;
-            settings.calendarShowHabits = this.config.showHabits;
             settings.calendarDefaultNotebookId = this.config.defaultNotebookId;
             settings.calendarShowCompletedTaskTime = this.config.showCompletedTaskTime;
             settings.calendarShowCompletedTaskTimeOnlyWithoutDate = this.config.showCompletedTaskTimeOnlyWithoutDate;
@@ -140,7 +137,6 @@ export class CalendarConfigManager {
                 showRepeatTasks: settings.calendarShowRepeatTasks !== false, // 默认为 true
                 repeatInstanceLimit: settings.calendarRepeatInstanceLimit !== undefined ? settings.calendarRepeatInstanceLimit : -1, // 默认为 -1
                 showHiddenTasks: settings.calendarShowHiddenTasks === true, // 默认为 false
-                showHabits: settings.calendarShowHabits !== false,
                 defaultNotebookId: settings.calendarDefaultNotebookId || '',
                 showCompletedTaskTime: settings.calendarShowCompletedTaskTime !== false, // 默认为 true
                 showCompletedTaskTimeOnlyWithoutDate: settings.calendarShowCompletedTaskTimeOnlyWithoutDate === true, // 默认为 false
@@ -163,7 +159,6 @@ export class CalendarConfigManager {
                 showRepeatTasks: true,
                 repeatInstanceLimit: -1,
                 showHiddenTasks: false,
-                showHabits: true,
                 defaultNotebookId: '',
                 showCompletedTaskTime: true,
                 showCompletedTaskTimeOnlyWithoutDate: false,
@@ -304,14 +299,6 @@ export class CalendarConfigManager {
         return this.config.showHiddenTasks !== undefined ? this.config.showHiddenTasks : false;
     }
 
-    public async setShowHabits(show: boolean) {
-        this.config.showHabits = show;
-        await this.saveConfig();
-    }
-
-    public getShowHabits(): boolean {
-        return this.config.showHabits !== false;
-    }
     public async setShowCompletedTaskTime(show: boolean) {
         this.config.showCompletedTaskTime = show;
         await this.saveConfig();

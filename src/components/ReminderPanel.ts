@@ -10,9 +10,6 @@ import { CategoryManageDialog } from "./CategoryManageDialog";
 import { BlockBindingDialog } from "./BlockBindingDialog";
 import { i18n } from "../pluginInstance";
 import { generateRepeatInstances, getRepeatDescription, getDaysDifference, addDaysToDate, generateSubtreeInstances } from "../utils/repeatUtils";
-import { PomodoroTimer } from "./PomodoroTimer";
-import { PomodoroStatsView, getLastStatsMode } from "./PomodoroStatsView";
-import { TaskStatsView } from "./TaskStatsView";
 import { PomodoroManager } from "../utils/pomodoroManager";
 import { PomodoroRecordManager } from "../utils/pomodoroRecord"; // Add import
 import { getSolarDateLunarString, getNextLunarMonthlyDate, getNextLunarYearlyDate } from "../utils/lunarUtils";
@@ -20,6 +17,8 @@ import { getAllReminders, saveReminders } from "../utils/icsSubscription";
 import { isEventPast } from "../utils/icsImport";
 import { PasteTaskDialog } from "./PasteTaskDialog";
 import { createPomodoroStartSubmenu as createSharedPomodoroStartSubmenu } from "@/utils/pomodoroPresets";
+import { executePluginAction } from "@/core/actions";
+import { isAdvancedFeaturesEnabled } from "@/core/featureGate";
 
 export class ReminderPanel {
     private container: HTMLElement;
@@ -138,7 +137,7 @@ export class ReminderPanel {
         this.settingsUpdatedHandler = async () => {
             try {
                 const settings = await this.plugin.loadSettings();
-                const nextShowAdvanced = settings?.showAdvancedFeatures === true;
+                const nextShowAdvanced = isAdvancedFeaturesEnabled(settings);
                 const nextShowCompletedSubtasks = settings?.showCompletedSubtasks !== undefined
                     ? !!settings.showCompletedSubtasks
                     : this.showCompletedSubtasks;
@@ -173,7 +172,7 @@ export class ReminderPanel {
             if (settings.showCompletedSubtasks !== undefined) {
                 this.showCompletedSubtasks = !!settings.showCompletedSubtasks;
             }
-            this.showAdvancedFeatures = settings?.showAdvancedFeatures === true;
+            this.showAdvancedFeatures = isAdvancedFeaturesEnabled(settings);
             if (Array.isArray(settings.reminderPanelSelectedCategories)) {
                 this.selectedCategories = settings.reminderPanelSelectedCategories;
             }
@@ -323,7 +322,7 @@ export class ReminderPanel {
             calendarBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconCalendar"></use></svg>';
             calendarBtn.title = i18n("calendarView");
             calendarBtn.addEventListener('click', () => {
-                this.plugin.openCalendarTab();
+                void executePluginAction(this.plugin, "openCalendar");
             });
             actionContainer.appendChild(calendarBtn);
 
@@ -338,15 +337,6 @@ export class ReminderPanel {
                 });
                 actionContainer.appendChild(eisenhowerBtn);
 
-                // 添加番茄钟统计按钮
-                const pomodoroStatsBtn = document.createElement('button');
-                pomodoroStatsBtn.className = 'b3-button b3-button--outline';
-                pomodoroStatsBtn.innerHTML = '📊';
-                pomodoroStatsBtn.title = i18n("pomodoroStats");
-                pomodoroStatsBtn.addEventListener('click', () => {
-                    this.showPomodoroStatsView();
-                });
-                actionContainer.appendChild(pomodoroStatsBtn);
             }
 
 
@@ -6880,55 +6870,10 @@ export class ReminderPanel {
 
     private startPomodoro(reminder: any, workDurationOverride?: number) {
         if (!this.plugin) {
-            showMessage("无法启动番茄钟：插件实例不可用");
+            showMessage(i18n("pomodoroUnavailable") || "无法启动番茄钟");
             return;
         }
-
-        // 检查是否已经有活动的番茄钟并且窗口仍然存在
-        if (this.pomodoroManager.hasActivePomodoroTimer()) {
-            // 获取当前番茄钟的状态
-            const currentState = this.pomodoroManager.getCurrentState();
-            const currentTitle = currentState.reminderTitle || '当前任务';
-            const newTitle = reminder.title || '新任务';
-
-            let confirmMessage = `当前正在进行番茄钟任务："${currentTitle}"，是否要切换到新任务："${newTitle}"？`;
-
-            // 如果当前番茄钟正在运行，先暂停并询问是否继承时间
-            if (currentState.isRunning && !currentState.isPaused) {
-                // 先暂停当前番茄钟
-                if (!this.pomodoroManager.pauseCurrentTimer()) {
-                    console.error('暂停当前番茄钟失败');
-                }
-
-                const timeDisplay = currentState.isWorkPhase ?
-                    `工作时间 ${Math.floor(currentState.timeElapsed / 60)}:${(currentState.timeElapsed % 60).toString().padStart(2, '0')}` :
-                    `休息时间 ${Math.floor(currentState.timeLeft / 60)}:${(currentState.timeLeft % 60).toString().padStart(2, '0')}`;
-
-                confirmMessage += `\n\n\n选择"确定"将继承当前进度继续计时。`;
-            }
-
-            // 显示确认对话框
-            confirm(
-                "切换番茄钟任务",
-                confirmMessage,
-                () => {
-                    // 用户确认替换，传递当前状态
-                    this.performStartPomodoro(reminder, currentState, workDurationOverride);
-                },
-                () => {
-                    // 用户取消，尝试恢复原番茄钟的运行状态
-                    if (currentState.isRunning && !currentState.isPaused) {
-                        if (!this.pomodoroManager.resumeCurrentTimer()) {
-                            console.error('恢复番茄钟运行失败');
-                        }
-                    }
-                }
-            );
-        } else {
-            // 没有活动番茄钟或窗口已关闭，清理引用并直接启动
-            this.pomodoroManager.cleanupInactiveTimer();
-            this.performStartPomodoro(reminder, undefined, workDurationOverride);
-        }
+        this.plugin.showMiniPomodoroRing(reminder.title, reminder.id);
     }
 
 
@@ -7040,137 +6985,26 @@ export class ReminderPanel {
     }
 
     private async performStartPomodoro(reminder: any, inheritState?: any, workDurationOverride?: number) {
-        const settings = await this.plugin.getPomodoroSettings();
-        const runtimeSettings = workDurationOverride && workDurationOverride > 0
-            ? { ...settings, workDuration: workDurationOverride }
-            : settings;
-
-        // 检查是否已有独立窗口存在
-        const hasStandaloneWindow = this.plugin && this.plugin.pomodoroWindowId;
-
-        if (hasStandaloneWindow) {
-            // 如果存在独立窗口，更新独立窗口中的番茄钟
-            console.log('检测到独立窗口，更新独立窗口中的番茄钟');
-            if (typeof this.plugin.openPomodoroWindow === 'function') {
-                await this.plugin.openPomodoroWindow(reminder, runtimeSettings, false, inheritState);
-
-                // 如果继承了状态且原来正在运行，显示继承信息
-                if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                    const phaseText = inheritState.isWorkPhase ? '工作时间' : '休息时间';
-                    showMessage(`已切换任务并继承${phaseText}进度`, 2000);
-                }
-            }
+        if (this.plugin && typeof this.plugin.showMiniPomodoroRing === 'function') {
+            this.plugin.showMiniPomodoroRing(reminder.title, reminder.id);
         } else {
-            // 没有独立窗口，在当前窗口显示番茄钟 Dialog（默认行为）
-
-            // 如果已经有活动的番茄钟，先关闭它
-            this.pomodoroManager.closeCurrentTimer();
-
-            const pomodoroTimer = new PomodoroTimer(reminder, runtimeSettings, false, inheritState, this.plugin);
-
-            // 设置当前活动的番茄钟实例
-            this.pomodoroManager.setCurrentPomodoroTimer(pomodoroTimer);
-
-            pomodoroTimer.show();
-
-            // 如果继承了状态且原来正在运行，显示继承信息
-            if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                const phaseText = inheritState.isWorkPhase ? '工作时间' : '休息时间';
-                showMessage(`已切换任务并继承${phaseText}进度`, 2000);
-            }
+            showMessage(i18n("pomodoroUnavailable") || "无法启动番茄钟");
         }
     }
 
     private startPomodoroCountUp(reminder: any) {
         if (!this.plugin) {
-            showMessage("无法启动番茄钟：插件实例不可用");
+            showMessage(i18n("pomodoroUnavailable") || "无法启动番茄钟");
             return;
         }
-
-        // 检查是否已经有活动的番茄钟并且窗口仍然存在
-        if (this.pomodoroManager.hasActivePomodoroTimer()) {
-            // 获取当前番茄钟的状态
-            const currentState = this.pomodoroManager.getCurrentState();
-            const currentTitle = currentState.reminderTitle || '当前任务';
-            const newTitle = reminder.title || '新任务';
-
-            let confirmMessage = `当前正在进行番茄钟任务："${currentTitle}"，是否要切换到新的正计时任务："${newTitle}"？`;
-
-            // 如果当前番茄钟正在运行，先暂停并询问是否继承时间
-            if (currentState.isRunning && !currentState.isPaused) {
-                // 先暂停当前番茄钟
-                if (!this.pomodoroManager.pauseCurrentTimer()) {
-                    console.error('暂停当前番茄钟失败');
-                }
-
-                confirmMessage += `\n\n\n选择"确定"将继承当前进度继续计时。`;
-            }
-
-            // 显示确认对话框
-            confirm(
-                "切换到正计时番茄钟",
-                confirmMessage,
-                () => {
-                    // 用户确认替换，传递当前状态
-                    this.performStartPomodoroCountUp(reminder, currentState);
-                },
-                () => {
-                    // 用户取消，尝试恢复番茄钟的运行状态
-                    if (currentState.isRunning && !currentState.isPaused) {
-                        if (!this.pomodoroManager.resumeCurrentTimer()) {
-                            console.error('恢复番茄钟运行失败');
-                        }
-                    }
-                }
-            );
-        } else {
-            // 没有活动番茄钟或窗口已关闭，清理引用并直接启动
-            this.pomodoroManager.cleanupInactiveTimer();
-            this.performStartPomodoroCountUp(reminder);
-        }
+        this.plugin.showMiniPomodoroRing(reminder.title, reminder.id);
     }
 
     private async performStartPomodoroCountUp(reminder: any, inheritState?: any) {
-        const settings = await this.plugin.getPomodoroSettings();
-
-        // 检查是否已有独立窗口存在
-        const hasStandaloneWindow = this.plugin && this.plugin.pomodoroWindowId;
-
-        if (hasStandaloneWindow) {
-            // 如果存在独立窗口，更新独立窗口中的番茄钟
-            console.log('检测到独立窗口，更新独立窗口中的番茄钟（正计时模式）');
-            if (typeof this.plugin.openPomodoroWindow === 'function') {
-                await this.plugin.openPomodoroWindow(reminder, settings, true, inheritState);
-
-                // 如果继承了状态且原来正在运行，显示继承信息
-                if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                    const phaseText = inheritState.isWorkPhase ? '工作时间' : '休息时间';
-                    showMessage(`已切换到正计时模式并继承${phaseText}进度`, 2000);
-                } else {
-                    showMessage("已启动正计时番茄钟", 2000);
-                }
-            }
+        if (this.plugin && typeof this.plugin.showMiniPomodoroRing === 'function') {
+            this.plugin.showMiniPomodoroRing(reminder.title, reminder.id);
         } else {
-            // 没有独立窗口，在当前窗口显示番茄钟 Dialog（默认行为）
-            console.log('（正计时模式）');
-
-            // 如果已经有活动的番茄钟，先关闭它
-            this.pomodoroManager.closeCurrentTimer();
-
-            const pomodoroTimer = new PomodoroTimer(reminder, settings, true, inheritState, this.plugin);
-
-            // 设置当前活动的番茄钟实例并直接切换到正计时模式
-            this.pomodoroManager.setCurrentPomodoroTimer(pomodoroTimer);
-
-            pomodoroTimer.show();
-
-            // 如果继承了状态且原来正在运行，显示继承信息
-            if (inheritState && inheritState.isRunning && !inheritState.isPaused) {
-                const phaseText = inheritState.isWorkPhase ? '工作时间' : '休息时间';
-                showMessage(`已切换到正计时模式并继承${phaseText}进度`, 2000);
-            } else {
-                showMessage("已启动正计时番茄钟", 2000);
-            }
+            showMessage(i18n("pomodoroUnavailable") || "无法启动番茄钟");
         }
     }
 
@@ -8902,7 +8736,10 @@ export class ReminderPanel {
             const project = projectData[projectId];
 
             // 使用openProjectKanbanTab打开项目看板
-            this.plugin.openProjectKanbanTab(project.id, project.title);
+            void executePluginAction(this.plugin, "openProjectKanban", {
+                projectId: project.id,
+                projectTitle: project.title
+            });
         } catch (error) {
             console.error('打开项目看板失败:', error);
             showMessage("打开项目看板失败");
@@ -8910,32 +8747,11 @@ export class ReminderPanel {
     }
 
     /**
-     * 显示番茄钟统计视图
-     */
-    private showPomodoroStatsView() {
-        try {
-            const lastMode = getLastStatsMode();
-            if (lastMode === 'task') {
-                const statsView = new TaskStatsView(this.plugin);
-                statsView.show();
-            } else {
-                const statsView = new PomodoroStatsView(this.plugin);
-                statsView.show();
-            }
-        } catch (error) {
-            console.error('打开番茄钟统计视图失败:', error);
-            showMessage("打开番茄钟统计视图失败");
-        }
-    }
-
-
-    /**
      * 打开四象限面板
      */
     private openEisenhowerMatrix() {
         try {
-            // 使用插件的openEisenhowerMatrixTab方法打开四象限面板
-            this.plugin.openEisenhowerMatrixTab();
+            void executePluginAction(this.plugin, "openEisenhowerMatrix");
         } catch (error) {
             console.error('打开四象限面板失败:', error);
             showMessage("打开四象限面板失败");
@@ -9195,7 +9011,7 @@ export class ReminderPanel {
                 click: () => {
                     try {
                         if (this.plugin && typeof this.plugin.openSetting === 'function') {
-                            this.plugin.openSetting();
+                            void executePluginAction(this.plugin, "openSetting");
                         } else {
                             console.warn('plugin.openSetting is not available');
                         }

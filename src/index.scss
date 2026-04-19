@@ -14,11 +14,8 @@
 @use './styles/components';
 
 // 导入组件样式
-@use './styles/habit-calendar.scss';
 @use './styles/doc-reminder.scss';
 @use './styles/project-reminder.scss';
-@use './styles/pomodoroTimer.scss';
-@use './styles/pomodoroStats.scss';
 @use './styles/calendar.scss';
 
 /*
@@ -66,51 +63,51 @@
     justify-content: center;
     gap: var(--task-space-1);
     box-sizing: border-box;
-    
+
     // 尺寸(默认中等)
     min-height: var(--task-toolbar-height);
     height: var(--task-toolbar-height);
     padding: 8px 16px;
-    
+
     // 字体
     font-family: inherit;
     font-size: var(--task-font-sm);
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
-    
+
     // 边框与圆角
     border: 1px solid transparent;
     border-radius: var(--task-radius-sm);
-    
+
     // 背景与颜色
     background: var(--task-surface-soft);
     color: var(--b3-theme-on-background);
-    
+
     // 交互
     cursor: pointer;
     transition: var(--task-motion-fast);
     user-select: none;
-    
+
     // 焦点样式
     &:focus-visible {
         outline: 2px solid var(--b3-theme-primary);
         outline-offset: 2px;
     }
-    
+
     // 悬停状态
     &:hover:not(:disabled, .plugin-task-btn-disabled) {
         background: var(--task-bg-hover);
         transform: translateY(-1px);
         box-shadow: var(--task-shadow-hover);
     }
-    
+
     // 按下状态
     &:active:not(:disabled, .plugin-task-btn-disabled) {
         transform: translateY(0);
         box-shadow: none;
     }
-    
+
     // 禁用状态
     &:disabled,
     &.plugin-task-btn-disabled {
@@ -118,13 +115,13 @@
         cursor: not-allowed;
         pointer-events: none;
     }
-    
+
     // 加载状态
     &.plugin-task-btn-loading {
         position: relative;
         color: transparent;
         pointer-events: none;
-        
+
         &::after {
             content: '';
             position: absolute;
@@ -143,13 +140,13 @@
     background: var(--b3-theme-primary);
     color: white;
     border-color: var(--b3-theme-primary);
-    
+
     &:hover:not(:disabled, .plugin-task-btn-disabled) {
         background: var(--b3-theme-primary-light);
         border-color: var(--b3-theme-primary-light);
         box-shadow: var(--task-shadow-hover);
     }
-    
+
     &:active:not(:disabled, .plugin-task-btn-disabled) {
         background: var(--b3-theme-primary);
         border-color: var(--b3-theme-primary);
@@ -161,13 +158,13 @@
     background: transparent;
     color: var(--b3-theme-on-background);
     border-color: var(--task-border-default);
-    
+
     &:hover:not(:disabled, .plugin-task-btn-disabled) {
         background: var(--task-surface-soft);
         border-color: var(--b3-theme-primary-light);
         color: var(--b3-theme-primary);
     }
-    
+
     &:active:not(:disabled, .plugin-task-btn-disabled) {
         background: var(--task-bg-active);
     }
@@ -178,13 +175,13 @@
     background: transparent;
     color: var(--b3-theme-on-surface);
     border-color: transparent;
-    
+
     &:hover:not(:disabled, .plugin-task-btn-disabled) {
         background: var(--task-bg-hover);
         color: var(--b3-theme-on-background);
         box-shadow: none;
     }
-    
+
     &:active:not(:disabled, .plugin-task-btn-disabled) {
         background: var(--task-bg-active);
     }
@@ -197,7 +194,7 @@
     padding: 6px 12px;
     font-size: var(--task-font-xs);
     border-radius: var(--task-radius-xs);
-    
+
     &.plugin-task-btn-loading::after {
         width: 14px;
         height: 14px;
@@ -212,7 +209,7 @@
     padding: 10px 20px;
     font-size: var(--task-font-md);
     border-radius: var(--task-radius-md);
-    
+
     &.plugin-task-btn-loading::after {
         width: 20px;
         height: 20px;
@@ -225,12 +222,12 @@
     width: var(--task-toolbar-icon-size);
     min-width: var(--task-toolbar-icon-size);
     padding: 0;
-    
+
     &.plugin-task-btn-sm {
         width: 28px;
         min-width: 28px;
     }
-    
+
     &.plugin-task-btn-lg {
         width: 40px;
         min-width: 40px;
@@ -242,6 +239,7 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -254,7 +252,7 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
     }
-    
+
     .plugin-task-btn-outline {
         &:hover:not(:disabled, .plugin-task-btn-disabled) {
             background: rgba(255, 255, 255, 0.05);
@@ -310,16 +308,57 @@
     @extend .plugin-task-btn-disabled;
 }
 
-// 隐藏所有自定义菜单的图标 (emoji 和空 SVG 占位符)
-#commonMenu button.b3-menu__item {
+// ============================================================
+// 插件菜单样式 - 使用 data-name 属性限定作用域
+// ============================================================
+// 说明：
+//   - 思源笔记所有菜单共享 #commonMenu 容器
+//   - 插件传入的 menuId 会作为 data-name 属性设置到容器
+//   - 使用 data-name 选择器仅影响插件创建的菜单
+//   - 不影响思源原生菜单或其他插件菜单
+//
+// 插件菜单 ID 列表：
+//   reminderContextMenu, reminderMoreMenu, panelBatchContextMenu
+//   projectSortMenu, projectContextMenu, projectMoreMenu
+//   project-kanban-more-menu, subscribedTaskContextMenu
+//   kanbanBatchContextMenu, kanbanTaskContextMenu, kanbanDoneSortMenu
+//   quickPomodoroMenu, calendar-more-menu, calendarEventContextMenu
+//   miniPomodoroMenu, task-summary-export-menu
+//
+// 注意：思源原生菜单通常没有 data-name 属性
+// ============================================================
+
+// ============================================================
+// 插件菜单样式 - 使用 data-name 属性限定作用域
+// ============================================================
+// 说明：
+//   - 思源笔记所有菜单共享 #commonMenu 容器
+//   - 插件传入的 menuId 会作为 data-name 属性设置到容器
+//   - 使用 data-name 选择器仅影响插件创建的菜单
+//   - 不影响思源原生菜单或其他插件菜单
+//
+// 插件菜单 ID 列表：
+//   reminderContextMenu, reminderMoreMenu, panelBatchContextMenu
+//   projectSortMenu, projectContextMenu, projectMoreMenu
+//   project-kanban-more-menu, subscribedTaskContextMenu
+//   kanbanBatchContextMenu, kanbanTaskContextMenu, kanbanDoneSortMenu
+//   quickPomodoroMenu, calendar-more-menu, calendarEventContextMenu
+//   miniPomodoroMenu, task-summary-export-menu
+//
+// 注意：思源原生菜单通常没有 data-name 属性
+// ============================================================
+
+// 隐藏插件菜单中的空图标占位符和 emoji 图标
+// 仅影响有 data-name 属性的菜单（即插件创建的菜单）
+#commonMenu[data-name] button.b3-menu__item {
     font-size: 0;
 }
 
-#commonMenu button.b3-menu__item svg.b3-menu__icon {
+#commonMenu[data-name] button.b3-menu__item svg.b3-menu__icon {
     display: none;
 }
 
-#commonMenu button.b3-menu__item span.b3-menu__label {
+#commonMenu[data-name] button.b3-menu__item span.b3-menu__label {
     font-size: var(--b3-font-size, 14px);
 }
 
@@ -1064,53 +1103,16 @@
 
 }
 
-.habit-panel {
-    display: flex;
-    flex-direction: column;
-}
-
-.habit-panel .habit-header,
 .reminder-panel {
     padding: 8px;
     display: flex;
     flex-direction: column;
 }
 
-/* 习惯卡片：淡色渐变背景，更现代的视觉效果 */
-.habit-card {
-    background-color: var(--b3-list-hover, rgba(from var(--b3-theme-background-light) r g b / .1));
-    border: 1px solid var(--b3-theme-surface-lighter);
-    border-radius: var(--task-radius-sm);
-    padding: 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: var(--b3-transition, all 0.2s ease);
-}
-
-
-.habit-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--b3-point-shadow, 0 4px 12px rgba(0, 0, 0, 0.1));
-    border-color: var(--b3-theme-primary-light);
-}
-
-.habit-card:active {
-    transform: translateY(-1px);
-    box-shadow: var(--b3-point-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
-}
-
-/* 已完成区域的卡片视觉上稍淡化但仍保持可读 */
-.habit-completed-section .habit-card {
-    opacity: 0.78;
-    transform: none;
-}
-
-.habit-panel>.habit-header,
 .reminder-panel>.reminder-header {
     margin-bottom: 12px;
 }
 
-.habit-title,
 .reminder-title {
     display: flex;
     align-items: center;
@@ -1547,11 +1549,6 @@
 .merge-project-dialog,
 .bind-to-block-dialog,
 .document-reminder-dialog,
-.habit-edit-dialog,
-.habit-check-in-dialog,
-.habit-day-dialog,
-.habit-history-dialog,
-.habit-record-dialog,
 .block-edit-dialog,
 .smart-batch-dialog,
 .nl-dialog,
@@ -1568,10 +1565,6 @@
 // ============================================================
 // 通用 dialog 布局优化 (保留以兼容旧代码)
 // ============================================================
-#habitEditContainer,
-#checkInEmojiContainer,
-#habitAddSingleEntryContainer,
-#habitEditSingleEntryContainer,
 .status-manage-dialog,
 .project-dialog,
 .category-manage-dialog,
@@ -1629,10 +1622,6 @@
     }
 }
 
-#habitEditContainer .b3-dialog__container,
-#checkInEmojiContainer .b3-dialog__container,
-#habitAddSingleEntryContainer .b3-dialog__container,
-#habitEditSingleEntryContainer .b3-dialog__container,
 .status-manage-dialog .b3-dialog__container,
 .project-dialog .b3-dialog__container,
 .category-manage-dialog .b3-dialog__container,
@@ -1790,6 +1779,135 @@
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
+}
+
+.reminder-calendar-toolbar-icon-btn {
+    min-width: var(--task-toolbar-icon-size);
+    width: var(--task-toolbar-icon-size);
+    min-height: var(--task-toolbar-height);
+    height: var(--task-toolbar-height);
+    padding: 0 !important;
+    border-radius: var(--task-radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reminder-calendar-toolbar-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 0 !important;
+    display: block;
+}
+
+.reminder-calendar-toolbar-pomodoro-btn {
+    width: auto;
+    min-width: 36px;
+    margin-right: 8px;
+    transition: opacity 140ms ease;
+}
+
+.reminder-calendar-filter-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.reminder-calendar-filter-icon {
+    color: var(--b3-theme-on-surface-light);
+    display: inline-flex;
+    align-items: center;
+}
+
+.reminder-calendar-filter-icon-svg {
+    width: 14px;
+    height: 14px;
+    margin-right: 4px;
+}
+
+.reminder-calendar-toolbar-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.reminder-calendar-toolbar-dropdown--view {
+    margin-left: 8px;
+}
+
+.reminder-calendar-toolbar-select-btn {
+    min-height: var(--task-toolbar-height);
+    height: var(--task-toolbar-height);
+    display: inline-flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    gap: 4px;
+}
+
+.reminder-calendar-toolbar-select-btn--view {
+    width: 84px;
+}
+
+.reminder-calendar-toolbar-select-btn--filter {
+    width: 100px;
+}
+
+.reminder-calendar-toolbar-select-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.reminder-calendar-toolbar-select-arrow {
+    margin-left: 4px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.reminder-calendar-toolbar-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    background-color: var(--b3-theme-background);
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--task-radius-xs);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+}
+
+.reminder-calendar-toolbar-dropdown-menu--view {
+    min-width: 150px;
+}
+
+.reminder-calendar-toolbar-dropdown-menu--project,
+.reminder-calendar-toolbar-dropdown-menu--category {
+    min-width: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.reminder-calendar-toolbar-dropdown-menu--settings {
+    right: 0;
+    left: auto;
+    min-width: 300px;
+    max-width: 360px;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.reminder-calendar-toolbar-dropdown-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: var(--task-radius-xs);
+}
+
+.reminder-calendar-toolbar-dropdown-item:hover {
+    background-color: var(--b3-list-hover);
 }
 
 .reminder-calendar-container {
@@ -3080,7 +3198,7 @@
     .fc-scroller {
         max-height: 200px; // 默认最大高度
         overflow-y: auto !important;
-        transition: max-height 0.1s linear; // 平滑过渡，但不要太慢以免拖动迟滞
+        transition: none;
     }
 }
 
@@ -3224,19 +3342,9 @@
 
 
 .reminder-panel,
-.project-panel,
-.habit-panel {
+.project-panel {
     .b3-button svg.b3-button__icon {
         margin-right: 0;
-    }
-}
-
-/* 习惯打卡日历样式 */
-.habit-event {
-    cursor: pointer !important;
-
-    &:hover {
-        opacity: 0.85;
     }
 }
 

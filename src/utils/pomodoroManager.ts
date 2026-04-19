@@ -1,4 +1,13 @@
-import { PomodoroTimer } from "../components/PomodoroTimer";
+interface ManagedPomodoroTimer {
+    isWindowActive?: () => boolean;
+    getCurrentState?: () => any;
+    updateState?: (...args: any[]) => Promise<void>;
+    pauseFromExternal?: () => void;
+    resumeFromExternal?: () => void;
+    close?: () => void;
+    destroy?: () => void;
+    updateSettings?: (settings: any) => Promise<void>;
+}
 
 /**
  * 全局番茄钟管理器
@@ -6,7 +15,7 @@ import { PomodoroTimer } from "../components/PomodoroTimer";
  */
 export class PomodoroManager {
     private static instance: PomodoroManager | null = null;
-    private currentPomodoroTimer: PomodoroTimer | null = null;
+    private currentPomodoroTimer: ManagedPomodoroTimer | null = null;
 
     private constructor() { }
 
@@ -23,14 +32,14 @@ export class PomodoroManager {
     /**
      * 获取当前活动的番茄钟实例
      */
-    public getCurrentPomodoroTimer(): PomodoroTimer | null {
+    public getCurrentPomodoroTimer(): ManagedPomodoroTimer | null {
         return this.currentPomodoroTimer;
     }
 
     /**
      * 设置当前活动的番茄钟实例
      */
-    public setCurrentPomodoroTimer(timer: PomodoroTimer | null): void {
+    public setCurrentPomodoroTimer(timer: ManagedPomodoroTimer | null): void {
         this.currentPomodoroTimer = timer;
     }
 
@@ -38,15 +47,15 @@ export class PomodoroManager {
      * 检查是否有活动的番茄钟实例且窗口仍然存在
      */
     public hasActivePomodoroTimer(): boolean {
-        return this.currentPomodoroTimer !== null && this.currentPomodoroTimer.isWindowActive();
+        return this.currentPomodoroTimer !== null && this.currentPomodoroTimer.isWindowActive?.() === true;
     }
 
     /**
      * 获取当前番茄钟的状态（如果存在）
      */
     public getCurrentState(): any {
-        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive()) {
-            return this.currentPomodoroTimer.getCurrentState();
+        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive?.() === true) {
+            return this.currentPomodoroTimer.getCurrentState?.() ?? null;
         }
         return null;
     }
@@ -55,7 +64,7 @@ export class PomodoroManager {
      * 暂停当前番茄钟（如果存在且正在运行）
      */
     public pauseCurrentTimer(): boolean {
-        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive()) {
+        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive?.() === true && this.currentPomodoroTimer.pauseFromExternal) {
             try {
                 this.currentPomodoroTimer.pauseFromExternal();
                 return true;
@@ -71,7 +80,7 @@ export class PomodoroManager {
      * 恢复当前番茄钟的运行（如果存在且已暂停）
      */
     public resumeCurrentTimer(): boolean {
-        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive()) {
+        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive?.() === true && this.currentPomodoroTimer.resumeFromExternal) {
             try {
                 this.currentPomodoroTimer.resumeFromExternal();
                 return true;
@@ -90,11 +99,11 @@ export class PomodoroManager {
         if (this.currentPomodoroTimer) {
             try {
                 // 检查窗口是否仍然活动，如果不活动则直接清理引用
-                if (!this.currentPomodoroTimer.isWindowActive()) {
+                if (this.currentPomodoroTimer.isWindowActive?.() !== true) {
                     this.currentPomodoroTimer = null;
                     return;
                 }
-                this.currentPomodoroTimer.close();
+                this.currentPomodoroTimer.close?.();
             } catch (error) {
                 console.error('关闭番茄钟实例失败:', error);
             }
@@ -109,11 +118,11 @@ export class PomodoroManager {
         if (this.currentPomodoroTimer) {
             try {
                 // 检查窗口是否仍然活动，如果不活动则直接清理引用
-                if (!this.currentPomodoroTimer.isWindowActive()) {
+                if (this.currentPomodoroTimer.isWindowActive?.() !== true) {
                     this.currentPomodoroTimer = null;
                     return;
                 }
-                this.currentPomodoroTimer.destroy();
+                this.currentPomodoroTimer.destroy?.();
             } catch (error) {
                 console.error('销毁番茄钟实例失败:', error);
             }
@@ -133,7 +142,7 @@ export class PomodoroManager {
      * 清理无效的番茄钟引用（窗口已关闭但引用还在）
      */
     public cleanupInactiveTimer(): void {
-        if (this.currentPomodoroTimer && !this.currentPomodoroTimer.isWindowActive()) {
+        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive?.() !== true) {
             this.currentPomodoroTimer = null;
         }
     }
@@ -142,7 +151,7 @@ export class PomodoroManager {
      * 更新当前番茄钟的设置
      */
     public async updateSettings(settings: any): Promise<void> {
-        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive()) {
+        if (this.currentPomodoroTimer && this.currentPomodoroTimer.isWindowActive?.() === true && this.currentPomodoroTimer.updateSettings) {
             try {
                 await this.currentPomodoroTimer.updateSettings(settings);
             } catch (error) {

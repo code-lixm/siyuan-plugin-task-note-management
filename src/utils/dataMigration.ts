@@ -1,4 +1,5 @@
 import { setBlockAttrs } from "../api";
+import { SETTINGS_SCHEMA_VERSION } from "@/core/settingsSchema";
 
 interface AudioFileItemLike {
     path: string;
@@ -19,6 +20,7 @@ interface MigrationPlugin {
 export async function performDataMigration(plugin: MigrationPlugin): Promise<void> {
     try {
         const settings = await plugin.loadSettings();
+        await migrateSettingsByVersion(plugin, settings);
 
         // 检查是否需要迁移绑定块属性
         if (!settings.datatransfer?.bindblockAddAttr) {
@@ -261,5 +263,39 @@ async function migrateBindBlockAttributes(plugin: MigrationPlugin): Promise<void
     } catch (error) {
         console.error("迁移绑定块属性时出错:", error);
         throw error;
+    }
+}
+
+async function migrateSettingsByVersion(plugin: MigrationPlugin, settings: any): Promise<void> {
+    let changed = false;
+    const currentVersion = typeof settings.settingsVersion === "number" ? settings.settingsVersion : 0;
+
+    if (currentVersion < 1) {
+        settings.settingsVersion = 1;
+        changed = true;
+    }
+
+    if (settings.settingsVersion < 2) {
+        // 统一 Dock 徽章默认逻辑，避免旧配置下出现 undefined 导致行为不稳定
+        if (settings.enableReminderDockBadge === undefined) {
+            settings.enableReminderDockBadge = settings.enableDockBadge !== false;
+            changed = true;
+        }
+        if (settings.enableProjectDockBadge === undefined) {
+            settings.enableProjectDockBadge = settings.enableDockBadge !== false;
+            changed = true;
+        }
+        settings.settingsVersion = 2;
+        changed = true;
+    }
+
+    if (settings.settingsVersion < SETTINGS_SCHEMA_VERSION) {
+        settings.settingsVersion = SETTINGS_SCHEMA_VERSION;
+        changed = true;
+    }
+
+    if (changed) {
+        await plugin.saveSettings(settings);
+        console.log(`设置版本迁移完成: v${currentVersion} -> v${settings.settingsVersion}`);
     }
 }
