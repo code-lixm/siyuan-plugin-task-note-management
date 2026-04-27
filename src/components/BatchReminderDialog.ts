@@ -989,7 +989,7 @@ class SmartBatchDialog {
         const dateStr = new Date(result.date + 'T00:00:00').toLocaleDateString(getLocaleTag());
         showMessage(i18n("dateTimeSet", {
             date: dateStr,
-            time: result.time ? ` ${result.time}` : ''
+            time: result.time ? `${result.time}` : ''
         }));
     }
     private getSelectedBlockIds(dialog: Dialog): string[] {
@@ -1824,7 +1824,7 @@ class BlockEditDialog {
 
             if (result.date) {
                 const dateStr = new Date(result.date + 'T00:00:00').toLocaleDateString(getLocaleTag());
-                const timeStr = result.time ? ` ${result.time}` : '';
+    const timeStr = result.time ? `${result.time}` : '';
                 let previewText = `${dateStr}${timeStr}`;
 
                 if (currentParseResult.endDate) {

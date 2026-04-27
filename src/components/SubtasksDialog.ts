@@ -4,6 +4,7 @@ import { i18n } from "../pluginInstance";
 import { QuickReminderDialog } from "./QuickReminderDialog";
 import { PasteTaskDialog } from "./PasteTaskDialog";
 import { isAdvancedFeaturesEnabled } from "@/core/featureGate";
+import { getLogicalDateString } from "../utils/dateUtils";
 
 export class SubtasksDialog {
     private dialog: Dialog;
@@ -561,7 +562,42 @@ export class SubtasksDialog {
         const maxSort = this.subtasks.reduce((max, t) => Math.max(max, t.sort || 0), 0);
         const newSort = maxSort + 1000;
 
-        const dialog = new QuickReminderDialog(undefined, undefined, async (newReminder) => {
+        let defaultDate: string | undefined = undefined;
+        let defaultTime: string | undefined = undefined;
+        let timeRangeOptions: { isTimeRange: boolean; endDate?: string; endTime?: string } | undefined = undefined;
+
+        if (parentTask?.date) {
+            const today = getLogicalDateString();
+            const startDate = parentTask.date;
+            const endDate = parentTask.endDate || parentTask.date;
+            const isCrossDay = startDate !== endDate;
+
+            if (isCrossDay) {
+                if (today >= startDate && today <= endDate) {
+                    defaultDate = today;
+                } else if (startDate > today) {
+                    defaultDate = startDate;
+                } else {
+                    defaultDate = endDate;
+                }
+            } else {
+                defaultDate = startDate >= today ? startDate : today;
+            }
+
+            if (parentTask.time) {
+                defaultTime = parentTask.time;
+
+                if (parentTask.endTime) {
+                    timeRangeOptions = {
+                        isTimeRange: true,
+                        endDate: defaultDate,
+                        endTime: parentTask.endTime
+                    };
+                }
+            }
+        }
+
+        const dialog = new QuickReminderDialog(defaultDate, defaultTime, async (newReminder) => {
             if (!newReminder) return;
 
             // 设置 sort 值为最大值+1000，确保放在最后
@@ -593,7 +629,7 @@ export class SubtasksDialog {
                     this.renderSubtasks();
                 }, 100);
             }
-        }, undefined, {
+        }, timeRangeOptions, {
             mode: 'quick',
             defaultParentId: this.isTempMode ? '__TEMP_PARENT__' : this.parentId,
             // 继承父任务的项目、分组、状态等属性

@@ -200,3 +200,36 @@ showMessage(i18n("taskCreatedSuccessfully"));
 - **No tests**: Manual testing only (test scripts in `/test/`)
 - **Large files**: `src/index.ts` ~5400 lines, `CalendarView.ts` ~345KB
 - **Comments**: Chinese comments common for internal logic
+
+### UI Design Learnings (Project Management Panel)
+
+- **Do not stack multiple heavy control slabs** in the top area. Prefer a calm title row plus a lightweight control area, not a toolbar panel sitting on top of another filter panel.
+- **Unify width rhythm** between header and list. Header content and list content should share the same horizontal padding and feel like one continuous surface.
+- **Status should be controlled from the top**, not duplicated as both top filter and in-list expand/collapse groups. Avoid double information architecture.
+- **Avoid collapsible section headers for primary list browsing** when a top-level status selector already exists. Flat lists with subtle inline status hints are easier to scan.
+- **Search should not look like a floating widget**. Prefer low-contrast integrated search styling over boxed, card-like search containers.
+- **Reduce visible action count** in high-attention areas. Keep only the most frequent actions visible and move low-frequency actions into a More menu.
+- **Do not give every piece of metadata the same visual volume**. Titles should dominate; time/category/status should be secondary; counts/progress should be tertiary.
+- **Suppress default list noise**: hide notes and full tag rows in dense overview lists unless they are essential.
+- **Use fewer borders and fewer backgrounds**. Distinction should come first from spacing, typography, and alignment—not from repeated pills, boxes, and slabs.
+- **When refining UI, solve architecture first, then spacing, then polish**. Rearranging crowded blocks without changing hierarchy usually only moves the problem.
+- **Overdue indicators should be subtle, never heavy**. A full gray background or thick left border feels like punishment. Use micro-hints: icon tint, a tiny colored dot, or nothing at all—let the user feel calm even when things are late.
+- **Replace emoji placeholders with real APIs when available**. SiYuan's `/api/icon/getDynamicIcon` (type 8 text icons, type 7 countdown icons) generates crisp SVGs that adapt to theme and language. Prefer them over static emoji or CSS circles for date/status visuals.
+- **Icon color should be soft, not saturated**. Material 200-level pastels (e.g., `#A5D6A7`, `#EF9A9A`, `#FFCC80`) read better inside dense lists than full-strength theme colors. High saturation pulls the eye too aggressively.
+- **A single icon can replace both status dot and countdown label**. If you already show a dynamic icon colored by state and containing a day count, the separate title-row dot and the "X days remaining" pill become redundant. Remove them.
+- **Time offset logic must be consistent and predictable**. For project cards: if overdue, show days-since-deadline; otherwise show days-since-start. Never mix both sources in the same slot or the user loses mental model.
+- **Empty containers must collapse, not leave ghost whitespace**. A `stats` row with zero counts should set `display: none` after async load, not rely on `min-height` tricks that leave dead air in the list.
+- **Interactive elements must be actually interactive**. A search icon that doesn't respond to click feels broken. Add `focus()` forwarding or remove the icon if it's purely decorative.
+- **Layout should be one skeleton, many states**. All cards share the same DOM structure: title row → info row (left time/tags, right icon) → stats → progress. Only the icon color and number change per state. No conditional branches that restructure the card.
+
+---
+
+## WORK LOG HABIT
+
+- **任务完成后同步记录到思源 Todo**：每次完成任务后，都要把完成项追加到思源笔记文档 `20260401222342-psl8av6`（`IMS Todo List`）。
+- **按当天日期归档**：优先写入当天对应的日期小节；若当天小节不存在，则先创建日期标题再追加内容。
+- **日期标题和记录必须分块写入**：不要一次性插入 `## 日期\n\n记录内容`，否则思源可能把标题和内容合成同一块。正确做法是：日期标题单独插入一个标题块，完成记录再作为独立段落块插入到该日期小节下。
+- **已有日期小节只追加内容块**：若当天标题已存在，禁止重复创建日期标题，只在该标题小节下追加独立记录块。
+- **避免重复记录**：插入前先检查当天是否已存在语义重复的完成项；若已有同类记录，不重复追加。
+- **采用 changelog 风格**：记录格式统一为 `scope：description`，例如：`导出：完成 IMR 全量导入导出与 overwrite 覆盖导入`。
+- **只记录已完成事项**：仅同步已经完成并验证过的任务，不记录进行中或未验证的事项。

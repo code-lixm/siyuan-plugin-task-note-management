@@ -370,7 +370,7 @@ export class ProjectKanbanView {
             return timePart ? timePart.substring(0, 5) : effectiveDate;
         } else {
             // 未来：显示日期+时间
-            const showTime = timePart ? ` ${timePart.substring(0, 5)}` : '';
+    const showTime = timePart ? `${timePart.substring(0, 5)}` : '';
             return `${effectiveDate}${showTime}`;
         }
     }
@@ -9671,7 +9671,7 @@ export class ProjectKanbanView {
                 margin-top: 4px;
                 width: fit-content;
             `;
-            const tomatoEmojis = ` ${task.pomodoroCount || 0}`;
+    const tomatoEmojis = `${task.pomodoroCount || 0}`;
             const focusMinutes = task.focusTime || 0;
             const formatMinutesToString = (minutes: number) => {
                 const hours = Math.floor(minutes / 60);
@@ -12084,13 +12084,49 @@ export class ProjectKanbanView {
 
     // 使用 QuickReminderDialog 创建任务
     private showCreateTaskDialog(parentTask?: any, defaultCustomGroupId?: string | null, defaultStatus?: any, defaultMilestoneId?: string) {
+        const today = getLogicalDateString();
+        const startDate = parentTask?.date;
+        const endDate = parentTask?.endDate || parentTask?.date;
+
+        let initialDate: string | undefined = undefined;
+        let initialTime: string | undefined = undefined;
+        let timeRangeOptions: { isTimeRange: boolean; endDate?: string; endTime?: string } | undefined = undefined;
+
+        if (startDate) {
+            const isCrossDay = startDate !== endDate;
+
+            if (isCrossDay) {
+                if (today >= startDate && today <= endDate) {
+                    initialDate = today;
+                } else if (startDate > today) {
+                    initialDate = startDate;
+                } else {
+                    initialDate = endDate;
+                }
+            } else {
+                initialDate = startDate >= today ? startDate : today;
+            }
+        }
+
+        if (parentTask?.time) {
+            initialTime = parentTask.time;
+
+            if (startDate && startDate === endDate && parentTask.endTime) {
+                timeRangeOptions = {
+                    isTimeRange: true,
+                    endDate: initialDate,
+                    endTime: parentTask.endTime
+                };
+            }
+        }
+
         // Calculate max sort value to place new task at the end
         const maxSort = this.tasks.reduce((max, task) => Math.max(max, task.sort || 0), 0);
         const defaultSort = maxSort + 10000;
 
         const quickDialog = new QuickReminderDialog(
-            undefined, // 项目看板创建任务默认不设置日期
-            undefined, // 无初始时间
+            initialDate,
+            initialTime,
             async (savedTask: any) => {
                 // 保存成功后尝试增量更新 DOM
                 if (savedTask && typeof savedTask === 'object') {
@@ -12143,7 +12179,7 @@ export class ProjectKanbanView {
                     this.queueLoadTasks();
                 }
             },
-            undefined, // 无时间段选项
+            timeRangeOptions,
             {
                 defaultProjectId: this.projectId, // 默认项目ID
                 defaultParentId: parentTask?.id, // 传递父任务ID

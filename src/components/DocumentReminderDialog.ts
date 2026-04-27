@@ -739,7 +739,7 @@ export class DocumentReminderDialog {
                     focusMinutes = pomodoroManager.getEventFocusTime(targetReminder.id);
                 }
                 if ((count && count > 0) || (focusMinutes && focusMinutes > 0)) {
-                    const tomatoEmojis = ` ${count}`;
+    const tomatoEmojis = `${count}`;
                     const extraCount = '';
                     const focusText = focusMinutes > 0 ? ` ⏱ ${pomodoroManager.formatTime(focusMinutes)}` : '';
                     pomodoroDisplay.innerHTML = `

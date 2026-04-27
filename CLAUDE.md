@@ -92,4 +92,5 @@ Supports multi-level lists (auto-creates parent-child relationships).
 - **Language**: Always support both English and Chinese - add translations to both `i18n/*.json` files
 - **Type Safety**: Use TypeScript properly, avoid `any` when possible
 - **Error Handling**: Wrap async operations in try-catch, show user-friendly messages
+- **Build After Changes**: 每次修改完代码后，必须执行 `npm run build` 确保构建成功
 - **Mobile Support**: Plugin supports iOS/Android SiYuan clients

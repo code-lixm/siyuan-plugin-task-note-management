@@ -1,218 +1,347 @@
-// 项目面板样式
-.project-panel {
+.plugin-task-project-panel {
+    width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
     font-size: var(--task-font-sm);
+    overflow: hidden;
 }
 
-.project-header {
-    padding: var(--task-panel-header-padding);
-    border-bottom: var(--task-divider-width) solid var(--task-divider-color);
-    background: var(--task-surface-soft);
+.plugin-task-project-panel__header {
+    padding: var(--task-space-5) var(--task-space-5) var(--task-space-2);
+    border-bottom: 1px solid var(--task-border-default);
+    background: transparent;
     flex-shrink: 0;
 }
 
-.project-title {
+.plugin-task-project-panel__title-row {
     display: flex;
     align-items: center;
-    font-weight: 500;
-    margin-bottom: var(--task-space-2);
-}
-
-.project-icon {
-    margin-right: var(--task-space-2);
-    font-size: var(--task-font-lg);
-}
-
-.project-panel__actions {
-    display: flex;
-    gap: var(--task-space-1);
-    margin-left: auto;
-}
-
-.project-controls {
-    display: flex;
+    justify-content: space-between;
     gap: var(--task-space-2);
-    align-items: center;
-    flex-wrap: wrap;
+    margin-bottom: var(--task-space-3);
 }
 
-.project-header__actions-row {
+.plugin-task-project-panel__title-group {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: var(--task-space-2);
-    flex-wrap: wrap;
-    margin-bottom: var(--task-space-2);
+    gap: 10px;
+    min-width: 0;
 }
 
-/*
- * project-toolbar-btn 样式
- * 
- * 注意: .project-toolbar-btn 现在作为 .plugin-task-btn 的别名使用
- * 实际使用时建议直接使用 .plugin-task-btn 类名
- * 保留此样式是为了向后兼容
- */
-.project-toolbar-btn,
-.project-toolbar-select {
-    // 继承基础按钮变量
-    min-height: var(--task-toolbar-height);
-    height: var(--task-toolbar-height);
-    box-sizing: border-box;
-    border-radius: var(--task-radius-sm);
-}
-
-.project-toolbar-btn {
+.plugin-task-project-panel__title-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--task-space-1);
-    padding: 0 var(--task-toolbar-padding-x);
-    border: 1px solid var(--task-border-default);
-    background: var(--task-surface-soft);
+    color: var(--b3-theme-primary);
+    opacity: 0.72;
+    flex-shrink: 0;
+}
+
+.plugin-task-project-panel__title {
+    font-size: 20px;
+    font-weight: 780;
     color: var(--b3-theme-on-background);
-    font-size: var(--task-font-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--task-motion-fast);
-    user-select: none;
-    
-    &:hover:not(:disabled) {
-        background: var(--task-bg-hover);
-        border-color: var(--b3-theme-primary-light);
-        transform: translateY(-1px);
-        box-shadow: var(--task-shadow-hover);
-    }
-    
-    &:active:not(:disabled) {
-        transform: translateY(0);
-        box-shadow: none;
-        background: var(--task-bg-active);
-    }
-    
-    &:disabled {
-        opacity: var(--task-text-disabled);
-        cursor: not-allowed;
-    }
+    letter-spacing: -0.025em;
+    line-height: 1.1;
 }
 
-.project-toolbar-btn--icon {
-    width: var(--task-toolbar-icon-size);
-    min-width: var(--task-toolbar-icon-size);
-    padding: 0;
+.plugin-task-project-panel__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
 }
 
-.project-toolbar-btn--text {
-    justify-content: flex-start;
-    max-width: 30%;
+.plugin-task-project-panel__actions .plugin-task-btn--primary {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-radius: calc(var(--task-radius-sm) + 2px);
+    box-shadow: none;
+    min-height: 30px;
+    padding: 0 11px;
 }
 
-.project-toolbar-btn--text-icon {
-    font-size: 14px;
-    line-height: 1;
+.plugin-task-project-panel__actions .plugin-task-btn--icon {
+    opacity: 0.55;
+    transition: opacity var(--task-motion-fast), background var(--task-motion-fast), transform var(--task-motion-fast);
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
 }
 
-.project-toolbar-select {
-    padding: 0 var(--task-toolbar-padding-x);
-    border-color: var(--task-border-default);
-    background: var(--task-surface-soft);
+.plugin-task-project-panel__actions .plugin-task-btn--icon:hover {
+    opacity: 0.95;
+    background: var(--task-bg-hover);
+    transform: translateY(-1px);
 }
 
-// 深色主题适配
-.b3-theme-dark {
-    .project-toolbar-btn {
-        &:hover:not(:disabled) {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+.project-filter-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--task-space-3);
+    padding-top: 2px;
+}
+
+.project-search-wrapper {
+    display: none;
+    align-items: center;
+    gap: var(--task-space-2);
+    padding: var(--task-space-1) var(--task-space-2);
+    border-radius: var(--task-radius-sm);
+    border-bottom: 1px solid color-mix(in srgb, var(--b3-theme-on-surface-light) 12%, transparent);
+    transition: all var(--task-motion-fast);
+    flex: 1;
+    min-width: 0;
+
+    &.project-search-wrapper--active {
+        display: flex;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 2px;
+        bottom: 0;
+        z-index: 10;
+        background: var(--b3-theme-background);
+        max-width: none;
+
+        &:focus-within {
+            border-bottom-color: var(--b3-theme-primary);
         }
+    }
+}
+
+.project-search-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    color: var(--b3-theme-on-surface-light);
+    flex-shrink: 0;
+    opacity: 0.5;
+    cursor: pointer;
+    transition: opacity var(--task-motion-fast);
+
+    &:hover {
+        opacity: 0.85;
+    }
+}
+
+.project-search__input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-size: var(--task-font-sm);
+    color: var(--b3-theme-on-background);
+    outline: none;
+
+    &::placeholder {
+        color: var(--b3-theme-on-surface-light);
+        opacity: 0.45;
+    }
+}
+
+.project-filter-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--task-space-1);
+    flex: 1;
+    min-width: 0;
+}
+
+.project-filter-select {
+    height: 28px;
+    padding: 0 var(--task-space-2);
+    border: none;
+    border-radius: var(--task-radius-sm);
+    background: transparent;
+    color: var(--b3-theme-on-surface);
+    font-size: var(--task-font-xs);
+    cursor: pointer;
+    outline: none;
+    transition: all var(--task-motion-fast);
+
+    &:hover {
+        background: var(--task-bg-hover);
+    }
+}
+
+.project-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--task-space-1);
+    height: 28px;
+    padding: 0 var(--task-space-2);
+    border: none;
+    border-radius: var(--task-radius-sm);
+    background: transparent;
+    color: var(--b3-theme-on-surface);
+    font-size: var(--task-font-xs);
+    cursor: pointer;
+    transition: all var(--task-motion-fast);
+    white-space: nowrap;
+
+    &:hover {
+        background: var(--task-bg-hover);
     }
 }
 
 .project-list {
     flex: 1;
     overflow-y: auto;
-    padding: var(--task-panel-padding);
+    padding: var(--task-space-3) var(--task-space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--task-space-2);
 }
 
 .project-item {
     position: relative;
-    padding: var(--task-list-item-padding);
-    margin-bottom: var(--task-list-item-gap);
-    background: var(--task-surface-muted);
-    border: 1px solid var(--task-border-default);
-    border-radius: var(--task-list-item-radius);
+    padding: var(--task-space-4);
+    background: var(--b3-theme-surface);
+    border: 1px solid color-mix(in srgb, var(--b3-theme-on-surface-light) 18%, transparent);
+    border-radius: var(--task-radius-md);
     cursor: pointer;
     transition: all var(--task-motion-fast);
-    
+    animation: slideInUp 0.3s ease forwards;
+
     &:hover {
         background: var(--task-surface-elevated);
-        border-color: var(--task-border-focus);
         box-shadow: var(--task-shadow-hover);
         transform: translateY(-1px);
     }
 }
 
-// 拖拽手柄
-.project-item .drag-handle {
-    position: absolute;
-    top: 8px;
-    right: 8px;
+.project-item--draggable {
     cursor: grab;
-    padding: 4px 8px;
-    color: var(--b3-theme-on-surface);
-    opacity: 0;
-    font-size: 12px;
-    user-select: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--b3-theme-surface);
-    border-radius: var(--task-radius-xs);
-    border: 1px solid var(--b3-border-color);
-    transition: opacity 0.2s ease;
-    z-index: 10;
 }
 
-.project-item:hover {
-    background: var(--task-bg-hover);
-    border-color: var(--task-border-default);
-    transform: translateY(-1px);
-    box-shadow: var(--task-shadow-hover);
+.project-item--draggable:active {
+    cursor: grabbing;
 }
 
-.project-item--overdue {
-    opacity: 0.85;
+.project-item:nth-child(1) {
+    animation-delay: 0ms;
 }
+
+.project-item:nth-child(2) {
+    animation-delay: 50ms;
+}
+
+.project-item:nth-child(3) {
+    animation-delay: 100ms;
+}
+
+.project-item:nth-child(4) {
+    animation-delay: 150ms;
+}
+
+.project-item:nth-child(5) {
+    animation-delay: 200ms;
+}
+
+.project-item--overdue {}
 
 .project-item--someday {
-    opacity: 0.7;
+    border-color: color-mix(in srgb, var(--b3-font-color2) 24%, transparent);
 }
 
 .project-item--archived {
-    opacity: 0.45 !important;
+    border-color: color-mix(in srgb, var(--b3-theme-on-surface-light) 20%, transparent);
+    background: color-mix(in srgb, var(--b3-theme-surface-lighter) 60%, var(--b3-theme-surface));
 }
 
 
 .project-item__content {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--task-space-3);
 }
 
-.project-item__info {
+.project-item__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--task-space-3);
+}
+
+.project-item__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--task-space-1);
+    min-width: 0;
     flex: 1;
 }
 
-.project-item__title {
-    font-weight: 500;
-    color: var(--b3-theme-on-background);
-    text-decoration: none;
-    display: block;
-    margin-bottom: 4px;
-    transition: color 0.2s ease;
+.project-item__aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    min-width: 52px;
 }
 
-/* Only show pointer/underline for titles that are actual links (have data-href or data-type="a") */
+.project-item__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.project-item__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--b3-theme-background) 82%, transparent);
+}
+
+.project-item__status-dot--active,
+.project-item__status-dot--doing,
+.project-item__status-dot--in_progress,
+.project-item__status-dot--progress {
+    background: #2f9e44;
+}
+
+.project-item__status-dot--completed,
+.project-item__status-dot--done {
+    background: #4c6ef5;
+}
+
+.project-item__status-dot--paused,
+.project-item__status-dot--someday,
+.project-item__status-dot--waiting {
+    background: #f08c00;
+}
+
+.project-item__status-dot--archived {
+    background: var(--b3-theme-on-surface-light);
+}
+
+.project-item__status-dot--overdue {
+    background: var(--b3-theme-error);
+}
+
+.project-item__title {
+    font-size: var(--task-font-md);
+    font-weight: 600;
+    color: var(--b3-theme-on-background);
+    line-height: 1.4;
+    text-decoration: none;
+    display: block;
+    transition: color 0.2s ease;
+    min-width: 0;
+    flex: 1;
+}
+
 .project-item__title[data-href],
 .project-item__title[data-type="a"] {
     cursor: pointer;
@@ -224,258 +353,229 @@
     text-decoration: underline;
 }
 
-.project-item__time-container {
+.project-item__meta {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 4px;
+    gap: 6px;
     flex-wrap: wrap;
+    min-width: 0;
 }
 
-// 倒计时和项目开始天数通用样式
+.project-item__time-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.project-item__time-date {
+    opacity: 0.8;
+}
+
+.project-item__info-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--task-space-3);
+    margin-top: var(--task-space-1);
+}
+
+.project-item__left-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+
+.project-item__right-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 40px;
+}
+
+.project-item__dynamic-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: var(--task-radius-xs);
+    object-fit: contain;
+    transform: scale(0.7);
+    transform-origin: center;
+}
+
+.project-item__overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    border-radius: var(--task-radius-pill);
+    background: color-mix(in srgb, var(--b3-theme-error) 10%, transparent);
+    color: var(--b3-theme-error);
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .project-countdown,
 .project-started {
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 11px;
+    font-weight: 400;
     border-radius: var(--task-radius-xs);
-    padding: 2px 6px;
+    padding: 1px 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0.85;
 }
 
-// 倒计时细分状态
 .project-countdown--overdue {
-    color: var(--b3-font-color1);
-    background: var(--b3-font-background1);
-    border: 1px solid var(--b3-font-color1);
+    color: var(--b3-theme-error);
+    background: color-mix(in srgb, var(--b3-theme-error) 8%, transparent);
 }
+
 .project-countdown--today {
     color: var(--b3-font-color2);
     background: var(--b3-font-background2);
-    border: 1px solid var(--b3-font-color2);
 }
+
 .project-countdown--future {
     color: var(--b3-font-color4);
     background: var(--b3-font-background4);
-    border: 1px solid var(--b3-font-color4);
 }
+
 .project-countdown--started,
 .project-started--past {
     color: var(--b3-theme-on-surface);
-    opacity: 0.7;
     background: var(--task-priority-bg-medium);
-    border: 1px solid var(--b3-border-color);
 }
 
-// 已开始天数细分状态
 .project-started--future {
     color: var(--b3-font-color2);
     background: var(--b3-font-background2);
-    border: 1px solid var(--b3-font-color2);
 }
+
 .project-started--today {
     color: var(--b3-font-color4);
     background: var(--b3-font-background4);
-    border: 1px solid var(--b3-font-color4);
 }
 
-// 状态和计数容器
-.project-item__counts {
+.project-item__time {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+.project-item__tags {
     display: flex;
-    gap: 8px;
-    margin-top: 6px;
-    align-items: center;
     flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 2px;
+}
+
+.project-item__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--b3-theme-on-surface-light);
+    background: transparent;
+    border-radius: var(--task-radius-pill);
+    padding: 0;
+    white-space: nowrap;
+}
+
+.project-item__stats {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--task-space-2);
+    min-width: 0;
 }
 
 .project-counts-dynamic {
     display: flex;
-    gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
-}
-
-.project-count--pomodoro {
-    font-size: 12px;
-    color: var(--b3-theme-on-surface);
-    opacity: 0.8;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    background: var(--task-bg-hover);
-    padding: 2px 6px;
-    border-radius: var(--task-radius-lg);
-    border: 1px solid var(--task-border-default);
+    gap: 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-// 项目进度条
-.project-progress-wrapper {
-    margin-top: 8px;
+.project-counts-dynamic .project-count+.project-count::before {
+    content: '·';
+    margin: 0 6px;
+    color: var(--b3-theme-on-surface-light);
+}
+
+.project-count {
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    white-space: nowrap;
+}
+
+.project-count--pomodoro {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: var(--task-font-xs);
+    white-space: nowrap;
+    color: var(--b3-theme-on-surface-light);
+    flex-shrink: 0;
+}
+
+.project-item__progress {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--task-space-2);
 }
 
 .project-progress-outer {
     flex: 1;
-    height: 8px;
-    background: var(--b3-theme-surface-lighter);
-    border-radius: var(--task-radius-sm);
+    height: 4px;
+    background: color-mix(in srgb, var(--b3-theme-on-surface-light) 8%, transparent);
+    border-radius: var(--task-radius-pill);
     overflow: hidden;
 }
 
 .project-progress-inner {
     height: 100%;
-    width: 0%; // JS 会动态覆盖覆盖
-    background: var(--b3-theme-primary);
-    border-radius: var(--task-radius-sm);
+    width: 0%;
+    background: color-mix(in srgb, var(--b3-theme-primary) 70%, #8899a8 30%);
+    border-radius: var(--task-radius-pill);
     transition: width 0.3s ease;
 }
 
 .project-progress-text {
-    font-size: 12px;
-    color: var(--b3-theme-on-surface);
+    font-size: var(--task-font-xs);
+    color: var(--b3-theme-on-surface-light);
+    font-weight: 400;
+    min-width: 32px;
     text-align: right;
-}
-
-// 项目分类容器和标签
-.project-item__category-container {
-    margin-top: 4px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-.project-category-icon {
-    font-size: 12px;
-    line-height: 1;
-}
-.project-category-name {
-    font-size: 11px;
-    font-weight: 500;
-}
-
-.project-item__time {
-    font-size: 12px;
-    color: var(--b3-theme-on-surface);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.project-item__category-container {
-    margin-top: 4px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-.project-category-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 6px;
-    border-radius: var(--task-radius-xs);
-    font-size: 11px;
-    border: 1px solid var(--task-border-default);
-    background: var(--task-bg-subtle);
-}
-
-.project-item__note {
-    font-size: 12px;
-    color: var(--b3-theme-on-surface);
-    margin-top: 4px;
-    line-height: 1.4;
-    padding: 4px 8px;
-    background: var(--task-bg-note);
-    border-radius: var(--task-radius-xs);
-    border: 1px solid var(--task-border-default);
-    white-space: pre-wrap;
-    word-break: break-word;
+    flex-shrink: 0;
 }
 
 .project-empty {
     text-align: center;
     color: var(--b3-theme-on-surface);
-    padding: 40px 20px;
-    font-size: 14px;
+    padding: var(--task-space-6) var(--task-space-5);
+    font-size: var(--task-font-sm);
+    opacity: 0.72;
 }
 
-// 优先级颜色样式 - pinch 精髓：用 opacity 透明度表示层级，无彩色边框
-.project-priority-high {
-    opacity: 0.85;
-}
-
-.project-priority-high .project-item__note {
-    opacity: 0.85;
-    border: 1px solid var(--b3-border-color);
-}
-
-.project-priority-medium {
-    opacity: 0.7;
-}
-
-.project-priority-medium .project-item__note {
-    opacity: 0.7;
-    border: 1px solid var(--b3-border-color);
-}
-
-.project-priority-low {
-    opacity: 0.55;
-}
-
-.project-priority-low .project-item__note {
-    opacity: 0.55;
-    border: 1px solid var(--b3-border-color);
-}
-
-.project-priority-none .project-item__note {
-    opacity: 0.4;
-    border: 1px solid var(--b3-border-color);
-}
-
-// 优先级标签样式
-.project-priority-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 1px 4px;
-    border-radius: var(--task-radius-xs);
-    font-size: 10px;
-    font-weight: 500;
-    margin-left: 8px;
-}
-
-.project-priority-label.high {
-    background-color: var(--task-priority-bg-high);
-    opacity: var(--task-priority-high-opacity);
-}
-
-.project-priority-label.medium {
-    background-color: var(--task-priority-bg-medium);
-    opacity: var(--task-priority-medium-opacity);
-}
-
-.project-priority-label.low {
-    background-color: var(--task-priority-bg-low);
-    opacity: var(--task-priority-low-opacity);
-}
-
-.project-overdue-label,
-.project-archived-label {
-    font-size: 10px;
-    padding: 1px 4px;
-    border-radius: var(--task-radius-xs);
-    font-weight: 500;
-    margin-left: 8px;
-}
-
-.project-overdue-label {
-    background: var(--b3-theme-error-lighter);
-    color: var(--b3-theme-error);
-}
-
-.project-archived-label {
-    background: var(--b3-theme-surface-lighter);
-    color: var(--b3-theme-on-surface);
+.project-priority-high,
+.project-priority-medium,
+.project-priority-low,
+.project-priority-none {
+    opacity: 1;
 }
 
 .priority-dot {
@@ -500,7 +600,6 @@
     background: var(--task-priority-bg-none);
 }
 
-// 项目设置对话框样式
 .project-dialog {
     padding: 16px;
 }
@@ -549,11 +648,6 @@
     border-color: var(--b3-theme-primary);
 }
 
-.dialog-buttons .b3-button--text:hover {
-    // background: var(--b3-card-success-color);
-    // border-color: var(--b3-card-success-color);
-}
-
 .dialog-buttons .b3-button--cancel {
     background: var(--b3-theme-surface);
     color: var(--b3-theme-on-surface);
@@ -565,23 +659,21 @@
     border-color: var(--task-border-default);
 }
 
-// 响应式设计
 @media (max-width: 480px) {
+    .plugin-task-project-panel__header {
+        padding: var(--task-space-4) var(--task-space-4) var(--task-space-3);
+    }
+
+    .project-list {
+        padding: var(--task-space-2) 0;
+    }
+
     .project-item {
-        padding: 8px;
+        padding: var(--task-space-3);
     }
 
     .project-item__title {
-        font-size: 13px;
-    }
-
-    .project-item__time {
-        font-size: 11px;
-    }
-
-    .project-item__note {
-        font-size: 11px;
-        padding: 3px 6px;
+        font-size: var(--task-font-sm);
     }
 
     .dialog-buttons {
@@ -593,35 +685,10 @@
     }
 }
 
-// 动画效果
-.project-item {
-    animation: slideInUp 0.3s ease forwards;
-}
-
-.project-item:nth-child(1) {
-    animation-delay: 0ms;
-}
-
-.project-item:nth-child(2) {
-    animation-delay: 50ms;
-}
-
-.project-item:nth-child(3) {
-    animation-delay: 100ms;
-}
-
-.project-item:nth-child(4) {
-    animation-delay: 150ms;
-}
-
-.project-item:nth-child(5) {
-    animation-delay: 200ms;
-}
-
 @keyframes slideInUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(12px);
     }
 
     to {
@@ -630,7 +697,6 @@
     }
 }
 
-// 加载状态
 .project-panel.loading {
     opacity: 0.6;
     pointer-events: none;
@@ -661,75 +727,67 @@
     }
 }
 
-// 暗色主题适配
 .b3-theme-dark {
     .project-item {
         background: var(--b3-theme-surface);
-        border-color: var(--task-border-default);
     }
 
     .project-item:hover {
         background: var(--task-bg-hover);
-        border-color: var(--task-border-default);
     }
 
-    .project-item--overdue {
-        background: rgba(231, 76, 60, 0.1);
-    }
+    .project-item--overdue {}
 
     .project-item--someday {
-        background: rgba(243, 156, 18, 0.05);
-        opacity: 0.9;
+        border-color: color-mix(in srgb, var(--b3-font-color2) 24%, transparent);
     }
 
     .project-item--archived {
         background: var(--b3-theme-surface-lighter);
-        opacity: 0.5;
+        border-color: color-mix(in srgb, var(--b3-theme-on-surface-light) 24%, transparent);
     }
 
-    .project-category-tag {
-        border-color: rgba(255, 255, 255, 0.2);
+    .project-progress-inner {
+        background: color-mix(in srgb, var(--b3-theme-primary) 60%, #8899a8 40%);
     }
 
-    .dialog-buttons {
-        border-top-color: var(--b3-theme-surface-lighter);
+    .project-search-wrapper--active {
+        background: var(--b3-theme-surface);
+
+        &:focus-within {
+            border-bottom-color: var(--b3-theme-primary);
+        }
     }
+
+    .project-filter-select,
+    .project-filter-chip {
+        background: transparent;
+    }
+
+    .project-filter-select:hover,
+    .project-filter-chip:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
 }
 
-// 高对比度模式适配
 @media (prefers-contrast: high) {
     .project-item {
-        border-width: 2px;
+        border: 1px solid var(--task-border-default);
     }
 
     .project-item:hover {
-        border-width: 3px;
-    }
-
-    .project-priority-label {
-        border: 1px solid currentColor;
-    }
-
-    .project-category-tag {
-        border: 2px solid white;
-        font-weight: 600;
+        border-color: var(--b3-theme-primary);
     }
 }
 
-// 减少动画模式适配
 @media (prefers-reduced-motion: reduce) {
-
-    .project-item,
-    .dialog-buttons .b3-button {
+    .project-item {
         animation: none;
         transition: none;
     }
 
     .project-item:hover {
-        transform: none;
-    }
-
-    .dialog-buttons .b3-button:hover {
         transform: none;
     }
 }

@@ -695,7 +695,7 @@ export class PasteTaskDialog {
         }
 
         const renderTaskPreview = (task: HierarchicalTask, level: number = 0): string => {
-            const dateStr = task.startDate ? ` ${task.startDate}${task.time ? ' ' + task.time : ''}` : '';
+    const dateStr = task.startDate ? `${task.startDate}${task.time ? ' ' + task.time : ''}` : '';
             const endDateStr = task.endDate ? `🏁 ${task.endDate}${task.endTime ? ' ' + task.endTime : ''}` : '';
 
             let html = `

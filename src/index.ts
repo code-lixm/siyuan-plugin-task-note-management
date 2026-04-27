@@ -2706,7 +2706,7 @@ export default class ReminderPlugin extends Plugin {
                         if (parsed && parsed.time) {
                             timeText = ` ⏰${parsed.time}`;
                         } else if (reminder.time) {
-                            timeText = ` ${reminder.time}`;
+            timeText = `${reminder.time}`;
                         }
                         const categoryText = (reminder as any).categoryName ? ` [${(reminder as any).categoryName}]` : '';
                         const overdueIcon = reminder.isOverdue ? '⚠️ ' : '';

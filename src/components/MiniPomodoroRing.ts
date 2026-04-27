@@ -9,7 +9,8 @@
 import { showMessage, Menu } from "siyuan";
 import { PomodoroRecordManager } from "../utils/pomodoroRecord";
 import { i18n } from "../pluginInstance";
-import { resolveAudioPath } from "../utils/audioUtils";
+import { resolveAudioPath, createAudio } from "../utils/audioUtils";
+import { FocusEventManager } from "../utils/focusEventManager";
 
 /**
  * 简化版圆环番茄钟
@@ -56,10 +57,15 @@ export class MiniPomodoroRing {
     // 音频
     private endSound: HTMLAudioElement | null = null;
     
+    private workMusic: HTMLAudioElement | null = null;
+    private breakMusic: HTMLAudioElement | null = null;
     // 记录
     private recordManager: PomodoroRecordManager;
+    private focusEventManager: FocusEventManager;
+    private activeFocusEventId: string = "";
     private currentTaskTitle: string = "";
     private currentTaskId: string = "";
+    private currentTaskProjectName: string = "";
     
     // 拖拽
     private isDragging: boolean = false;
@@ -114,6 +120,7 @@ export class MiniPomodoroRing {
     private constructor(plugin?: any) {
         this.plugin = plugin;
         this.recordManager = PomodoroRecordManager.getInstance(plugin);
+        this.focusEventManager = FocusEventManager.getInstance(plugin);
         this.boundResizeHandler = this.handleResize.bind(this);
         this.boundClickHandler = this.handleClick.bind(this);
         this.boundContextMenuHandler = this.handleContextMenu.bind(this);
@@ -340,7 +347,11 @@ export class MiniPomodoroRing {
             opacity: 0;
             transition: opacity 0.2s;
             pointer-events: none;
-            white-space: nowrap;
+            white-space: pre-line;
+            line-height: 1.35;
+            max-width: 180px;
+            text-align: center;
+            z-index: 1;
         `;
         
         this.container.appendChild(this.ringSvg);
@@ -394,11 +405,32 @@ export class MiniPomodoroRing {
     private async initAudio() {
         try {
             const settings = await this.plugin?.getPomodoroSettings?.();
-            const soundPath = settings?.pomodoroWorkEndSound || '/appearance/themes/daylight/assets/notification.mp3';
-            const resolvedPath = await resolveAudioPath(soundPath);
-            this.endSound = new Audio(resolvedPath);
+            // 加载阶段结束音
+            const endSoundPath = settings?.workEndSound || '/appearance/themes/daylight/assets/notification.mp3';
+            const resolvedEndPath = await resolveAudioPath(endSoundPath);
+            this.endSound = new Audio(resolvedEndPath);
             this.endSound.volume = settings?.workEndVolume ?? 0.8;
             this.endSound.preload = 'auto';
+
+            // 加载工作背景音乐（循环播放）
+            if (settings?.workSound) {
+                this.workMusic = await createAudio(settings.workSound);
+                if (this.workMusic) {
+                    this.workMusic.loop = true;
+                    this.workMusic.volume = settings?.workVolume ?? 0.5;
+                    this.workMusic.preload = 'auto';
+                }
+            }
+            // 加载休息背景音乐（循环播放）
+            if (settings?.breakSound) {
+                this.breakMusic = await createAudio(settings.breakSound);
+                if (this.breakMusic) {
+                    this.breakMusic.loop = true;
+                    this.breakMusic.volume = settings?.breakVolume ?? 0.5;
+                    this.breakMusic.preload = 'auto';
+                }
+            }
+
             this.workDuration = settings?.pomodoroWorkDuration || this.workDuration;
             this.breakDuration = settings?.pomodoroBreakDuration || this.breakDuration;
             this.autoStartBreak = settings?.pomodoroAutoMode === true;
@@ -407,6 +439,59 @@ export class MiniPomodoroRing {
             this.updateDisplay();
         } catch (e) {
             console.warn('加载番茄钟提示音失败:', e);
+        }
+    }
+
+    /**
+     * 获取当前阶段的背景音乐
+     */
+    private get currentPhaseMusic(): HTMLAudioElement | null {
+        return this.isWorkPhase ? this.workMusic : this.breakMusic;
+    }
+
+    /**
+     * 停止所有背景音乐并重置播放位置
+     */
+    private stopAllMusic(): void {
+        if (this.workMusic) {
+            this.workMusic.pause();
+            this.workMusic.currentTime = 0;
+        }
+        if (this.breakMusic) {
+            this.breakMusic.pause();
+            this.breakMusic.currentTime = 0;
+        }
+    }
+
+    /**
+     * 开始播放当前阶段的背景音乐（从开头循环）
+     */
+    private startPhaseMusic(): void {
+        this.stopAllMusic();
+        const music = this.currentPhaseMusic;
+        if (music) {
+            music.currentTime = 0;
+            music.play().catch((e) => console.warn('播放番茄钟背景音乐失败:', e));
+        }
+    }
+
+    /**
+     * 暂停当前阶段的背景音乐（保留播放位置）
+     */
+    private pausePhaseMusic(): void {
+        const music = this.currentPhaseMusic;
+        if (music) {
+            music.pause();
+        }
+    }
+
+    /**
+     * 恢复当前阶段的背景音乐
+     */
+    private resumePhaseMusic(): void {
+        const music = this.currentPhaseMusic;
+        if (music) {
+            music.play().catch((e) => console.warn('恢复番茄钟背景音乐失败:', e));
         }
     }
 
@@ -598,8 +683,8 @@ export class MiniPomodoroRing {
     }
 
     private handleLongPressClose() {
-        showMessage(i18n('miniPomodoroClosed') || '迷你番茄钟已关闭');
-        this.destroy();
+        this.reset();
+        showMessage(i18n('pomodoroReset') || '番茄钟已重置');
     }
 
     private startHoldFeedback() {
@@ -699,8 +784,21 @@ export class MiniPomodoroRing {
         this.isWorkPhase = true;
         this.timeLeft = this.workDuration * 60;
         this.totalTime = this.timeLeft;
+
+        if (!this.currentTaskId) {
+            const focusEvent = await this.focusEventManager.createFocusEvent({
+                title: this.currentTaskTitle,
+                plannedDuration: this.workDuration,
+                source: "miniPomodoro"
+            });
+            this.activeFocusEventId = focusEvent.id;
+            window.dispatchEvent(new CustomEvent('reminderUpdated'));
+        } else {
+            this.activeFocusEventId = "";
+        }
         
         this.startTimer();
+        this.startPhaseMusic();
         this.updateDisplay();
         this.updateStatusText(i18n('pomodoroRunning') || '工作中...');
         this.progressCircle.setAttribute('stroke', '#FF6B6B');
@@ -717,6 +815,7 @@ export class MiniPomodoroRing {
         
         this.isPaused = true;
         this.stopTimer();
+        this.pausePhaseMusic();
         
         this.updateStatusText(i18n('pomodoroPaused') || '已暂停');
         this.updateVisualState();
@@ -733,6 +832,7 @@ export class MiniPomodoroRing {
         this.isPaused = false;
         this.isRunning = true;
         this.startTimer();
+        this.resumePhaseMusic();
         
         this.updateStatusText(this.isWorkPhase ? (i18n('pomodoroRunning') || '工作中...') : (i18n('pomodoroBreak') || '休息中...'));
         this.updateVisualState();
@@ -747,6 +847,7 @@ export class MiniPomodoroRing {
         this.totalTime = this.timeLeft;
 
         this.startTimer();
+        this.startPhaseMusic();
         this.progressCircle.setAttribute('stroke', '#4CAF50');
         this.updateDisplay();
         this.updateStatusText(i18n('pomodoroBreak') || '休息中...');
@@ -759,7 +860,16 @@ export class MiniPomodoroRing {
      * 重置
      */
     public reset() {
+        const focusEventId = this.activeFocusEventId;
+        this.activeFocusEventId = "";
+        if (focusEventId) {
+            this.focusEventManager.cancelFocusEvent(focusEventId)
+                .then(() => window.dispatchEvent(new CustomEvent('reminderUpdated')))
+                .catch((error) => console.warn('取消迷你番茄专注事件失败:', error));
+        }
+
         this.stopTimer();
+        this.stopAllMusic();
         
         this.isRunning = false;
         this.isPaused = false;
@@ -815,38 +925,46 @@ export class MiniPomodoroRing {
      */
     private async completePhase() {
         this.stopTimer();
-        
+
+        this.stopAllMusic();
         await this.playSound();
-        
+
         if (this.isWorkPhase) {
             // 工作阶段完成
             this.completedPomodoros++;
-            
+
             // 记录工作时间
             const workMinutes = this.totalTime / 60;
+            let eventId = this.currentTaskId;
+            if (!this.currentTaskId && this.activeFocusEventId) {
+                eventId = this.activeFocusEventId;
+                await this.focusEventManager.completeFocusEvent(this.activeFocusEventId, true);
+                this.activeFocusEventId = "";
+            }
             await this.recordManager.recordWorkSession(
                 workMinutes,
-                this.currentTaskId,
+                eventId,
                 this.currentTaskTitle,
                 this.workDuration,
                 true
             );
-            
+
             // 派发更新事件
             window.dispatchEvent(new CustomEvent('reminderUpdated'));
-            
+
             showMessage(i18n('pomodoroWorkComplete') || '工作完成，休息一下！', 3000);
-            
+
             // 开始休息
             this.isWorkPhase = false;
             this.timeLeft = this.breakDuration * 60;
             this.totalTime = this.timeLeft;
             this.progressCircle.setAttribute('stroke', '#4CAF50');
             this.updateStatusText(i18n('pomodoroBreak') || '休息中...');
-            
+
             if (this.autoStartBreak) {
                 this.isRunning = true;
                 this.startTimer();
+                this.startPhaseMusic();
             } else {
                 this.isRunning = false;
                 this.isPaused = false;
@@ -864,9 +982,9 @@ export class MiniPomodoroRing {
                 false,
                 true
             );
-            
+
             showMessage(i18n('pomodoroBreakComplete') || '休息结束，继续工作！', 3000);
-            
+
             // 重置为工作状态
             this.isWorkPhase = true;
             this.timeLeft = this.workDuration * 60;
@@ -876,7 +994,7 @@ export class MiniPomodoroRing {
             this.progressCircle.setAttribute('stroke', '#FF6B6B');
             this.updateStatusText(i18n('pomodoroClickToStart') || '点击开始');
         }
-        
+
         this.updateVisualState();
         this.updateDisplay();
     }
@@ -907,8 +1025,23 @@ export class MiniPomodoroRing {
      */
     private updateStatusText(text: string) {
         this.currentStatusText = text;
-        const closeHint = i18n('pomodoroLongPressCloseHint') || '长按关闭';
-        this.updateStatusTooltip(`${text} · ${closeHint}`);
+        this.updateStatusTooltip(this.buildAttributionTooltipText(text));
+    }
+
+    private buildAttributionTooltipText(text: string): string {
+        const closeHint = i18n('pomodoroLongPressCloseHint') || '长按重置';
+        const lines = [text];
+
+        if (this.currentTaskTitle) {
+            lines.push(`任务：${this.currentTaskTitle}`);
+        }
+
+        if (this.currentTaskProjectName) {
+            lines.push(`项目：${this.currentTaskProjectName}`);
+        }
+
+        lines.push(closeHint);
+        return lines.join('\n');
     }
 
     private updateStatusTooltip(text: string) {
@@ -934,6 +1067,26 @@ export class MiniPomodoroRing {
     public setTask(title: string, id: string) {
         this.currentTaskTitle = title;
         this.currentTaskId = id;
+        this.currentTaskProjectName = '';
+
+        if (this.plugin && id) {
+            this.plugin.loadReminderData(true)
+                .then((reminderData: any) => {
+                    const reminder = reminderData?.[id];
+                    const projectId = reminder?.projectId || '';
+                    if (!projectId) return;
+
+                    return this.plugin.loadProjectData(true).then((projectData: any) => {
+                        this.currentTaskProjectName = projectData?.[projectId]?.name || '';
+                        if (this.currentStatusText) {
+                            this.updateStatusTooltip(this.buildAttributionTooltipText(this.currentStatusText));
+                        }
+                    });
+                })
+                .catch((error: unknown) => {
+                    console.warn('解析迷你番茄归属失败:', error);
+                });
+        }
         
         if (!this.isRunning) {
             this.updateStatusText(`${title.substring(0, 10)}${title.length > 10 ? '...' : ''}`);
@@ -1001,26 +1154,54 @@ export class MiniPomodoroRing {
     public destroy() {
         this.stopTimer();
         this.cancelLongPress();
-        
+        this.stopAllMusic();
+
+        // 释放音频资源
+        if (this.workMusic) {
+            this.workMusic.src = '';
+            this.workMusic = null;
+        }
+        if (this.breakMusic) {
+            this.breakMusic.src = '';
+            this.breakMusic = null;
+        }
+        if (this.endSound) {
+            this.endSound.src = '';
+            this.endSound = null;
+        }
+
         // 如果正在运行，记录未完成的会话
         if (this.isRunning && this.isWorkPhase) {
             const elapsedMinutes = Math.floor((this.totalTime - this.timeLeft) / 60);
+            const focusEventId = !this.currentTaskId ? this.activeFocusEventId : "";
             if (elapsedMinutes > 0) {
+                const eventId = this.currentTaskId || focusEventId;
+                if (focusEventId) {
+                    this.focusEventManager.completeFocusEvent(focusEventId, false)
+                        .then(() => window.dispatchEvent(new CustomEvent('reminderUpdated')))
+                        .catch(e => console.warn('补记未完成专注事件失败:', e));
+                    this.activeFocusEventId = "";
+                }
                 this.recordManager.recordWorkSession(
                     elapsedMinutes,
-                    this.currentTaskId,
+                    eventId,
                     this.currentTaskTitle,
                     this.workDuration,
                     false
                 ).catch(e => console.warn('记录未完成番茄钟失败:', e));
+            } else if (focusEventId) {
+                this.focusEventManager.cancelFocusEvent(focusEventId)
+                    .then(() => window.dispatchEvent(new CustomEvent('reminderUpdated')))
+                    .catch(e => console.warn('取消未完成专注事件失败:', e));
+                this.activeFocusEventId = "";
             }
         }
-        
+
         // 移除DOM
         if (this.container && this.container.parentElement) {
             this.container.parentElement.removeChild(this.container);
         }
-        
+
         // 移除事件监听
         window.removeEventListener('resize', this.boundResizeHandler);
         this.container.removeEventListener('click', this.boundClickHandler);

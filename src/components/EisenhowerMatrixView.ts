@@ -1247,7 +1247,7 @@ export class EisenhowerMatrixView {
             }
 
             const dateTextSpan = document.createElement('span');
-            dateTextSpan.innerHTML = ` ${dateText}`;
+    dateTextSpan.innerHTML = `${dateText}`;
             dateSpan.appendChild(dateTextSpan);
             dateDiv.appendChild(dateSpan);
 
@@ -1308,7 +1308,7 @@ export class EisenhowerMatrixView {
             if (completedTimeStr) {
                 const completedSpan = document.createElement('span');
                 completedSpan.className = 'task-completed-time';
-                completedSpan.textContent = ` ${this.formatCompletedTime(completedTimeStr)}`;
+    completedSpan.textContent = `${this.formatCompletedTime(completedTimeStr)}`;
                 completedSpan.title = this.formatCompletedTime(completedTimeStr);
                 taskMeta.appendChild(completedSpan);
             }
@@ -1325,7 +1325,7 @@ export class EisenhowerMatrixView {
                 return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
             };
             const focusText = focusMinutes > 0 ? ` ⏱ ${formatMinutesToString(focusMinutes)}` : '';
-            pomodoroSpan.textContent = ` ${task.pomodoroCount || 0}${focusText}`;
+    pomodoroSpan.textContent = `${task.pomodoroCount || 0}${focusText}`;
             taskMeta.appendChild(pomodoroSpan);
         }
 
@@ -4975,8 +4975,38 @@ export class EisenhowerMatrixView {
     private showCreateTaskDialog(quadrant: QuadrantTask['quadrant'], parentTask?: QuadrantTask) {
         let date: string | undefined;
         let time: string | undefined;
+        let timeRangeOptions: { isTimeRange: boolean; endDate?: string; endTime?: string } | undefined = undefined;
 
-        if (!parentTask) {
+        if (parentTask?.date) {
+            const today = getLogicalDateString();
+            const startDate = parentTask.date;
+            const endDate = parentTask.endDate || parentTask.date;
+            const isCrossDay = startDate !== endDate;
+
+            if (isCrossDay) {
+                if (today >= startDate && today <= endDate) {
+                    date = today;
+                } else if (startDate > today) {
+                    date = startDate;
+                } else {
+                    date = endDate;
+                }
+            } else {
+                date = startDate >= today ? startDate : today;
+            }
+
+            if (parentTask.time) {
+                time = parentTask.time;
+
+                if (parentTask.endTime) {
+                    timeRangeOptions = {
+                        isTimeRange: true,
+                        endDate: date,
+                        endTime: parentTask.endTime
+                    };
+                }
+            }
+        } else if (!parentTask) {
             // 根据象限和当前设置计算推荐的日期和时间
             const recommended = this.calculateRecommendedDateTime(quadrant);
             date = recommended.date;
@@ -4992,7 +5022,7 @@ export class EisenhowerMatrixView {
                 await this.refresh();
                 window.dispatchEvent(new CustomEvent('reminderUpdated', { detail: { source: this.viewId } }));
             },
-            undefined, // timeRangeOptions
+            timeRangeOptions,
             {
                 defaultParentId: parentTask?.id,
                 defaultProjectId: parentTask?.projectId,

@@ -1723,6 +1723,7 @@
 
 // 日历视图样式
 .reminder-calendar-view {
+    position: relative;
     display: flex;
     flex-direction: column;
     overflow: hidden;

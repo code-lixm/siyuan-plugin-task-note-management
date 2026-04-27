@@ -4634,7 +4634,7 @@ export class ReminderPanel {
                     } else {
                         // 未来：显示日期 + 时间（如果有）
                         const showDate = targetDate;
-                        const showTime = timePart ? ` ${timePart.substring(0, 5)}` : '';
+    const showTime = timePart ? `${timePart.substring(0, 5)}` : '';
                         result = `${result} ⏰${showDate}${showTime}`;
                     }
                 }
@@ -8319,14 +8319,51 @@ export class ReminderPanel {
     }
 
     private showCreateSubtaskDialog(parentReminder: any) {
+        const today = getLogicalDateString();
+        const startDate = parentReminder.date;
+        const endDate = parentReminder.endDate || parentReminder.date;
+
+        let defaultDate: string | undefined = undefined;
+
+        if (startDate) {
+            const isCrossDay = startDate !== endDate;
+
+            if (isCrossDay) {
+                if (today >= startDate && today <= endDate) {
+                    defaultDate = today;
+                } else if (startDate > today) {
+                    defaultDate = startDate;
+                } else {
+                    defaultDate = endDate;
+                }
+            } else {
+                defaultDate = startDate >= today ? startDate : today;
+            }
+        }
+
+        let defaultTime: string | undefined = undefined;
+        let timeRangeOptions: { isTimeRange: boolean; endDate?: string; endTime?: string } | undefined = undefined;
+
+        if (parentReminder.time) {
+            defaultTime = parentReminder.time;
+
+            if (startDate && startDate === endDate && parentReminder.endTime) {
+                timeRangeOptions = {
+                    isTimeRange: true,
+                    endDate: defaultDate,
+                    endTime: parentReminder.endTime
+                };
+            }
+        }
+
         // 计算最大排序值，以便将新任务放在末尾
         const allReminders = Array.from(this.allRemindersMap.values());
         const maxSort = allReminders.reduce((max, r) => Math.max(max, r.sort || 0), 0);
         const defaultSort = maxSort + 10000;
 
         const dialog = new QuickReminderDialog(
-            undefined, // initialDate
-            undefined, // initialTime
+            defaultDate, // initialDate
+            defaultTime, // initialTime
             async (savedReminder?: any) => { // onSaved - optimistic update
                 try {
                     if (savedReminder && typeof savedReminder === 'object') {
@@ -8337,7 +8374,7 @@ export class ReminderPanel {
                     await this.loadReminders(true);
                 }
             },
-            undefined, // 无时间段选项
+            timeRangeOptions,
             { // options
                 defaultParentId: parentReminder.id,
                 defaultProjectId: parentReminder.projectId,

@@ -234,7 +234,7 @@ export class BlockRemindersDialog {
         if (isCompleted && reminder.completedAt) {
             const completedEl = document.createElement('div');
             completedEl.className = 'reminder-item__completed-time';
-            completedEl.textContent = ` ${this.formatCompletedTime(reminder.completedAt)}`;
+    completedEl.textContent = `${this.formatCompletedTime(reminder.completedAt)}`;
             completedEl.style.fontSize = '12px';
             completedEl.style.marginTop = '4px';
             completedEl.style.opacity = '0.95';

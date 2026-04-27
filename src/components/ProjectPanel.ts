@@ -25,14 +25,12 @@ export class ProjectPanel {
     private categoryFilterButton: HTMLButtonElement;
     private sortButton: HTMLButtonElement;
     private searchInput: HTMLInputElement;
-    private showOnlyWithDoingCheckbox: HTMLInputElement;
     private plugin: any;
-    private currentTab: string = 'all';
+    private currentTab: string = 'active';
     private selectedCategories: string[] = [];
     private currentSort: string = 'priority';
     private currentSortOrder: 'asc' | 'desc' = 'desc';
     private currentSearchQuery: string = '';
-    private showOnlyWithDoingTasks: boolean = false;
     private categoryManager: CategoryManager;
     private statusManager: StatusManager;
     private projectUpdatedHandler: () => void;
@@ -43,8 +41,6 @@ export class ProjectPanel {
     private draggedElement: HTMLElement | null = null;
     private draggedProject: any = null;
     private currentProjectsCache: any[] = [];
-    // 保存每个状态分组的折叠状态（key = statusId, value = boolean; true=collapsed）
-    private groupCollapsedState: Record<string, boolean> = {};
     // 缓存提醒数据，避免为每个项目重复读取
     private reminderDataCache: any = null;
     private showAdvancedFeatures: boolean = false;
@@ -143,214 +139,129 @@ export class ProjectPanel {
         this.container.className = 'plugin-task-project-panel';
         this.container.innerHTML = '';
 
-        // 标题部分
         const header = document.createElement('div');
         header.className = 'plugin-task-project-panel__header';
 
-        // 标题行
         const titleRow = document.createElement('div');
         titleRow.className = 'plugin-task-project-panel__title-row';
 
-        const titleContainer = document.createElement('div');
-        titleContainer.className = 'plugin-task-project-panel__title';
+        const titleGroup = document.createElement('div');
+        titleGroup.className = 'plugin-task-project-panel__title-group';
 
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'plugin-task-project-panel__title-icon';
-        iconSpan.textContent = '📁';
+        const title = document.createElement('div');
+        title.className = 'plugin-task-project-panel__title';
+        title.textContent = i18n("projectManagement") || "项目管理";
+        titleGroup.appendChild(title);
 
-        const titleSpan = document.createElement('span');
-        titleSpan.textContent = i18n("projectManagement") || "项目管理";
+        titleRow.appendChild(titleGroup);
 
-        titleContainer.appendChild(iconSpan);
-        titleContainer.appendChild(titleSpan);
-        titleRow.appendChild(titleContainer);
-        header.appendChild(titleRow);
+        const actions = document.createElement('div');
+        actions.className = 'plugin-task-project-panel__actions';
 
-        // 操作按钮行
-        const actionContainer = document.createElement('div');
-        actionContainer.className = 'plugin-task-project-panel__actions-row';
-
-        // 添加创建项目按钮
         const createProjectBtn = document.createElement('button');
-        createProjectBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
-        createProjectBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>';
-        createProjectBtn.title = i18n("createProject") || "创建项目";
+        createProjectBtn.className = 'plugin-task-btn plugin-task-btn--ghost plugin-task-btn--sm plugin-task-btn--icon';
+        createProjectBtn.innerHTML = '<svg style="width:15px;height:15px;"><use xlink:href="#iconAdd"></use></svg>';
+        createProjectBtn.title = i18n("createProject") || "新建";
         createProjectBtn.addEventListener('click', () => {
             this.createQuickProject();
         });
-        actionContainer.appendChild(createProjectBtn);
+        actions.appendChild(createProjectBtn);
 
-        // 添加排序按钮
         this.sortButton = document.createElement('button');
-        this.sortButton.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
-        this.sortButton.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconSort"></use></svg>';
+        this.sortButton.className = 'plugin-task-btn plugin-task-btn--ghost plugin-task-btn--sm plugin-task-btn--icon';
+        this.sortButton.innerHTML = '<svg style="width:15px;height:15px;"><use xlink:href="#iconSort"></use></svg>';
         this.sortButton.title = i18n("sortBy") || "排序";
         this.sortButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             this.showSortMenu(e);
         });
-        actionContainer.appendChild(this.sortButton);
+        actions.appendChild(this.sortButton);
 
-        // 添加日历视图按钮
         if (this.plugin) {
             const calendarBtn = document.createElement('button');
-            calendarBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
-            calendarBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconCalendar"></use></svg>';
+            calendarBtn.className = 'plugin-task-btn plugin-task-btn--ghost plugin-task-btn--sm plugin-task-btn--icon';
+            calendarBtn.innerHTML = '<svg style="width:15px;height:15px;"><use xlink:href="#iconCalendar"></use></svg>';
             calendarBtn.title = i18n("calendarView") || "日历视图";
             calendarBtn.addEventListener('click', () => {
                 void executePluginAction(this.plugin, "openCalendar");
             });
-            actionContainer.appendChild(calendarBtn);
-
-            if (this.showAdvancedFeatures) {
-                // 添加四象限面板按钮（放在日历按钮旁边）
-                const eisenhowerBtn = document.createElement('button');
-                eisenhowerBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
-                eisenhowerBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconGrid"></use></svg>';
-                eisenhowerBtn.title = i18n("eisenhowerMatrix") || "四象限面板";
-                eisenhowerBtn.addEventListener('click', () => {
-                    this.openEisenhowerMatrix();
-                });
-                actionContainer.appendChild(eisenhowerBtn);
-            }
-
-            // 添加刷新按钮
-            const refreshBtn = document.createElement('button');
-            refreshBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
-            refreshBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconRefresh"></use></svg>';
-            refreshBtn.title = i18n("refresh") || "刷新";
-            refreshBtn.addEventListener('click', () => {
-                this.loadProjects();
-            });
-            actionContainer.appendChild(refreshBtn);
+            actions.appendChild(calendarBtn);
         }
 
-        // 添加更多按钮（放在最右边）
         const moreBtn = document.createElement('button');
-        moreBtn.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--icon';
-        moreBtn.innerHTML = '<svg class="b3-button__icon"><use xlink:href="#iconMore"></use></svg>';
+        moreBtn.className = 'plugin-task-btn plugin-task-btn--ghost plugin-task-btn--sm plugin-task-btn--icon';
+        moreBtn.innerHTML = '<svg style="width:15px;height:15px;"><use xlink:href="#iconMore"></use></svg>';
         moreBtn.title = i18n("more") || "更多";
         moreBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             this.showMoreMenu(e);
         });
-        actionContainer.appendChild(moreBtn);
+        actions.appendChild(moreBtn);
 
-        titleContainer.appendChild(actionContainer);
-        header.appendChild(titleContainer);
+        titleRow.appendChild(actions);
+        header.appendChild(titleRow);
 
-        // 把按钮容器移到标题下方，确保标题独占一行，按钮右对齐
-        const actionButtonsRow = document.createElement('div');
-        actionButtonsRow.className = 'project-header__actions-row';
-        // 将 actionContainer 中的按钮移动到 actionButtonsRow
-        while (actionContainer.firstChild) {
-            // 由于 actionContainer 可能包含样式 marginLeft:auto，我们直接把子节点移动
-            actionButtonsRow.appendChild(actionContainer.firstChild);
-        }
+        const filterBar = document.createElement('div');
+        filterBar.className = 'project-filter-bar';
 
-        header.appendChild(actionButtonsRow);
+        const searchWrapper = document.createElement('div');
+        searchWrapper.className = 'project-search-wrapper';
 
-        // 筛选控件
-        const controls = document.createElement('div');
-        controls.className = 'project-controls';
-        controls.style.cssText = `
-            display: flex;
-            gap: 8px;
-            width: 100%;
-            align-items: center;
-        `;
+        const searchCloseBtn = document.createElement('span');
+        searchCloseBtn.className = 'project-search-close';
+        searchCloseBtn.innerHTML = '<svg style="width:14px;height:14px;"><use xlink:href="#iconClose"></use></svg>';
+        searchCloseBtn.addEventListener('click', () => {
+            this.toggleSearchMode(false);
+        });
+        searchWrapper.appendChild(searchCloseBtn);
 
-        // 状态筛选
+        this.searchInput = document.createElement('input');
+        this.searchInput.className = 'project-search__input';
+        this.searchInput.type = 'text';
+        this.searchInput.placeholder = i18n("searchProjects") || "搜索项目...";
+        this.searchInput.addEventListener('input', () => {
+            this.currentSearchQuery = this.searchInput.value.trim().toLowerCase();
+            this.loadProjects();
+        });
+        this.searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.toggleSearchMode(false);
+            }
+        });
+        searchWrapper.appendChild(this.searchInput);
+
+        filterBar.appendChild(searchWrapper);
+
+        const filterControls = document.createElement('div');
+        filterControls.className = 'project-filter-controls';
+
         this.filterSelect = document.createElement('select');
-        this.filterSelect.className = 'b3-select project-toolbar-select';
-        this.filterSelect.style.cssText = `
-            flex: 1;
-            min-width: 0;
-        `;
+        this.filterSelect.className = 'project-filter-select';
         this.renderStatusFilter();
         this.filterSelect.addEventListener('change', () => {
             this.currentTab = this.filterSelect.value;
             this.loadProjects();
         });
-        controls.appendChild(this.filterSelect);
+        filterControls.appendChild(this.filterSelect);
 
-        // 分类筛选
         this.categoryFilterButton = document.createElement('button');
-        this.categoryFilterButton.className = 'b3-button b3-button--outline project-toolbar-btn project-toolbar-btn--text';
-        this.categoryFilterButton.style.cssText = `
-            display: inline-block;
-            max-width: 30%;
-            box-sizing: border-box;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            vertical-align: middle;
-            text-align: left;
-        `;
+        this.categoryFilterButton.className = 'project-filter-chip';
+        this.categoryFilterButton.innerHTML = '<span class="project-filter-chip__label">' + (i18n("categoryFilter") || "分类") + '</span>';
         this.categoryFilterButton.addEventListener('click', () => this.showCategorySelectDialog());
-        controls.appendChild(this.categoryFilterButton);
+        filterControls.appendChild(this.categoryFilterButton);
 
-        // 添加"只显示进行中>0"复选框
-        const doingFilterContainer = document.createElement('label');
-        doingFilterContainer.className = 'b3-label';
-        doingFilterContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin: 0;
-            white-space: nowrap;
-            cursor: pointer;
-            padding: 0;
-        `;
-
-        this.showOnlyWithDoingCheckbox = document.createElement('input');
-        this.showOnlyWithDoingCheckbox.type = 'checkbox';
-        this.showOnlyWithDoingCheckbox.className = 'b3-switch';
-        this.showOnlyWithDoingCheckbox.checked = this.showOnlyWithDoingTasks;
-        this.showOnlyWithDoingCheckbox.addEventListener('change', () => {
-            this.showOnlyWithDoingTasks = this.showOnlyWithDoingCheckbox.checked;
-            this.savePanelSettings();
-            this.loadProjects();
+        const searchToggleBtn = document.createElement('button');
+        searchToggleBtn.className = 'project-filter-chip project-filter-chip--icon';
+        searchToggleBtn.innerHTML = '<svg style="width:13px;height:13px;opacity:0.55;"><use xlink:href="#iconSearch"></use></svg>';
+        searchToggleBtn.addEventListener('click', () => {
+            this.toggleSearchMode(true);
         });
+        filterControls.appendChild(searchToggleBtn);
 
-        const doingFilterText = document.createElement('span');
-        doingFilterText.textContent = i18n("showOnlyWithDoingTasks") || '进行中>0';
-        doingFilterText.style.cssText = `
-            font-size: 12px;
-            color: var(--b3-theme-on-surface);
-        `;
-
-        doingFilterContainer.appendChild(this.showOnlyWithDoingCheckbox);
-        doingFilterContainer.appendChild(doingFilterText);
-        controls.appendChild(doingFilterContainer);
-
-        header.appendChild(controls);
-
-        // 搜索框
-        const searchContainer = document.createElement('div');
-        searchContainer.className = 'project-search';
-        searchContainer.style.cssText = `
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        `;
-
-        this.searchInput = document.createElement('input');
-        this.searchInput.className = 'b3-text-field';
-        this.searchInput.type = 'text';
-        this.searchInput.placeholder = i18n("searchProjects") || "搜索项目...";
-        this.searchInput.style.cssText = `
-            flex: 1;
-        `;
-        this.searchInput.addEventListener('input', () => {
-            this.currentSearchQuery = this.searchInput.value.trim().toLowerCase();
-            this.loadProjects();
-        });
-
-        searchContainer.appendChild(this.searchInput);
-        header.appendChild(searchContainer);
+        filterBar.appendChild(filterControls);
+        header.appendChild(filterBar);
 
         this.container.appendChild(header);
 
@@ -375,8 +286,7 @@ export class ProjectPanel {
             statuses.forEach(status => {
                 const optionEl = document.createElement('option');
                 optionEl.value = status.id;
-                const displayText = status.icon ? `${status.icon} ${status.name}` : status.name;
-                optionEl.textContent = displayText;
+                optionEl.textContent = status.name;
                 optionEl.selected = this.currentTab === status.id;
                 this.filterSelect.appendChild(optionEl);
             });
@@ -390,8 +300,11 @@ export class ProjectPanel {
     private updateCategoryFilterButtonText() {
         if (!this.categoryFilterButton) return;
 
+        const labelSpan = this.categoryFilterButton.querySelector('.project-filter-chip__label') as HTMLSpanElement;
+        if (!labelSpan) return;
+
         if (this.selectedCategories.length === 0 || this.selectedCategories.includes('all')) {
-            this.categoryFilterButton.textContent = i18n("categoryFilter") || "分类筛选";
+            labelSpan.textContent = i18n("categoryFilter") || "分类筛选";
         } else {
             // 显示选中的分类名称
             const names = this.selectedCategories.map(id => {
@@ -399,7 +312,7 @@ export class ProjectPanel {
                 const cat = this.categoryManager.getCategoryById(id);
                 return cat ? cat.name : id;
             });
-            this.categoryFilterButton.textContent = names.join(', ');
+            labelSpan.textContent = names.join(', ');
         }
     }
 
@@ -537,21 +450,6 @@ export class ProjectPanel {
             } catch (err) {
                 console.warn('读取提醒数据失败，计数将异步回退：', err);
                 this.reminderDataCache = null;
-            }
-
-            // 如果勾选了"只显示进行中>0"，则过滤项目
-            if (this.showOnlyWithDoingTasks && this.reminderDataCache) {
-                const filtered: any[] = [];
-                for (const project of displayProjects) {
-                    try {
-                        const counts = await this.countTopLevelKanbanStatus(project.id, this.reminderDataCache);
-                        if (counts.doing > 0) filtered.push(project);
-                    } catch (err) {
-                        // on error, conservatively include the project
-                        filtered.push(project);
-                    }
-                }
-                displayProjects = filtered;
             }
 
             // 渲染项目
@@ -695,48 +593,6 @@ export class ProjectPanel {
         // 缓存当前项目列表
         this.currentProjectsCache = [...projects];
 
-        // 如果 currentTab 为 'all'，则按状态分组并排除 archived
-        if (this.currentTab === 'all') {
-            // 按状态分组
-            const groups: Record<string, any[]> = {};
-            projects.forEach(p => {
-                const st = p.status || 'active';
-                // 跳过归档状态
-                if (st === 'archived') return;
-                if (!groups[st]) groups[st] = [];
-                groups[st].push(p);
-            });
-
-            // 清空容器
-            this.projectsContainer.innerHTML = '';
-
-            // 获取按状态显示顺序（先使用 statusManager 中的顺序）
-            const statuses = this.statusManager.getStatuses();
-
-            // 先渲染非 statusManager 中定义的状态
-            const rendered = new Set<string>();
-
-            statuses.forEach(status => {
-                const sid = status.id;
-                if (groups[sid] && groups[sid].length > 0) {
-                    rendered.add(sid);
-                    const groupEl = this.createStatusGroupElement(status, groups[sid]);
-                    this.projectsContainer.appendChild(groupEl);
-                }
-            });
-
-            // 剩余自定义状态
-            Object.keys(groups).forEach(sid => {
-                if (rendered.has(sid)) return;
-                const statusInfo = this.statusManager.getStatusById(sid) || { id: sid, name: sid, icon: '' };
-                const groupEl = this.createStatusGroupElement(statusInfo, groups[sid]);
-                this.projectsContainer.appendChild(groupEl);
-            });
-
-            return;
-        }
-
-        // 非 'all' 标签，直接渲染列表（同之前逻辑）
         this.projectsContainer.innerHTML = '';
         projects.forEach((project: any) => {
             const projectEl = this.createProjectElement(project);
@@ -751,43 +607,21 @@ export class ProjectPanel {
         const status = project.status || 'active';
 
         const projectEl = document.createElement('div');
-        projectEl.className = `project-item ${isOverdue ? 'project-item--overdue' : ''} project-item--${status} project-priority-${priority}`;
+        projectEl.className = `project-item ${isOverdue ? 'project-item--overdue' : ''} project-item--${status}`;
 
-        // 存储项目数据到元素
         projectEl.dataset.projectId = project.id;
         projectEl.dataset.priority = priority;
 
-        // 创建拖拽手柄
-        const dragHandle = document.createElement('div');
-        dragHandle.className = 'drag-handle';
-        dragHandle.innerHTML = '⋮⋮';
-        dragHandle.title = "拖拽排序";
-
-        // 添加hover效果
-        projectEl.addEventListener('mouseenter', () => {
-            dragHandle.style.opacity = '1';
-        });
-        projectEl.addEventListener('mouseleave', () => {
-            dragHandle.style.opacity = '0';
-        });
-
-        // 将拖拽手柄添加到project-item
-        projectEl.appendChild(dragHandle);
-
-        // 在优先级排序模式下添加拖拽功能
         if (this.currentSort === 'priority') {
-            this.addDragFunctionality(projectEl, dragHandle, project);
+            this.addDragFunctionality(projectEl, project);
         }
 
-        // 添加右键菜单支持
         projectEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             this.showProjectContextMenu(e, project);
         });
 
-        // 添加单击打开项目看板支持
         projectEl.addEventListener('click', (e) => {
-            if ((e.target as HTMLElement).closest('.drag-handle')) return;
             e.preventDefault();
             e.stopPropagation();
             this.openProjectKanban(project);
@@ -796,11 +630,15 @@ export class ProjectPanel {
         const contentEl = document.createElement('div');
         contentEl.className = 'project-item__content';
 
-        // 信息容器
-        const infoEl = document.createElement('div');
-        infoEl.className = 'project-item__info';
+        const topEl = document.createElement('div');
+        topEl.className = 'project-item__top';
 
-        // 标题
+        const headerEl = document.createElement('div');
+        headerEl.className = 'project-item__header';
+
+        const titleRowEl = document.createElement('div');
+        titleRowEl.className = 'project-item__title-row';
+
         const titleEl = document.createElement('span');
         titleEl.className = 'project-item__title';
         titleEl.textContent = project.title || i18n("unnamedNote") || '未命名项目';
@@ -815,82 +653,81 @@ export class ProjectPanel {
             });
         }
 
-        // 时间信息容器
-        const timeContainer = document.createElement('div');
-        timeContainer.className = 'project-item__time-container';
+        titleRowEl.appendChild(titleEl);
+        headerEl.appendChild(titleRowEl);
+        topEl.appendChild(headerEl);
 
-        // 添加倒计时或已开始天数显示 - 只为非已归档的项目显示
+        const asideEl = document.createElement('div');
+        asideEl.className = 'project-item__aside';
+
+        const pomodoroCountEl = document.createElement('span');
+        pomodoroCountEl.className = 'project-count project-count--pomodoro';
+        asideEl.appendChild(pomodoroCountEl);
+
+        topEl.appendChild(asideEl);
+        contentEl.appendChild(topEl);
+
+        const infoRowEl = document.createElement('div');
+        infoRowEl.className = 'project-item__info-row';
+
+        const leftInfoEl = document.createElement('div');
+        leftInfoEl.className = 'project-item__left-info';
+
         if (status !== 'archived') {
-            if (project.endDate) {
-                // 有结束日期，显示倒计时
-                const countdownEl = this.createCountdownElement(project.endDate, today);
-                timeContainer.appendChild(countdownEl);
-            } else if (project.startDate) {
-                // 只有开始日期，显示已开始天数
-                const startedEl = this.createStartedElement(project.startDate, today);
-                timeContainer.appendChild(startedEl);
+            const timeInfoEl = this.createTimeInfoElement(project.startDate, project.endDate, today);
+            leftInfoEl.appendChild(timeInfoEl);
+        } else {
+            const timeEl = document.createElement('span');
+            timeEl.className = 'project-item__time';
+            timeEl.textContent = this.formatProjectTime(project.startDate, project.endDate, today);
+            leftInfoEl.appendChild(timeEl);
+        }
+
+        if (project.categoryId) {
+            const categoryIds = project.categoryId.split(',').filter((id: string) => id.trim());
+            if (categoryIds.length > 0) {
+                const tagsRowEl = document.createElement('div');
+                tagsRowEl.className = 'project-item__tags';
+
+                categoryIds.forEach((id: string) => {
+                    const category = this.categoryManager.getCategoryById(id);
+                    if (!category) return;
+
+                    const tagEl = document.createElement('span');
+                    tagEl.className = 'project-item__tag';
+                    tagEl.textContent = `${category.icon || ''} ${category.name}`.trim();
+                    tagsRowEl.appendChild(tagEl);
+                });
+
+                if (tagsRowEl.childElementCount > 0) {
+                    leftInfoEl.appendChild(tagsRowEl);
+                }
             }
         }
 
-        // 时间信息
-        const timeEl = document.createElement('div');
-        timeEl.className = 'project-item__time';
-        timeEl.textContent = this.formatProjectTime(project.startDate, project.endDate, today);
-        timeContainer.appendChild(timeEl);
+        infoRowEl.appendChild(leftInfoEl);
 
-
-
-
-        // 添加优先级标签
-        if (priority !== 'none') {
-            const priorityLabel = document.createElement('span');
-            priorityLabel.className = `project-priority-label ${priority}`;
-            const priorityNames = {
-                'high': i18n("highPriority") || '高优先级',
-                'medium': i18n("mediumPriority") || '中优先级',
-                'low': i18n("lowPriority") || '低优先级'
-            };
-            priorityLabel.innerHTML = `<div class="priority-dot ${priority}"></div>${priorityNames[priority]}`;
-            timeContainer.appendChild(priorityLabel);
+        const rightIconEl = document.createElement('div');
+        rightIconEl.className = 'project-item__right-icon';
+        const dynamicIcon = this.createDynamicIcon(project.startDate, project.endDate, today, status, isOverdue);
+        if (dynamicIcon) {
+            rightIconEl.appendChild(dynamicIcon);
         }
+        infoRowEl.appendChild(rightIconEl);
 
-        infoEl.appendChild(titleEl);
-        infoEl.appendChild(timeContainer);
+        contentEl.appendChild(infoRowEl);
 
-        // 添加状态标签
-        const statusLabel = document.createElement('div');
-        statusLabel.className = `project-status-label project-status-${status}`;
-        const statusInfo = this.statusManager.getStatusById(status);
-        statusLabel.textContent = statusInfo ? `${statusInfo.icon || ''} ${statusInfo.name}` : (i18n("unknownStatus") || '未知状态');
-        infoEl.appendChild(statusLabel);
-
-        // 添加项目下顶级任务计数（todo/doing/done）
-        const countsContainer = document.createElement('div');
-        countsContainer.className = 'project-item__counts';
-
+        const statsEl = document.createElement('div');
+        statsEl.className = 'project-item__stats';
 
         const dynamicCountsWrapper = document.createElement('div');
         dynamicCountsWrapper.className = 'project-counts-dynamic';
-        // initial legacy placeholders to avoid layout shift
-        dynamicCountsWrapper.innerHTML = `
-            <span class="project-count project-count--doing">${i18n("doing") || '进行中'}: ...</span>
-            <span class="project-count project-count--short-term">${i18n("shortTerm") || '短期'}: ...</span>
-            <span class="project-count project-count--long-term">${i18n("longTerm") || '长期'}: ...</span>
-            <span class="project-count project-count--done">${i18n("done") || '已完成'}: ...</span>
-        `;
-        countsContainer.appendChild(dynamicCountsWrapper);
+        statsEl.appendChild(dynamicCountsWrapper);
 
-        // 添加番茄钟总数显示
-        const pomodoroCountEl = document.createElement('span');
-        pomodoroCountEl.className = 'project-count project-count--pomodoro';
-        pomodoroCountEl.textContent = ' 总计: ...';
-        countsContainer.appendChild(pomodoroCountEl);
+        contentEl.appendChild(statsEl);
 
-        infoEl.appendChild(countsContainer);
-
-        // 添加项目进度条（参考 ProjectKanbanView 样式）
-        const progressWrapper = document.createElement('div');
-        progressWrapper.className = 'project-progress-wrapper';
+        const progressEl = document.createElement('div');
+        progressEl.className = 'project-item__progress';
 
         const progressBarOuter = document.createElement('div');
         progressBarOuter.className = 'project-progress-outer';
@@ -899,63 +736,22 @@ export class ProjectPanel {
         progressBarInner.className = 'project-progress-inner';
 
         progressBarOuter.appendChild(progressBarInner);
+        progressEl.appendChild(progressBarOuter);
 
-        const progressText = document.createElement('div');
+        const progressText = document.createElement('span');
         progressText.className = 'project-progress-text';
+        progressEl.appendChild(progressText);
 
-        progressWrapper.appendChild(progressBarOuter);
-        progressWrapper.appendChild(progressText);
+        contentEl.appendChild(progressEl);
 
-        infoEl.appendChild(progressWrapper);
-
-        // 异步填充计数（使用缓存或实时读取），并同时更新进度条
-        this.fillProjectTopLevelCounts(project.id, dynamicCountsWrapper, pomodoroCountEl, progressBarInner, progressText).catch(err => {
+        this.fillProjectTopLevelCounts(project.id, dynamicCountsWrapper, pomodoroCountEl, progressBarInner, progressText).then(() => {
+            if (statsEl && !dynamicCountsWrapper.childElementCount) {
+                statsEl.style.display = 'none';
+            }
+        }).catch(err => {
             console.warn('填充项目任务计数失败:', err);
         });
-        // 分类显示
-        if (project.categoryId) {
-            const categoryIds = project.categoryId.split(',').filter((id: string) => id.trim());
 
-            if (categoryIds.length > 0) {
-                const categoryContainer = document.createElement('div');
-                categoryContainer.className = 'project-item__category-container';
-
-                categoryIds.forEach((id: string) => {
-                    const category = this.categoryManager.getCategoryById(id);
-                    if (category) {
-                        const categoryEl = document.createElement('div');
-                        categoryEl.className = 'project-category-tag';
-
-                        if (category.icon) {
-                            const iconSpan = document.createElement('span');
-                            iconSpan.textContent = category.icon;
-                            iconSpan.className = 'project-category-icon';
-                            categoryEl.appendChild(iconSpan);
-                        }
-
-                        const nameSpan = document.createElement('span');
-                        nameSpan.textContent = category.name;
-                        nameSpan.className = 'project-category-name';
-                        categoryEl.appendChild(nameSpan);
-                        categoryContainer.appendChild(categoryEl);
-                    }
-                });
-
-                if (categoryContainer.hasChildNodes()) {
-                    infoEl.appendChild(categoryContainer);
-                }
-            }
-        }
-
-        // 描述
-        if (project.note) {
-            const noteEl = document.createElement('div');
-            noteEl.className = 'project-item__note';
-            noteEl.textContent = project.note;
-            infoEl.appendChild(noteEl);
-        }
-
-        contentEl.appendChild(infoEl);
         projectEl.appendChild(contentEl);
 
         return projectEl;
@@ -986,25 +782,32 @@ export class ProjectPanel {
                 for (const s of statuses) {
                     const id = s.id;
                     const name = s.name || id;
-                    const icon = s.icon || '';
                     const count = id === 'completed' ? completedCount : (countsMap[id] || 0);
+                    if (count <= 0) continue;
                     const span = document.createElement('span');
                     span.className = `project-count project-count--${id}`;
-                    span.textContent = `${icon} ${name}: ${count}`;
+                    span.textContent = `${name} ${count}`;
                     dynamicWrapper.appendChild(span);
                 }
+
             } else {
                 // Fallback to legacy labels
                 const doing = countsMap['doing'] || 0;
                 const shortTerm = countsMap['short_term'] || 0;
                 const longTerm = countsMap['long_term'] || 0;
                 const done = completedCount;
-                dynamicWrapper.innerHTML = `
-                    <span class="project-count project-count--doing">${i18n("doing") || '进行中'}: ${doing}</span>
-                    <span class="project-count project-count--short-term">${i18n("shortTerm") || '短期'}: ${shortTerm}</span>
-                    <span class="project-count project-count--long-term">${i18n("longTerm") || '长期'}: ${longTerm}</span>
-                    <span class="project-count project-count--done">${i18n("done") || '已完成'}: ${done}</span>
-                `;
+                const fallbackItems = [
+                    { key: 'doing', label: i18n("doing") || '进行中', count: doing },
+                    { key: 'short-term', label: i18n("shortTerm") || '短期', count: shortTerm },
+                    { key: 'long-term', label: i18n("longTerm") || '长期', count: longTerm },
+                    { key: 'done', label: i18n("done") || '已完成', count: done }
+                ].filter(item => item.count > 0);
+
+                if (fallbackItems.length > 0) {
+                    dynamicWrapper.innerHTML = fallbackItems
+                        .map(item => `<span class="project-count project-count--${item.key}">${item.label} ${item.count}</span>`)
+                        .join('');
+                }
             }
 
             // 更新番茄钟总数显示
@@ -1017,7 +820,7 @@ export class ProjectPanel {
                     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
                 };
                 const focusText = totalFocus > 0 ? ` ⏱ ${formatMinutesToString(totalFocus)}` : '';
-                pomodoroEl.textContent = ` 总计: ${totalPomodoro}${focusText}`;
+                pomodoroEl.textContent = totalPomodoro > 0 || totalFocus > 0 ? `🍅 ${totalPomodoro}${focusText}` : '';
             }
 
             // 计算进度： done / (sum of non-completed statuses + done)
@@ -1031,18 +834,23 @@ export class ProjectPanel {
         } catch (error) {
             console.error('获取项目顶级任务计数失败:', error);
             // on error, show placeholders
-            if (dynamicWrapper) dynamicWrapper.innerHTML = `
-                <span class="project-count project-count--doing">${i18n("doing") || '进行中'}: ?</span>
-                <span class="project-count project-count--short-term">${i18n("shortTerm") || '短期'}: ?</span>
-                <span class="project-count project-count--long-term">${i18n("longTerm") || '长期'}: ?</span>
-                <span class="project-count project-count--done">${i18n("done") || '已完成'}: ?</span>
-            `;
-            if (pomodoroEl) pomodoroEl.textContent = ` 总计: ?`;
+            if (dynamicWrapper) dynamicWrapper.innerHTML = '';
+            if (pomodoroEl) pomodoroEl.textContent = '';
             if (progressBarInner && progressText) {
                 progressBarInner.style.width = `0%`;
                 progressText.textContent = `0%`;
             }
         }
+    }
+
+    private getProjectStatusDotClass(status: string, isOverdue: boolean): string {
+        if (isOverdue) return 'project-item__status-dot--overdue';
+
+        const statusId = (status || '').toLowerCase();
+        if (['completed', 'done'].includes(statusId)) return 'project-item__status-dot--completed';
+        if (['paused', 'someday', 'waiting'].includes(statusId)) return 'project-item__status-dot--paused';
+        if (['archived'].includes(statusId)) return 'project-item__status-dot--archived';
+        return 'project-item__status-dot--active';
     }
 
     /**
@@ -1175,16 +983,15 @@ export class ProjectPanel {
         return totalMinutes;
     }
     // 新增：添加拖拽功能
-    private addDragFunctionality(projectEl: HTMLElement, handle: HTMLElement, project: any) {
-        handle.draggable = true;
-        handle.style.cursor = 'grab';
+    private addDragFunctionality(projectEl: HTMLElement, project: any) {
+        projectEl.draggable = true;
+        projectEl.classList.add('project-item--draggable');
 
-        handle.addEventListener('dragstart', (e) => {
+        projectEl.addEventListener('dragstart', (e) => {
             this.isDragging = true;
             this.draggedElement = projectEl;
             this.draggedProject = project;
             projectEl.style.opacity = '0.5';
-            handle.style.cursor = 'grabbing';
 
             if (e.dataTransfer) {
                 e.dataTransfer.effectAllowed = 'move';
@@ -1192,12 +999,11 @@ export class ProjectPanel {
             }
         });
 
-        handle.addEventListener('dragend', () => {
+        projectEl.addEventListener('dragend', () => {
             this.isDragging = false;
             this.draggedElement = null;
             this.draggedProject = null;
             projectEl.style.opacity = '';
-            handle.style.cursor = 'grab';
         });
 
         projectEl.addEventListener('dragover', (e) => {
@@ -1421,7 +1227,7 @@ export class ProjectPanel {
                 month: 'short',
                 day: 'numeric'
             });
-            timeStr = ` ${startStr}`;
+    timeStr = `${startStr}`;
         }
 
         if (endDate) {
@@ -1436,7 +1242,62 @@ export class ProjectPanel {
         return timeStr || ' 无日期';
     }
 
-    // 新增：创建已开始天数元素
+    private createTimeInfoElement(startDate: string, endDate: string, today: string): HTMLElement {
+        const el = document.createElement('div');
+        el.className = 'project-item__time-info';
+
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'project-item__time-date';
+        dateSpan.textContent = this.formatProjectTime(startDate, endDate, today);
+
+        el.appendChild(dateSpan);
+
+        return el;
+    }
+
+    private createDynamicIcon(startDate: string, endDate: string, today: string, status: string, isOverdue: boolean): HTMLElement | null {
+        const icon = document.createElement('img');
+        icon.className = 'project-item__dynamic-icon';
+
+        let content = '';
+
+        if (endDate && isOverdue) {
+            const daysDiff = Math.abs(this.calculateDaysDifference(endDate, today));
+            content = daysDiff > 0 ? daysDiff.toString() : '今';
+        } else if (startDate) {
+            const daysDiff = this.calculateDaysDifference(today, startDate);
+            if (daysDiff > 0) {
+                content = daysDiff.toString();
+            } else if (daysDiff === 0) {
+                content = '今';
+            }
+        }
+
+        if (!content) {
+            return null;
+        }
+
+        let color = 'B0BEC5';
+        const statusId = (status || '').toLowerCase();
+
+        if (isOverdue) {
+            color = 'EF9A9A';
+        } else if (['archived'].includes(statusId)) {
+            color = 'CFD8DC';
+        } else if (['completed', 'done'].includes(statusId)) {
+            color = 'A5D6A7';
+        } else if (['paused', 'someday', 'waiting'].includes(statusId)) {
+            color = 'FFCC80';
+        } else {
+            color = 'A5D6A7';
+        }
+
+        icon.src = `api/icon/getDynamicIcon?type=8&content=${encodeURIComponent(content)}&color=${color}`;
+        icon.alt = '';
+
+        return icon;
+    }
+
     private createStartedElement(startDate: string, today: string): HTMLElement {
         const startedEl = document.createElement('div');
         startedEl.className = 'project-started';
@@ -1459,6 +1320,28 @@ export class ProjectPanel {
         }
 
         return startedEl;
+    }
+
+    private toggleSearchMode(active: boolean): void {
+        const filterBar = this.container.querySelector('.project-filter-bar') as HTMLElement;
+        if (!filterBar) return;
+
+        const searchWrapper = filterBar.querySelector('.project-search-wrapper') as HTMLElement;
+        const filterControls = filterBar.querySelector('.project-filter-controls') as HTMLElement;
+
+        if (active) {
+            searchWrapper?.classList.add('project-search-wrapper--active');
+            if (filterControls) filterControls.style.visibility = 'hidden';
+            this.searchInput?.focus();
+        } else {
+            searchWrapper?.classList.remove('project-search-wrapper--active');
+            if (filterControls) filterControls.style.visibility = '';
+            if (this.searchInput) {
+                this.searchInput.value = '';
+                this.currentSearchQuery = '';
+                this.loadProjects();
+            }
+        }
     }
 
     private showProjectContextMenu(event: MouseEvent, project: any) {
@@ -2184,6 +2067,14 @@ export class ProjectPanel {
             // 添加状态管理（高级功能）
             if (this.showAdvancedFeatures) {
                 menu.addItem({
+                    icon: 'iconGrid',
+                    label: i18n("eisenhowerMatrix") || "四象限面板",
+                    click: () => {
+                        this.openEisenhowerMatrix();
+                    }
+                });
+
+                menu.addItem({
                     icon: 'iconSettings',
                     label: i18n("manageStatuses") || "管理状态",
                     click: () => {
@@ -2191,6 +2082,14 @@ export class ProjectPanel {
                     }
                 });
             }
+
+            menu.addItem({
+                icon: 'iconRefresh',
+                label: i18n("refresh") || "刷新",
+                click: () => {
+                    this.loadProjects();
+                }
+            });
 
             // 添加插件设置（在更多菜单中）
             menu.addItem({
@@ -2233,101 +2132,6 @@ export class ProjectPanel {
         } catch (error) {
             console.error('显示更多菜单失败:', error);
         }
-    }
-
-    /**
-     * 创建按状态分组的 DOM 元素，包含标题行（支持折叠/展开）和项目列表容器
-     */
-    private createStatusGroupElement(status: any, projects: any[]): HTMLElement {
-        const statusId = status.id || 'unknown';
-        const statusName = status.name || statusId;
-        const statusIcon = status.icon || '';
-
-        const groupWrapper = document.createElement('div');
-        groupWrapper.className = 'project-group';
-        groupWrapper.dataset.statusId = statusId;
-
-        const header = document.createElement('div');
-        header.className = 'project-group__header';
-        // make header sticky so it stays at top while scrolling within the panel
-        // compute top offset based on the main header height to avoid overlapping
-
-        header.style.cssText = `display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 6px;   z-index:3; background: var(--b3-theme-surface); border-bottom: 1px solid rgba(0,0,0,0.04);`;
-
-        const left = document.createElement('div');
-        left.style.cssText = 'display:flex; align-items:center; gap:8px;';
-
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'project-group__icon';
-        iconSpan.textContent = statusIcon;
-        left.appendChild(iconSpan);
-
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'project-group__title';
-        titleSpan.textContent = `${statusName} (${projects.length})`;
-        left.appendChild(titleSpan);
-
-        header.appendChild(left);
-
-        const right = document.createElement('div');
-        right.style.cssText = 'display:flex; align-items:center; gap:8px;';
-
-        // toggle button as chevron icon on the right
-        const toggleBtn = document.createElement('button');
-        toggleBtn.className = 'b3-button b3-button--tiny b3-button--outline project-group__toggle';
-        toggleBtn.title = this.groupCollapsedState[statusId] ? '展开该分组' : '折叠该分组';
-        toggleBtn.style.display = 'inline-flex';
-        toggleBtn.style.alignItems = 'center';
-        toggleBtn.style.justifyContent = 'center';
-        toggleBtn.style.width = '28px';
-        toggleBtn.style.height = '28px';
-        toggleBtn.style.padding = '0';
-
-        toggleBtn.innerHTML = `<svg class="project-group__toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-        // initial rotation based on collapsed state
-        const collapsed = !!this.groupCollapsedState[statusId];
-        const iconEl = toggleBtn.querySelector('.project-group__toggle-icon') as HTMLElement;
-        if (iconEl) iconEl.style.transform = collapsed ? 'rotate(-180deg)' : 'rotate(0deg)';
-
-        right.appendChild(toggleBtn);
-
-        header.appendChild(right);
-
-        groupWrapper.appendChild(header);
-
-        const listContainer = document.createElement('div');
-        listContainer.className = 'project-group__list';
-        listContainer.style.cssText = 'display:flex; flex-direction:column; gap:6px; padding:6px;';
-
-        // 根据折叠状态决定是否隐藏
-        if (collapsed) {
-            listContainer.style.display = 'none';
-        }
-
-        projects.forEach((project: any) => {
-            const projectEl = this.createProjectElement(project);
-            listContainer.appendChild(projectEl);
-        });
-
-        toggleBtn.addEventListener('click', () => {
-            const isCollapsedNow = !!this.groupCollapsedState[statusId];
-            this.groupCollapsedState[statusId] = !isCollapsedNow;
-
-            if (this.groupCollapsedState[statusId]) {
-                listContainer.style.display = 'none';
-                if (iconEl) iconEl.style.transform = 'rotate(-180deg)';
-                toggleBtn.title = '展开该分组';
-            } else {
-                listContainer.style.display = 'flex';
-                if (iconEl) iconEl.style.transform = 'rotate(0deg)';
-                toggleBtn.title = '折叠该分组';
-            }
-        });
-
-        groupWrapper.appendChild(listContainer);
-
-        return groupWrapper;
     }
 
     private async showCategorySelectDialog() {
@@ -2388,7 +2192,6 @@ export class ProjectPanel {
             const settings = await this.plugin.loadSettings();
             this.currentSort = settings.projectPanelSort || 'priority';
             this.currentSortOrder = settings.projectPanelSortOrder || 'desc';
-            this.showOnlyWithDoingTasks = settings.projectPanelShowOnlyDoing || false;
             this.selectedCategories = settings.projectPanelSelectedCategories || [];
         } catch (error) {
             console.error('恢复项目面板设置失败:', error);
@@ -2400,7 +2203,6 @@ export class ProjectPanel {
             const settings = await this.plugin.loadSettings();
             settings.projectPanelSort = this.currentSort;
             settings.projectPanelSortOrder = this.currentSortOrder;
-            settings.projectPanelShowOnlyDoing = this.showOnlyWithDoingTasks;
             settings.projectPanelSelectedCategories = this.selectedCategories;
             await this.plugin.saveSettings(settings);
         } catch (error) {
