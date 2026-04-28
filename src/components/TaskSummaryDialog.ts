@@ -1,4 +1,4 @@
-import { Dialog, showMessage, Menu, platformUtils } from "siyuan";
+import { Dialog, showMessage, platformUtils } from "siyuan";
 
 import { i18n } from "../pluginInstance";
 import { getLocalDateString, getLogicalDateString, getLocaleTag } from "../utils/dateUtils";
@@ -20,7 +20,7 @@ export class TaskSummaryDialog {
   private currentFocusFilter: string = 'all'; // 'all', 'open', 'high', 'overdue', 'undated'
   private currentSemanticFilter: string = 'auto'; // 'auto', 'today', 'next7', 'overdue', 'history'
   private shouldAutoPickFocus: boolean = true;
-  private completedSectionsExpanded: boolean = false;
+  private completedSectionsExpanded: boolean = true;
   private lastGroupedTasks: Map<string, Map<string, any[]>> | null = null;
   private lastStats: any = null;
 
@@ -197,7 +197,6 @@ export class TaskSummaryDialog {
       this.currentFocusFilter = 'all';
       this.currentSemanticFilter = 'auto';
       this.shouldAutoPickFocus = true;
-      this.completedSectionsExpanded = false;
 
       // 创建弹窗
       this.currentDialog = new Dialog({
@@ -1250,8 +1249,8 @@ export class TaskSummaryDialog {
   /**
    * 生成摘要内容HTML
    */
-  public generateSummaryContent(groupedTasks: Map<string, Map<string, any[]>>, dateRange: { start: string, end: string, label: string }, stats: any): string {
-    const rangeFilters = [
+  private getRangeFilters() {
+    return [
       { id: 'yesterday', label: i18n('yesterday'), mode: 'time', group: 'daily' },
       { id: 'today', label: i18n('today'), mode: 'semantic', group: 'daily' },
       { id: 'tomorrow', label: i18n('tomorrow'), mode: 'time', group: 'daily' },
@@ -1266,13 +1265,21 @@ export class TaskSummaryDialog {
       { id: 'history', label: i18n('summarySemanticHistory') || '历史回顾', mode: 'semantic', group: 'other' },
       { id: 'current', label: i18n('currentView'), mode: 'time', group: 'other' },
     ];
-    const focusFilters = [
+  }
+
+  private getFocusFilters() {
+    return [
       { id: 'all', label: i18n('summaryFocusAll') || '全部' },
       { id: 'open', label: i18n('summaryFocusOpen') || '仅未完成' },
       { id: 'high', label: i18n('summaryFocusHigh') || '高优先级' },
       { id: 'overdue', label: i18n('summaryFocusOverdue') || '延期' },
       { id: 'undated', label: i18n('summaryFocusUndated') || '无日期' },
     ];
+  }
+
+  public generateSummaryContent(groupedTasks: Map<string, Map<string, any[]>>, dateRange: { start: string, end: string, label: string }, stats: any): string {
+
+    const focusFilters = this.getFocusFilters();
 
     const logicalToday = getLogicalDateString();
     const future7EndDate = new Date(logicalToday);
@@ -1443,50 +1450,63 @@ export class TaskSummaryDialog {
     const overdueTextTpl = i18n('summaryOverdueSub') || '已过期 ${count} 条';
     const next7TextTpl = i18n('summaryNext7Sub') || '7天内 ${count} 条';
     const completedOnlyTextTpl = i18n('summaryCompletedOnly') || '已完成 ${count} 条';
+    const rangeFilters = this.getRangeFilters();
+    const currentRangeValue = this.currentSemanticFilter !== 'auto' ? this.currentSemanticFilter : this.currentFilter;
+    const rangeGroupLabels: Record<string, string> = {
+      daily: i18n('summaryRangeDaily') || '按天',
+      multi: i18n('summaryRangeMulti') || '近期',
+      week: i18n('summaryRangeWeek') || '按周',
+      month: i18n('summaryRangeMonth') || '按月',
+      other: i18n('summaryRangeOther') || '其他'
+    };
+    const renderRangeOptions = () => {
+      const groups: string[] = [];
+      rangeFilters.forEach(f => {
+        if (!groups.includes(f.group)) groups.push(f.group);
+      });
+      return groups.map(group => {
+        const options = rangeFilters
+          .filter(f => f.group === group)
+          .map(f => `<option value="${f.id}" ${currentRangeValue === f.id ? 'selected' : ''}>${f.label}</option>`)
+          .join('');
+        return `<optgroup label="${rangeGroupLabels[group] || group}">${options}</optgroup>`;
+      }).join('');
+    };
+    const renderFocusOptions = () => focusFilters
+      .map(f => `<option value="${f.id}" ${this.currentFocusFilter === f.id ? 'selected' : ''}>${f.label}</option>`)
+      .join('');
     let html = `
       <div class="task-summary-wrapper">
         <div class="task-summary-toolbar">
-          <div class="task-summary-toolbar-main">
-            <h2 class="task-summary-title">${i18n('taskSummary')}</h2>
-            <div class="semantic-filter-buttons">
-              ${rangeFilters.map((f, index) => {
-      const isActive = f.mode === 'semantic'
-        ? (this.currentSemanticFilter === f.id)
-        : (this.currentSemanticFilter === 'auto' && this.currentFilter === f.id);
-      const needDivider = index > 0 && rangeFilters[index - 1].group !== f.group;
-      return `
-                  ${needDivider ? '<span class="range-divider">|</span>' : ''}
-                  <button class="b3-button task-summary-toolbar-btn ${isActive ? '' : 'b3-button--outline'}" data-range-mode="${f.mode}" data-range-id="${f.id}">
-                    ${f.label}
-                  </button>
-                `;
-    }).join('')}
+        <div class="task-summary-toolbar-main">
+          <h2 class="task-summary-title">${i18n('taskSummary')}</h2>
+          <div class="toolbar-controls-right">
+            <div class="toolbar-dropdown-group">
+              <label class="task-summary-select-wrap task-summary-toolbar-control range-selector-wrap is-selected" title="${dateRange.label}">
+                <select class="task-summary-native-select range-selector-select" id="range-selector-select" aria-label="${i18n('summaryRangeSelector') || '选择时间范围'}">
+                  ${renderRangeOptions()}
+                </select>
+              </label>
+              <button class="b3-button b3-button--outline task-summary-toolbar-btn expand-collapse-btn" id="expand-collapse-btn">
+                <span>${this.completedSectionsExpanded ? (i18n('summaryCollapseAll') || '全部收起') : (i18n('summaryExpandAll') || '全部展开')}</span>
+              </button>
+              <label class="task-summary-select-wrap task-summary-toolbar-control focus-filter-wrap ${this.currentFocusFilter !== 'all' ? 'is-selected' : ''}">
+                <select class="task-summary-native-select focus-filter-select" id="focus-filter-select" aria-label="${i18n('summaryFocusSelector') || '选择任务类型'}">
+                  ${renderFocusOptions()}
+                </select>
+              </label>
             </div>
-            <button class="b3-button b3-button--outline task-summary-toolbar-btn" id="export-summary-btn">
-              <svg class="b3-button__icon"><use xlink:href="#iconCopy"></use></svg>
-              ${i18n('summaryExport') || '导出'}
-            </button>
-          </div>
-          <div class="task-summary-toolbar-sub">
-            <div class="task-summary-left-controls">
-              <div class="task-summary-range">
-                <span class="range-label">${i18n('currentRange')}</span>
-                <span class="range-value">${dateRange.label}</span>
-              </div>
-              <div class="summary-expand-controls">
-                <button class="b3-button b3-button--outline task-summary-toolbar-btn" id="expand-all-sections-btn">${i18n('summaryExpandAll') || '全部展开'}</button>
-                <button class="b3-button b3-button--outline task-summary-toolbar-btn" id="collapse-all-sections-btn">${i18n('summaryCollapseAll') || '全部收起'}</button>
-              </div>
-            </div>
-            <div class="focus-filter-buttons">
-              ${focusFilters.map(f => `
-                <button class="b3-button task-summary-toolbar-btn ${this.currentFocusFilter === f.id ? '' : 'b3-button--outline'}" data-focus="${f.id}">
-                  ${f.label}
-                </button>
-              `).join('')}
-            </div>
+            <label class="task-summary-select-wrap task-summary-toolbar-control copy-selector-wrap">
+              <select class="task-summary-native-select copy-selector-select" id="copy-selector-select" aria-label="${i18n('copy') || '复制'}">
+                <option value="" selected>${i18n('copy') || '复制'}</option>
+                <option value="rich">${i18n('copyRichText') || '复制富文本'}</option>
+                <option value="markdown">${i18n('copyAll') || '复制全部 (Markdown)'}</option>
+                <option value="plain">${i18n('copyPlainText') || '复制纯文本'}</option>
+              </select>
+            </label>
           </div>
         </div>
+      </div>
 
         <div class="task-summary-info-cards">
           ${isHistoricalRange ? `
@@ -1658,7 +1678,14 @@ export class TaskSummaryDialog {
         .task-summary-toolbar-main {
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 10px;
+          flex-wrap: wrap;
+        }
+        .toolbar-controls-right {
+          display: inline-flex;
+          gap: 6px;
+          align-items: center;
           flex-wrap: wrap;
         }
         .task-summary-title {
@@ -1667,59 +1694,79 @@ export class TaskSummaryDialog {
           font-weight: 700;
           line-height: 1.2;
         }
-        .semantic-filter-buttons {
-          display: flex;
-          gap: 4px;
-          flex-wrap: wrap;
-          align-items: center;
-        }
-        .range-divider {
-          color: var(--b3-theme-on-surface-light);
-          opacity: 0.55;
-          padding: 0 2px;
-          font-size: 12px;
-          line-height: 1;
-          user-select: none;
-        }
-        .summary-expand-controls {
+        .toolbar-dropdown-group {
           display: inline-flex;
-          gap: 4px;
-          flex-wrap: wrap;
-        }
-        .task-summary-toolbar-sub {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .task-summary-left-controls {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .task-summary-range {
-          display: inline-flex;
-          align-items: center;
           gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          background: var(--b3-theme-surface);
+          align-items: center;
+        }
+        .task-summary-toolbar-control {
+          min-height: var(--task-toolbar-height);
+          height: var(--task-toolbar-height);
+          border-radius: var(--task-radius-sm);
+          box-sizing: border-box;
+        }
+        .task-summary-select-wrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          background: var(--b3-theme-background);
           border: 1px solid var(--b3-border-color);
+          box-shadow: inset 0 0 0 1px transparent;
+          transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
         }
-        .task-summary-range .range-label {
-          color: var(--b3-theme-on-surface-light);
-          font-size: 12px;
+        .task-summary-select-wrap:hover {
+          background: var(--b3-list-hover);
+          border-color: var(--b3-theme-primary-light);
         }
-        .task-summary-range .range-value {
-          font-size: 13px;
-          font-weight: 600;
+        .task-summary-select-wrap:focus-within,
+        .task-summary-select-wrap.is-selected {
+          color: var(--b3-theme-primary);
+          background: color-mix(in srgb, var(--b3-theme-primary) 10%, var(--b3-theme-background));
+          border-color: var(--b3-theme-primary);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--b3-theme-primary) 18%, transparent);
         }
-        .focus-filter-buttons {
-          display: flex;
+        .task-summary-native-select {
+          width: 100%;
+          height: 100%;
+          padding: 0 28px 0 var(--task-toolbar-padding-x);
+          border: 0;
+          outline: 0;
+          color: inherit;
+          background: transparent;
+          font-size: var(--task-font-sm);
+          line-height: var(--task-toolbar-height);
+          cursor: pointer;
+          box-sizing: border-box;
+        }
+        .range-selector-wrap {
+          min-width: 120px;
+        }
+        .focus-filter-wrap {
+          min-width: 98px;
+        }
+        .copy-selector-wrap {
+          min-width: 96px;
+        }
+        .expand-collapse-btn {
+          min-width: 88px;
+          justify-content: space-between;
+          gap: 8px;
+          border-width: 1px;
+          box-shadow: inset 0 0 0 1px transparent;
+        }
+        .expand-collapse-btn:hover,
+        .expand-collapse-btn:focus {
+          border-color: var(--b3-theme-primary-light);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--b3-theme-primary) 12%, transparent);
+        }
+        .copy-button-group {
+          display: inline-flex;
           gap: 4px;
-          flex-wrap: wrap;
+          align-items: center;
+        }
+        .copy-btn {
+          min-width: auto;
+          padding: 0 10px;
         }
         .task-summary-toolbar-btn {
           min-height: var(--task-toolbar-height);
@@ -2031,32 +2078,31 @@ export class TaskSummaryDialog {
     if (!container) return;
 
     // 单行时间范围标签（语义范围 + 日历范围）
-    container.querySelectorAll('button[data-range-id]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const rangeId = btn.getAttribute('data-range-id');
-        const mode = btn.getAttribute('data-range-mode');
-        if (!rangeId || !mode) return;
-
-        if (mode === 'semantic') {
-          this.currentSemanticFilter = rangeId;
+    const rangeSelectorSelect = container.querySelector('#range-selector-select') as HTMLSelectElement | null;
+    if (rangeSelectorSelect) {
+      rangeSelectorSelect.addEventListener('change', () => {
+        const rangeFilters = this.getRangeFilters();
+        const selectedFilter = rangeFilters.find(f => f.id === rangeSelectorSelect.value);
+        if (!selectedFilter) return;
+        if (selectedFilter.mode === 'semantic') {
+          this.currentSemanticFilter = selectedFilter.id;
           this.shouldAutoPickFocus = false;
-          if (rangeId === 'today' || rangeId === 'next3' || rangeId === 'next7') {
+          if (selectedFilter.id === 'today' || selectedFilter.id === 'next3' || selectedFilter.id === 'next7') {
             this.currentFocusFilter = 'open';
-          } else if (rangeId === 'overdue') {
+          } else if (selectedFilter.id === 'overdue') {
             this.currentFocusFilter = 'overdue';
-          } else if (rangeId === 'history') {
+          } else if (selectedFilter.id === 'history') {
             this.currentFocusFilter = 'all';
           }
         } else {
           this.currentSemanticFilter = 'auto';
-          this.currentFilter = rangeId;
+          this.currentFilter = selectedFilter.id;
           this.shouldAutoPickFocus = true;
           this.currentFocusFilter = 'all';
         }
-
         this.renderSummary();
       });
-    });
+    }
 
     // 聚焦筛选按钮事件（顶部聚焦按钮 + 风险提示条按钮）
     container.querySelectorAll('button[data-focus]').forEach(btn => {
@@ -2070,50 +2116,41 @@ export class TaskSummaryDialog {
       });
     });
 
-    // 已完成分组一键展开/收起
-    const expandAllCompletedBtn = container.querySelector('#expand-all-sections-btn') as HTMLElement | null;
-    const collapseAllCompletedBtn = container.querySelector('#collapse-all-sections-btn') as HTMLElement | null;
-    if (expandAllCompletedBtn) {
-      expandAllCompletedBtn.addEventListener('click', () => {
-        this.completedSectionsExpanded = true;
+    // 展开/收起切换按钮
+    const expandCollapseBtn = container.querySelector('#expand-collapse-btn') as HTMLElement | null;
+    if (expandCollapseBtn) {
+      expandCollapseBtn.addEventListener('click', (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.completedSectionsExpanded = !this.completedSectionsExpanded;
+        const labelSpan = expandCollapseBtn.querySelector('span');
+        if (labelSpan) {
+          labelSpan.textContent = this.completedSectionsExpanded ? (i18n('summaryCollapseAll') || '全部收起') : (i18n('summaryExpandAll') || '全部展开');
+        }
         container.querySelectorAll('details.task-completed-collapse').forEach((el) => {
-          (el as HTMLDetailsElement).open = true;
-        });
-      });
-    }
-    if (collapseAllCompletedBtn) {
-      collapseAllCompletedBtn.addEventListener('click', () => {
-        this.completedSectionsExpanded = false;
-        container.querySelectorAll('details.task-completed-collapse').forEach((el) => {
-          (el as HTMLDetailsElement).open = false;
+          (el as HTMLDetailsElement).open = this.completedSectionsExpanded;
         });
       });
     }
 
-    // 导出菜单
-    const exportBtn = container.querySelector('#export-summary-btn') as HTMLElement | null;
-    if (exportBtn) {
-      exportBtn.addEventListener('click', (event: MouseEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const menu = new Menu('task-summary-export-menu');
-        menu.addItem({
-          icon: 'iconCopy',
-          label: i18n("copyRichText"),
-          click: () => this.executeCopy('rich')
-        });
-        menu.addItem({
-          icon: 'iconCopy',
-          label: i18n("copyAll"),
-          click: () => this.executeCopy('markdown')
-        });
-        menu.addItem({
-          icon: 'iconCopy',
-          label: i18n("copyPlainText"),
-          click: () => this.executeCopy('plain')
-        });
-        const rect = exportBtn.getBoundingClientRect();
-        menu.open({ x: rect.right, y: rect.bottom + 4 });
+    // 类型/焦点筛选下拉
+    const focusFilterSelect = container.querySelector('#focus-filter-select') as HTMLSelectElement | null;
+    if (focusFilterSelect) {
+      focusFilterSelect.addEventListener('change', () => {
+        this.currentFocusFilter = focusFilterSelect.value;
+        this.shouldAutoPickFocus = false;
+        this.renderSummary();
+      });
+    }
+
+    // 复制下拉
+    const copySelectorSelect = container.querySelector('#copy-selector-select') as HTMLSelectElement | null;
+    if (copySelectorSelect) {
+      copySelectorSelect.addEventListener('change', () => {
+        const copyType = copySelectorSelect.value;
+        if (!copyType) return;
+        this.executeCopy(copyType);
+        copySelectorSelect.value = '';
       });
     }
   }
@@ -2187,8 +2224,8 @@ export class TaskSummaryDialog {
     const isMultiDayView = dateGroups.length > 1;
 
     // 移除不需要复制到剪贴板的交互元素
-    // 移除筛选按钮组和操作按钮组（复制按钮等）
-    clone.querySelectorAll('.filter-buttons, .action-buttons, button').forEach(el => el.remove());
+    // 移除筛选控件和操作控件（复制按钮/下拉等）
+    clone.querySelectorAll('.task-summary-toolbar, .filter-buttons, .action-buttons, button').forEach(el => el.remove());
 
     // 如果是单天视图，移除头部的汇总统计卡片
     if (!isMultiDayView) {

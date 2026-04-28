@@ -27,7 +27,6 @@ import { PomodoroRecordManager } from "../utils/pomodoroRecord";
 import { resolveAudioPath, createAudio } from "../utils/audioUtils";
 import { FocusEventManager } from "../utils/focusEventManager";
 import { Solar } from 'lunar-typescript';
-import { colorWithOpacity } from "../utils/uiUtils";
 import { DailyNoteManager } from "../utils/dailyNoteManager";
 import { createPomodoroStartSubmenu } from "@/utils/pomodoroPresets";
 import { executePluginAction } from "@/core/actions";
@@ -70,7 +69,7 @@ export class CalendarView {
     private tooltipShowTimeout: number | null = null;
     private refreshTimeout: number | null = null;
     private eventSourceId: string = 'main-events'; // 固定的事件源ID，用于增量更新
-    private currentCompletionFilter: string = 'all'; // 当前完成状态过滤
+    private currentCompletionFilter: 'all' | 'completed' | 'incomplete' = 'all'; // 当前完成状态过滤
     private readonly requestIdleCallbackPolyfill: (callback: IdleRequestCallback) => number =
         typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
             ? window.requestIdleCallback.bind(window)
@@ -125,6 +124,7 @@ export class CalendarView {
     private yearBtn: HTMLButtonElement;
     private multiDaysBtn: HTMLButtonElement;
     private viewTypeButton: HTMLButtonElement;
+    private timeRangeButton: HTMLButtonElement;
     private isDockMode: boolean = false; // 是否在 Dock 面板中显示
 
 
@@ -533,6 +533,8 @@ export class CalendarView {
         const viewGroup = document.createElement('div');
         viewGroup.className = 'reminder-calendar-view-group';
         toolbarViewParent.appendChild(viewGroup);
+
+        // 创建旧视图按钮（保留引用供 updateViewButtonStates 兼容，但不加入可见 DOM）
         this.yearBtn = document.createElement('button');
         this.yearBtn.className = 'b3-button b3-button--outline';
         this.yearBtn.textContent = i18n("year");
@@ -542,16 +544,14 @@ export class CalendarView {
             if (viewType === 'list') {
                 viewMode = 'listYear';
             } else if (viewType === 'resource') {
-                // resource timeline year view
                 viewMode = 'resourceTimelineYear';
             } else {
-                // timeline and kanban both use multiMonthYear
                 viewMode = 'multiMonthYear';
             }
             await this._setViewMode(viewMode as any);
             this.changeCalendarView(viewMode);
         });
-        viewGroup.appendChild(this.yearBtn);
+
         this.monthBtn = document.createElement('button');
         this.monthBtn.className = 'b3-button b3-button--outline';
         this.monthBtn.textContent = i18n("month");
@@ -561,16 +561,13 @@ export class CalendarView {
             if (viewType === 'list') {
                 viewMode = 'listMonth';
             } else if (viewType === 'resource') {
-                // resource timeline month view
                 viewMode = 'resourceTimelineMonth';
             } else {
-                // timeline and kanban both use dayGridMonth
                 viewMode = 'dayGridMonth';
             }
             await this._setViewMode(viewMode as any);
             this.changeCalendarView(viewMode);
         });
-        viewGroup.appendChild(this.monthBtn);
 
         this.weekBtn = document.createElement('button');
         this.weekBtn.className = 'b3-button b3-button--outline';
@@ -584,40 +581,32 @@ export class CalendarView {
                 viewMode = 'dayGridWeek';
             } else if (viewType === 'resource') {
                 viewMode = 'resourceTimelineWeek';
-            } else { // list
+            } else {
                 viewMode = 'listWeek';
             }
             await this._setViewMode(viewMode as any);
             this.changeCalendarView(viewMode);
         });
-        viewGroup.appendChild(this.weekBtn);
 
-        // 多天视图按钮（默认最近3天，今日为第二天）
         this.multiDaysBtn = document.createElement('button');
         this.multiDaysBtn.className = 'b3-button b3-button--outline';
         this.multiDaysBtn.textContent = i18n("multiDays") || "多天";
         this.multiDaysBtn.addEventListener('click', async () => {
             const viewType = this._getViewType();
-            const multiDaysCount = this.calendarConfigManager.getMultiDaysCount();
             let viewMode: string;
             if (viewType === 'timeline') {
                 viewMode = 'timeGridMultiDays';
             } else if (viewType === 'kanban') {
                 viewMode = 'dayGridMultiDays';
             } else if (viewType === 'resource') {
-                // resource timeline multi-days view
                 viewMode = 'resourceTimelineMultiDays';
-            } else { // list
+            } else {
                 viewMode = 'listMultiDays';
             }
-
-            // 计算多天视图的起始日期（今天的前一天），使今天显示为第二天
             const startDate = getRelativeDateString(-1);
-
             await this._setViewMode(viewMode as any);
             this.changeCalendarView(viewMode, startDate);
         });
-        viewGroup.appendChild(this.multiDaysBtn);
 
         this.dayBtn = document.createElement('button');
         this.dayBtn.className = 'b3-button b3-button--outline';
@@ -631,13 +620,61 @@ export class CalendarView {
                 viewMode = 'dayGridDay';
             } else if (viewType === 'resource') {
                 viewMode = 'resourceTimeGridDay';
-            } else { // list
+            } else {
                 viewMode = 'listDay';
             }
             await this._setViewMode(viewMode as any);
             this.changeCalendarView(viewMode);
         });
-        viewGroup.appendChild(this.dayBtn);
+
+        // 时间范围下拉框（替代可见的 year/month/week/multiDays/day 按钮簇）
+        const timeRangeContainer = document.createElement('div');
+        timeRangeContainer.className = 'filter-dropdown-container reminder-calendar-toolbar-dropdown reminder-calendar-toolbar-dropdown--range';
+
+        this.timeRangeButton = document.createElement('button');
+        this.timeRangeButton.className = 'b3-button b3-button--outline reminder-calendar-toolbar-select-btn reminder-calendar-toolbar-select-btn--range';
+        this.timeRangeButton.innerHTML = `<span class="filter-button-text reminder-calendar-toolbar-select-text">${i18n("month")}</span><span class="reminder-calendar-toolbar-select-arrow">▼</span>`;
+        timeRangeContainer.appendChild(this.timeRangeButton);
+
+        const timeRangeDropdown = document.createElement('div');
+        timeRangeDropdown.className = 'filter-dropdown-menu reminder-calendar-toolbar-dropdown-menu reminder-calendar-toolbar-dropdown-menu--range';
+        timeRangeDropdown.style.display = 'none';
+
+        const timeRangeOptions = [
+            { value: 'year', text: i18n("year"), btn: this.yearBtn },
+            { value: 'month', text: i18n("month"), btn: this.monthBtn },
+            { value: 'week', text: i18n("week"), btn: this.weekBtn },
+            { value: 'multiDays', text: i18n("multiDays") || "多天", btn: this.multiDaysBtn },
+            { value: 'day', text: i18n("day"), btn: this.dayBtn },
+        ];
+
+        timeRangeOptions.forEach(option => {
+            const item = document.createElement('div');
+            item.className = 'reminder-calendar-toolbar-dropdown-item';
+            item.textContent = option.text;
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                option.btn.click();
+                timeRangeDropdown.style.display = 'none';
+            });
+            timeRangeDropdown.appendChild(item);
+        });
+
+        timeRangeContainer.appendChild(timeRangeDropdown);
+        viewGroup.appendChild(timeRangeContainer);
+
+        this.timeRangeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = timeRangeDropdown.style.display === 'block';
+            timeRangeDropdown.style.display = isVisible ? 'none' : 'block';
+            projectDropdown.style.display = 'none';
+            categoryDropdown.style.display = 'none';
+            viewTypeDropdown.style.display = 'none';
+            displaySettingsDropdown.style.display = 'none';
+            statusFilterDropdown.style.display = 'none';
+        });
+
+        timeRangeDropdown.addEventListener('click', (e) => e.stopPropagation());
 
 
 
@@ -800,11 +837,7 @@ export class CalendarView {
         filterGroup.className = 'reminder-calendar-filter-group';
         toolbarFilterParent.appendChild(filterGroup);
 
-        // 筛选图标
-        const filterIcon = document.createElement('span');
-        filterIcon.className = 'reminder-calendar-filter-icon';
-        filterIcon.innerHTML = '<svg class="b3-button__icon reminder-calendar-filter-icon-svg"><use xlink:href="#iconFilter"></use></svg>';
-        filterGroup.appendChild(filterIcon);
+
 
         // 创建项目筛选容器（带下拉菜单）
         const projectFilterContainer = document.createElement('div');
@@ -1479,6 +1512,73 @@ export class CalendarView {
         displaySettingsContainer.appendChild(displaySettingsDropdown);
         filterGroup.appendChild(displaySettingsContainer);
 
+        // 顶部状态过滤器（从显示设置中提取为一级控件）
+        const statusFilterContainer = document.createElement('div');
+        statusFilterContainer.className = 'filter-dropdown-container reminder-calendar-toolbar-dropdown reminder-calendar-toolbar-dropdown--status';
+
+        const statusFilterButton = document.createElement('button');
+        statusFilterButton.className = 'b3-button b3-button--outline reminder-calendar-toolbar-select-btn reminder-calendar-toolbar-select-btn--status';
+        statusFilterButton.innerHTML = `<span class="filter-button-text reminder-calendar-toolbar-select-text">${i18n("all") || "全部"}</span><span class="reminder-calendar-toolbar-select-arrow">▼</span>`;
+        statusFilterContainer.appendChild(statusFilterButton);
+
+        const statusFilterDropdown = document.createElement('div');
+        statusFilterDropdown.className = 'filter-dropdown-menu reminder-calendar-toolbar-dropdown-menu reminder-calendar-toolbar-dropdown-menu--status';
+        statusFilterDropdown.style.display = 'none';
+
+        const statusFilterOptions = [
+            { value: 'all' as const, text: i18n("all") || "全部" },
+            { value: 'completed' as const, text: i18n("completed") || "已完成" },
+            { value: 'incomplete' as const, text: i18n("uncompleted") || "未完成" },
+        ];
+
+        statusFilterOptions.forEach(option => {
+            const item = document.createElement('div');
+            item.className = 'reminder-calendar-toolbar-dropdown-item';
+            item.textContent = option.text;
+            item.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                this.currentCompletionFilter = option.value;
+                await this.calendarConfigManager.setCompletionFilter(option.value);
+                updateStatusButtonStates();
+                updatePresetButtonStates();
+                await this.refreshEvents();
+                statusFilterDropdown.style.display = 'none';
+                const textSpan = statusFilterButton.querySelector('.filter-button-text');
+                if (textSpan) textSpan.textContent = option.text;
+            });
+            statusFilterDropdown.appendChild(item);
+        });
+
+        statusFilterContainer.appendChild(statusFilterDropdown);
+        filterGroup.appendChild(statusFilterContainer);
+
+        statusFilterButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = statusFilterDropdown.style.display === 'block';
+            statusFilterDropdown.style.display = isVisible ? 'none' : 'block';
+            projectDropdown.style.display = 'none';
+            categoryDropdown.style.display = 'none';
+            viewTypeDropdown.style.display = 'none';
+            displaySettingsDropdown.style.display = 'none';
+            timeRangeDropdown.style.display = 'none';
+        });
+
+        statusFilterDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+        // 同步顶部状态过滤器文本
+        const updateStatusFilterButtonText = () => {
+            const text = statusFilterOptions.find(opt => opt.value === this.currentCompletionFilter)?.text || statusFilterOptions[0].text;
+            const textSpan = statusFilterButton.querySelector('.filter-button-text');
+            if (textSpan) textSpan.textContent = text;
+        };
+
+        const originalUpdateStatusButtonStates = updateStatusButtonStates;
+        updateStatusButtonStates = () => {
+            originalUpdateStatusButtonStates();
+            updateStatusFilterButtonText();
+        };
+        updateStatusFilterButtonText();
+
         const quickPomodoroBtn = document.createElement('button');
         quickPomodoroBtn.className = 'b3-button b3-button--outline reminder-calendar-toolbar-pomodoro-btn';
         quickPomodoroBtn.style.cssText = 'padding: 0; width: 36px; height: 36px; border-radius: 50%; position: relative; display: inline-flex; align-items: center; justify-content: center; overflow: hidden;';
@@ -1835,11 +1935,12 @@ export class CalendarView {
             e.stopPropagation();
             const isVisible = displaySettingsDropdown.style.display === 'block';
             displaySettingsDropdown.style.display = isVisible ? 'none' : 'block';
-            projectDropdown.style.display = isVisible ? 'none' : 'none'; // Ensure others hide
             if (!isVisible) {
                 projectDropdown.style.display = 'none';
                 categoryDropdown.style.display = 'none';
                 viewTypeDropdown.style.display = 'none';
+                timeRangeDropdown.style.display = 'none';
+                statusFilterDropdown.style.display = 'none';
             }
         });
 
@@ -1853,6 +1954,8 @@ export class CalendarView {
             categoryDropdown.style.display = 'none';
             viewTypeDropdown.style.display = 'none';
             displaySettingsDropdown.style.display = 'none';
+            timeRangeDropdown.style.display = 'none';
+            statusFilterDropdown.style.display = 'none';
         });
 
         categoryFilterButton.onclick = null;
@@ -1863,6 +1966,8 @@ export class CalendarView {
             projectDropdown.style.display = 'none';
             viewTypeDropdown.style.display = 'none';
             displaySettingsDropdown.style.display = 'none';
+            timeRangeDropdown.style.display = 'none';
+            statusFilterDropdown.style.display = 'none';
         });
 
         // 更新视图类型按钮的点击事件
@@ -1874,6 +1979,8 @@ export class CalendarView {
             projectDropdown.style.display = 'none';
             categoryDropdown.style.display = 'none';
             displaySettingsDropdown.style.display = 'none';
+            timeRangeDropdown.style.display = 'none';
+            statusFilterDropdown.style.display = 'none';
         });
 
         // 点击外部关闭所有下拉菜单
@@ -1882,6 +1989,8 @@ export class CalendarView {
             categoryDropdown.style.display = 'none';
             viewTypeDropdown.style.display = 'none';
             displaySettingsDropdown.style.display = 'none';
+            timeRangeDropdown.style.display = 'none';
+            statusFilterDropdown.style.display = 'none';
         });
 
         // 防止下拉菜单内部点击触发全局关闭
@@ -1889,57 +1998,58 @@ export class CalendarView {
         categoryDropdown.addEventListener('click', (e) => e.stopPropagation());
         viewTypeDropdown.addEventListener('click', (e) => e.stopPropagation());
         displaySettingsDropdown.addEventListener('click', (e) => e.stopPropagation());
+        timeRangeDropdown.addEventListener('click', (e) => e.stopPropagation());
+        statusFilterDropdown.addEventListener('click', (e) => e.stopPropagation());
 
 
-        // 刷新按钮
-        const refreshBtn = document.createElement('button');
-        refreshBtn.className = 'b3-button b3-button--outline reminder-calendar-toolbar-icon-btn';
-        refreshBtn.innerHTML = '<svg class="b3-button__icon reminder-calendar-toolbar-icon"><use xlink:href="#iconRefresh"></use></svg>';
-        refreshBtn.title = i18n("refresh");
-        refreshBtn.addEventListener('click', async () => {
-            refreshBtn.disabled = true;
-            try {
-                showMessage(i18n("refreshing") || "正在刷新...", 500);
-                await this.refreshEvents(true);
-            } catch (error) {
-                console.error('手动刷新失败:', error);
-                showMessage(i18n("refreshFailed") || "刷新失败");
-            } finally {
-                refreshBtn.disabled = false;
-            }
-        });
-        filterGroup.appendChild(refreshBtn);
-
-
-
-        // 摘要按钮
-        const summaryBtn = document.createElement('button');
-        summaryBtn.className = 'b3-button b3-button--outline reminder-calendar-toolbar-icon-btn';
-        summaryBtn.innerHTML = '<svg class="b3-button__icon reminder-calendar-toolbar-icon"><use xlink:href="#iconList"></use></svg>';
-        summaryBtn.title = i18n("taskSummary") || "任务摘要";
-        summaryBtn.addEventListener('click', () => {
-            this.taskSummaryDialog.showTaskSummaryDialog();
-        });
-        filterGroup.appendChild(summaryBtn);
-        // 更多按钮（包含管理分类、插件设置）
-        const moreBtn = document.createElement('button');
-        moreBtn.className = 'b3-button b3-button--outline reminder-calendar-toolbar-icon-btn';
-        moreBtn.title = i18n('more') || '更多';
-        moreBtn.innerHTML = '<svg class="b3-button__icon reminder-calendar-toolbar-icon"><use xlink:href="#iconMore"></use></svg>';
-        moreBtn.addEventListener('click', async (e) => {
+        // 操作菜单（聚合刷新、摘要、导出、管理分类、插件设置）
+        const actionsBtn = document.createElement('button');
+        actionsBtn.className = 'b3-button b3-button--outline reminder-calendar-toolbar-icon-btn';
+        actionsBtn.title = i18n('more') || '更多';
+        actionsBtn.innerHTML = '<svg class="b3-button__icon reminder-calendar-toolbar-icon"><use xlink:href="#iconMore"></use></svg>';
+        actionsBtn.addEventListener('click', async (e) => {
             try {
                 e.stopPropagation();
                 e.preventDefault();
-                const menu = new Menu('calendar-more-menu');
-                const settings = await this.plugin.loadSettings();
+                const menu = new Menu('calendar-actions-menu');
+
+                menu.addItem({
+                    icon: 'iconRefresh',
+                    label: i18n("refresh"),
+                    click: async () => {
+                        try {
+                            showMessage(i18n("refreshing") || "正在刷新...", 500);
+                            await this.refreshEvents(true);
+                        } catch (error) {
+                            console.error('手动刷新失败:', error);
+                            showMessage(i18n("refreshFailed") || "刷新失败");
+                        }
+                    }
+                });
+
+                menu.addItem({
+                    icon: 'iconList',
+                    label: i18n("taskSummary") || "任务摘要",
+                    click: () => {
+                        this.taskSummaryDialog.showTaskSummaryDialog();
+                    }
+                });
+
+                menu.addItem({
+                    icon: 'iconCopy',
+                    label: i18n('summaryExport') || '导出',
+                    click: () => {
+                        this.taskSummaryDialog.showTaskSummaryDialog();
+                    }
+                });
+
+                menu.addSeparator();
 
                 menu.addItem({
                     icon: 'iconTags',
                     label: i18n('manageCategories') || '管理分类',
                     click: () => this.showCategoryManageDialog()
                 });
-
-
 
                 menu.addItem({
                     icon: 'iconSettings',
@@ -1960,11 +2070,11 @@ export class CalendarView {
                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                 menu.open({ x: rect.right, y: rect.bottom + 4 });
             } catch (err) {
-                console.error('打开更多菜单失败:', err);
+                console.error('打开操作菜单失败:', err);
             }
         });
 
-        filterGroup.appendChild(moreBtn);
+        filterGroup.appendChild(actionsBtn);
         // 创建日历容器
         const calendarEl = document.createElement('div');
         calendarEl.className = 'reminder-calendar-container plugin-task-calendar-month';
@@ -2462,15 +2572,22 @@ export class CalendarView {
                     targetEl.style.width = '100%';
                 }
 
-                if (!info.view.type.startsWith('list')) {
+                const eventClassNames = info.event.classNames || [];
+                const hasDedicatedEventStyle = eventClassNames.some((className: string) =>
+                    className === 'pomodoro-event' ||
+                    className === 'focus-event' ||
+                    className === 'completed-task-time-event'
+                );
+
+                if (!info.view.type.startsWith('list') && !hasDedicatedEventStyle) {
                     // 背景色使用项目/分类颜色，左边框使用优先级颜色
                     const bgColor = info.event.backgroundColor || 'var(--b3-theme-primary)';
                     const borderColor = info.event.borderColor || bgColor;
 
                     // Reset standard styles
                     targetEl.style.border = 'none';
-                    // 使用分类颜色并添加50%透明度
-                    targetEl.style.backgroundColor = colorWithOpacity(bgColor, 0.5);
+                    // 使用分类颜色（pastel 纯色，不再加透明度）
+                    targetEl.style.backgroundColor = bgColor;
 
                     // Add thick left border (使用优先级颜色)
                     targetEl.style.borderLeft = `4px solid ${borderColor}`;
@@ -4359,6 +4476,13 @@ export class CalendarView {
             });
         };
 
+        const wrapEventMain = (mainFrame: HTMLElement) => {
+            const main = document.createElement('div');
+            main.className = 'fc-event-main';
+            main.appendChild(mainFrame);
+            return main;
+        };
+
         // Special rendering for Pomodoro events
         if (props.type === 'pomodoro') {
             const mainFrame = document.createElement('div');
@@ -4385,7 +4509,7 @@ export class CalendarView {
             applyCompactTopRowTime(topRow, titleEl, timeEl);
 
             mainFrame.appendChild(topRow);
-            return { domNodes: [mainFrame] };
+            return { domNodes: [wrapEventMain(mainFrame)] };
         }
 
         if (props.type === 'focus') {
@@ -4412,7 +4536,7 @@ export class CalendarView {
             applyCompactTopRowTime(topRow, titleEl, timeEl);
 
             mainFrame.appendChild(topRow);
-            return { domNodes: [mainFrame] };
+            return { domNodes: [wrapEventMain(mainFrame)] };
         }
 
         // Special rendering for completed task time events
@@ -6221,25 +6345,22 @@ export class CalendarView {
             /* Pomodoro Event Styles */
             .pomodoro-event {
                 border: none !important;
-                border-left: none !important;
+                border-left: 4px solid var(--event-pomodoro-work-border) !important;
                 box-shadow: none !important;
-                opacity: 0.7 !important;
             }
 
             /* Focus Event Styles */
             .focus-event {
                 border: none !important;
-                border-left: 3px solid #ff9800 !important;
+                border-left: 4px solid var(--event-focus-border) !important;
                 box-shadow: none !important;
-                opacity: 0.75 !important;
             }
 
             /* Completed Task Time Event Styles */
             .completed-task-time-event {
                 border: none !important;
-                border-left: 3px solid #27ae60 !important;
+                border-left: 4px solid var(--event-completed-border) !important;
                 box-shadow: none !important;
-                opacity: 0.75 !important;
             }
 
             /* 完成任务时间分隔线 (仅用于 dayGrid 视图的 All-day/日网格区域) */
@@ -7382,9 +7503,9 @@ export class CalendarView {
             const title = `${session.eventTitle || i18n('unnamedTask')}`;
 
                         // Determine colors based on session type
-                        let backgroundColor = '#f23145'; // Default to work type
+                        let backgroundColor = 'var(--event-pomodoro-work-bg)'; // Default to work type
                         if (session.type === 'shortBreak' || session.type === 'longBreak') {
-                            backgroundColor = '#00b36b';
+                            backgroundColor = 'var(--event-pomodoro-break-bg)';
                         }
 
                         const eventObj = {
@@ -7395,7 +7516,8 @@ export class CalendarView {
                             backgroundColor: backgroundColor,
                             borderColor: 'transparent', // Match border to background
                             textColor: 'var(--b3-theme-on-background)',
-                            className: 'pomodoro-event',
+                            className: 'reminder-priority-none no-block-binding pomodoro-event reminder-calendar-event plugin-task-calendar-event',
+                            display: 'block',
                             editable: false,
                             startEditable: false,
                             durationEditable: false,
@@ -7449,10 +7571,11 @@ export class CalendarView {
             title: `🎯 ${record.title || '专注工作'}`,
             start: record.startTime,
             end: record.endTime,
-            backgroundColor: '#ff9800',
+            backgroundColor: 'var(--event-focus-bg)',
             borderColor: 'transparent',
             textColor: 'var(--b3-theme-on-background)',
-            className: 'focus-event fc-event-focus',
+            className: 'reminder-priority-none no-block-binding focus-event fc-event-focus reminder-calendar-event plugin-task-calendar-event',
+            display: 'block',
             editable: false,
             startEditable: false,
             durationEditable: false,
@@ -7507,21 +7630,21 @@ export class CalendarView {
                 const endTime = completedDate.toISOString();
 
                 // 获取任务颜色
-                let backgroundColor = '#27ae60'; // 默认绿色表示完成
+                let backgroundColor = 'var(--event-completed-bg)'; // 默认淡绿色表示完成
                 if (this.colorBy === 'priority') {
                     switch (reminder.priority) {
-                        case 'high': backgroundColor = '#27ae60'; break;
-                        case 'medium': backgroundColor = '#2ecc71'; break;
-                        case 'low': backgroundColor = '#58d68d'; break;
-                        default: backgroundColor = '#27ae60';
+                        case 'high': backgroundColor = 'var(--event-completed-bg)'; break;
+                        case 'medium': backgroundColor = 'var(--event-completed-bg)'; break;
+                        case 'low': backgroundColor = 'var(--event-completed-bg)'; break;
+                        default: backgroundColor = 'var(--event-completed-bg)';
                     }
                 } else if (this.colorBy === 'category' && reminder.categoryId) {
                     const firstCategoryId = this.getPrimaryCategoryIdByDisplayOrder(reminder.categoryId);
                     const category = this.categoryManager.getCategoryById(firstCategoryId);
                     const categoryStyle = this.categoryManager.getCategoryLabelStyle(category);
-                    backgroundColor = categoryStyle.backgroundColor || '#27ae60';
+                    backgroundColor = categoryStyle.backgroundColor || 'var(--event-completed-bg)';
                 } else if (this.colorBy === 'project' && reminder.projectId) {
-                    backgroundColor = this.projectManager.getProjectColor(reminder.projectId) || '#27ae60';
+                    backgroundColor = this.projectManager.getProjectColor(reminder.projectId) || 'var(--event-completed-bg)';
                 }
 
                 const eventObj = {
@@ -7911,16 +8034,16 @@ export class CalendarView {
 
         // 订阅日历统一配色方案
         const subscriptionColors = [
-            '#3498db', // 蓝色
-            '#9b59b6', // 紫色
-            '#1abc9c', // 青色
-            '#e74c3c', // 红色
-            '#f39c12', // 橙色
-            '#2ecc71', // 绿色
-            '#e67e22', // 深橙色
-            '#16a085', // 深青色
-            '#8e44ad', // 深紫色
-            '#c0392b', // 深红色
+            '#BBDEFB', // 淡蓝色
+            '#E1BEE7', // 淡紫色
+            '#B2DFDB', // 淡青色
+            '#FFCDD2', // 淡红色
+            '#FFE0B2', // 淡橙色
+            '#C8E6C9', // 淡绿色
+            '#FFCC80', // 淡深橙色
+            '#80CBC4', // 淡深青色
+            '#CE93D8', // 淡深紫色
+            '#EF9A9A', // 淡深红色
         ];
 
         // 使用缓存获取颜色，避免重复计算
@@ -7945,13 +8068,13 @@ export class CalendarView {
                 let priorityBorderColor: string;
                 switch (priority) {
                     case 'high':
-                        priorityBorderColor = '#ff0000';
+                        priorityBorderColor = 'var(--event-priority-high-border)';
                         break;
                     case 'medium':
-                        priorityBorderColor = '#e67e22';
+                        priorityBorderColor = 'var(--event-priority-medium-border)';
                         break;
                     case 'low':
-                        priorityBorderColor = '#2980b9';
+                        priorityBorderColor = 'var(--event-priority-low-border)';
                         break;
                     default:
                         priorityBorderColor = ''; // 无优先级时返回空，后续使用默认颜色
@@ -7965,8 +8088,8 @@ export class CalendarView {
                         // 有优先级时使用优先级颜色作为边框，否则使用项目颜色
                         borderColor = priorityBorderColor || color;
                     } else {
-                        backgroundColor = '#8f8f8f';
-                        borderColor = priorityBorderColor || '#7f8c8d';
+                        backgroundColor = 'var(--event-priority-none-bg)';
+                        borderColor = 'var(--event-priority-none-border)';
                     }
                 } else if (this.colorBy === 'category') {
                     if (primaryCategoryId) {
@@ -7977,26 +8100,26 @@ export class CalendarView {
                         // 有优先级时使用优先级颜色作为边框，否则使用分类颜色
                         borderColor = priorityBorderColor || categoryStyle.borderColor;
                     } else {
-                        backgroundColor = '#8f8f8f';
-                        borderColor = priorityBorderColor || '#7f8c8d';
+                        backgroundColor = 'var(--event-priority-none-bg)';
+                        borderColor = 'var(--event-priority-none-border)';
                     }
                 } else { // colorBy === 'priority'
                     switch (priority) {
                         case 'high':
-                            backgroundColor = '#ff0000';
-                            borderColor = '#ff0000';
+                            backgroundColor = 'var(--event-priority-high-bg)';
+                            borderColor = 'var(--event-priority-high-border)';
                             break;
                         case 'medium':
-                            backgroundColor = '#f39c12';
-                            borderColor = '#e67e22';
+                            backgroundColor = 'var(--event-priority-medium-bg)';
+                            borderColor = 'var(--event-priority-medium-border)';
                             break;
                         case 'low':
-                            backgroundColor = '#3498db';
-                            borderColor = '#2980b9';
+                            backgroundColor = 'var(--event-priority-low-bg)';
+                            borderColor = 'var(--event-priority-low-border)';
                             break;
                         default:
-                            backgroundColor = '#8f8f8f';
-                            borderColor = '#7f8c8d';
+                            backgroundColor = 'var(--event-priority-none-bg)';
+                            borderColor = 'var(--event-priority-none-border)';
                             break;
                     }
                 }
@@ -9323,6 +9446,18 @@ export class CalendarView {
         this.dayBtn.classList.remove('b3-button--primary');
         this.yearBtn.classList.remove('b3-button--primary');
         if (this.multiDaysBtn) this.multiDaysBtn.classList.remove('b3-button--primary');
+
+        // 更新时间范围下拉框文本
+        if (this.timeRangeButton) {
+            let text = i18n("month");
+            if (currentViewMode.includes('Year')) text = i18n("year");
+            else if (currentViewMode.includes('Month')) text = i18n("month");
+            else if (currentViewMode.includes('Week')) text = i18n("week");
+            else if (currentViewMode.includes('MultiDays')) text = i18n("multiDays") || "多天";
+            else if (currentViewMode.includes('Day')) text = i18n("day");
+            const textSpan = this.timeRangeButton.querySelector('.filter-button-text');
+            if (textSpan) textSpan.textContent = text;
+        }
 
         // 根据当前视图模式设置激活按钮
         switch (currentViewMode) {

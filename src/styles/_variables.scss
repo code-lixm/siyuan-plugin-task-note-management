@@ -66,6 +66,10 @@
     --task-priority-dot-high:    rgba(0, 0, 0, 0.15);
     --task-priority-dot-medium:  rgba(0, 0, 0, 0.10);
     --task-priority-dot-low:     rgba(0, 0, 0, 0.07);
+    --task-priority-high-text:   #d32f2f;
+    --task-priority-medium-text: #f57c00;
+    --task-priority-low-text:    #1976d2;
+    --task-priority-none-text:   var(--b3-theme-on-surface-light);
 
     /* === 中性背景色 ===
      * 用于备注、hover等场景

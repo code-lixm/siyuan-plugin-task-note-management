@@ -28,11 +28,50 @@
     --fc-event-border-width: 4px;
     --fc-event-opacity-completed: 0.5;
 
+    /* 事件类型颜色 - 浅色主题 pastel */
+    --event-priority-high-bg: #FFCDD2;
+    --event-priority-high-border: #EF9A9A;
+    --event-priority-medium-bg: #FFE0B2;
+    --event-priority-medium-border: #FFCC80;
+    --event-priority-low-bg: #BBDEFB;
+    --event-priority-low-border: #90CAF9;
+    --event-priority-none-bg: #F5F5F5;
+    --event-priority-none-border: #E0E0E0;
+    --event-pomodoro-work-bg: #FFCDD2;
+    --event-pomodoro-work-border: #EF9A9A;
+    --event-pomodoro-break-bg: #C8E6C9;
+    --event-pomodoro-break-border: #A5D6A7;
+    --event-focus-bg: #FFF3E0;
+    --event-focus-border: #FFCC80;
+    --event-completed-bg: #C8E6C9;
+    --event-completed-border: #A5D6A7;
+
+
     /* 单元格变量 */
     --fc-day-padding: 4px;
     --fc-day-header-height: 26px;
     --fc-day-min-rows: 5;
     --fc-day-event-line-height: 1.4;
+}
+
+/* 暗色主题 - 使用半透明 muted pastel 色，避免在深色背景上刺眼 */
+.b3-theme-dark .plugin-task-calendar {
+    --event-priority-high-bg: rgba(239, 154, 154, 0.25);
+    --event-priority-high-border: rgba(239, 154, 154, 0.6);
+    --event-priority-medium-bg: rgba(255, 204, 128, 0.22);
+    --event-priority-medium-border: rgba(255, 204, 128, 0.55);
+    --event-priority-low-bg: rgba(144, 202, 249, 0.22);
+    --event-priority-low-border: rgba(144, 202, 249, 0.55);
+    --event-priority-none-bg: rgba(224, 224, 224, 0.15);
+    --event-priority-none-border: rgba(224, 224, 224, 0.4);
+    --event-pomodoro-work-bg: rgba(239, 154, 154, 0.25);
+    --event-pomodoro-work-border: rgba(239, 154, 154, 0.6);
+    --event-pomodoro-break-bg: rgba(165, 214, 167, 0.22);
+    --event-pomodoro-break-border: rgba(165, 214, 167, 0.55);
+    --event-focus-bg: rgba(255, 204, 128, 0.18);
+    --event-focus-border: rgba(255, 204, 128, 0.5);
+    --event-completed-bg: rgba(165, 214, 167, 0.22);
+    --event-completed-border: rgba(165, 214, 167, 0.55);
 }
 
 /* ============================================================
@@ -91,6 +130,51 @@
     padding: var(--task-space-1) 0 var(--task-space-2);
     border-bottom: var(--task-divider-width) solid var(--task-divider-color);
     margin-bottom: var(--task-space-2);
+}
+
+/* 分组工具栏控件 - 紧凑下拉框 */
+.reminder-calendar-toolbar-dropdown--range,
+.reminder-calendar-toolbar-dropdown--status {
+    position: relative;
+    display: inline-block;
+}
+
+.reminder-calendar-toolbar-select-btn--range {
+    min-width: 64px;
+    width: auto;
+    padding: 0 8px;
+}
+
+.reminder-calendar-toolbar-select-btn--status {
+    min-width: 72px;
+    width: auto;
+    padding: 0 8px;
+}
+
+.reminder-calendar-toolbar-dropdown-menu--range {
+    min-width: 100px;
+    left: 0;
+}
+
+.reminder-calendar-toolbar-dropdown-menu--status {
+    min-width: 100px;
+    right: 0;
+    left: auto;
+}
+
+/* 视图组与过滤器组 - 紧凑排列 */
+.plugin-task-calendar .reminder-calendar-view-group {
+    display: flex;
+    align-items: center;
+    gap: var(--task-space-2);
+    flex-wrap: wrap;
+}
+
+.plugin-task-calendar .reminder-calendar-filter-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--task-space-2);
 }
 
 /* 工具栏按钮样式 - 统一为插件按钮风格 */
@@ -195,22 +279,21 @@
 
     /* 番茄钟事件 */
     &.fc-event-pomodoro {
-        background-color: rgba(255, 107, 107, 0.15);
-        border-left-color: #ff6b6b;
+        background-color: var(--event-pomodoro-work-bg);
+        border-left-color: var(--event-pomodoro-work-border);
     }
 
     /* 专注事件 */
     &.fc-event-focus,
     &.focus-event {
-        background-color: rgba(255, 152, 0, 0.15);
-        border-left-color: #ff9800;
+        background-color: var(--event-focus-bg);
+        border-left-color: var(--event-focus-border);
     }
 
     /* 已完成任务时间 */
     &.fc-event-completed-time {
-        background-color: var(--b3-theme-success-lightest);
-        border-left-color: var(--b3-theme-success);
-        opacity: 0.7;
+        background-color: var(--event-completed-bg);
+        border-left-color: var(--event-completed-border);
     }
 }
 
@@ -406,6 +489,7 @@
 
     .fc-daygrid-event-harness {
         width: auto;
+
     }
 
     .fc-daygrid-event {
@@ -697,6 +781,11 @@
     .plugin-task-calendar-toolbar {
         flex-wrap: wrap;
         gap: 8px;
+    }
+
+    .plugin-task-calendar .reminder-calendar-view-group,
+    .plugin-task-calendar .reminder-calendar-filter-group {
+        gap: 6px;
     }
 
     .reminder-calendar-container.fc .fc-toolbar-title {
